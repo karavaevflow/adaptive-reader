@@ -12,7 +12,7 @@ xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination
 xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination 'platform=macOS' test
 ```
 
-`swift run AdaptiveReader` also launches the development executable. The Xcode project builds the sandboxed application bundle with local signing. Developer ID credentials are needed for future signed public distribution.
+`swift run AdaptiveReaderPreview` also launches the development executable. The Xcode project builds the sandboxed application bundle with local signing. Developer ID credentials are needed for future signed public distribution.
 
 ## Current behavior
 

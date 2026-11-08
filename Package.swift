@@ -6,11 +6,11 @@ let package = Package(
     platforms: [.macOS(.v15)],
     products: [
         .library(name: "ReaderCore", targets: ["ReaderCore"]),
-        .executable(name: "AdaptiveReader", targets: ["AdaptiveReader"])
+        .executable(name: "AdaptiveReaderPreview", targets: ["AdaptiveReaderPreview"])
     ],
     targets: [
         .target(name: "ReaderCore"),
-        .executableTarget(name: "AdaptiveReader", dependencies: ["ReaderCore"]),
+        .executableTarget(name: "AdaptiveReaderPreview", dependencies: ["ReaderCore"], path: "Sources/AdaptiveReader"),
         .testTarget(name: "ReaderCoreTests", dependencies: ["ReaderCore"])
     ]
 )

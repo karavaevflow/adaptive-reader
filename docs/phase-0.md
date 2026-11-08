@@ -4,15 +4,18 @@ Phase 0 remains open. v0.1 is gated by all acceptance items below.
 
 ## Verified locally
 
-- macOS 15.8.2 arm64, Swift 6.1.2, Command Line Tools SDK.
+- macOS 15.8.2 arm64, Xcode 26.3 (17C529), selected at `/Applications/Xcode.app/Contents/Developer`.
+- Local Xcode build and UI test pass. The UI test opens the main window and the appearance popover.
+- Xcode 26.3 required disambiguating the package executable name from the app target. The package preview is now AdaptiveReaderPreview.
 - Swift package builds the SwiftUI application executable.
 - Two Swift Testing tests pass, covering PDF/EPUB anchor round trips, source revision rejection, and position persistence after store recreation.
 - Xcode project property-list syntax validates.
 
 ## Remaining acceptance
 
-- Full Xcode installation, clean-clone local app build and UI tests.
-- Successful public macOS CI run.
+- Clean-clone local app build and UI tests.
+- Investigate the multi-architecture linker warning about ReaderCore.o before shipping a universal binary. Local arm64 UI tests pass.
+- Recheck public macOS CI after the Xcode 26.3 compatibility change. Previous foundation CI passed on Xcode 16.4.
 - Full Adaptive token palette, component states and RU/EN resources.
 - Wide/compact window checks, focus restoration, VoiceOver, Reduce Motion and Reduce Transparency verification.
 - Reference screenshots of Library, Reader and popover in Light/Dark at 800 and 1440 pt.
