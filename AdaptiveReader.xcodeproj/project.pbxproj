@@ -1,0 +1,34 @@
+// !$*UTF8*$!
+{ archiveVersion = 1; classes = {}; objectVersion = 56; objects = {
+000000000000000000000064 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/AdaptiveReader/AdaptiveReaderApp.swift"; sourceTree = SOURCE_ROOT; };
+0000000000000000000000C8 = { isa = PBXBuildFile; fileRef = 000000000000000000000064; };
+000000000000000000000065 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/AdaptiveReader/Adaptive.swift"; sourceTree = SOURCE_ROOT; };
+0000000000000000000000C9 = { isa = PBXBuildFile; fileRef = 000000000000000000000065; };
+000000000000000000000066 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/AdaptiveReader/WorkspaceView.swift"; sourceTree = SOURCE_ROOT; };
+0000000000000000000000CA = { isa = PBXBuildFile; fileRef = 000000000000000000000066; };
+000000000000000000000067 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UITests/LaunchTests.swift"; sourceTree = SOURCE_ROOT; };
+0000000000000000000000CB = { isa = PBXBuildFile; fileRef = 000000000000000000000067; };
+000000000000000000000001 = { isa = PBXProject; attributes = { LastUpgradeCheck = 1630; TargetAttributes = { 000000000000000000000004 = { TestTargetID = 000000000000000000000003; }; }; }; buildConfigurationList = 000000000000000000000014; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; knownRegions = (en, ru, Base); mainGroup = 000000000000000000000002; productRefGroup = 000000000000000000000005; projectDirPath = ""; targets = (000000000000000000000003,000000000000000000000004); packageReferences = (00000000000000000000001E); };
+000000000000000000000002 = { isa = PBXGroup; children = (000000000000000000000064,000000000000000000000065,000000000000000000000066,000000000000000000000067,000000000000000000000005); sourceTree = "<group>"; };
+000000000000000000000005 = { isa = PBXGroup; name = Products; children = (000000000000000000000006,000000000000000000000007); sourceTree = "<group>"; };
+000000000000000000000006 = { isa = PBXFileReference; explicitFileType = wrapper.application; path = AdaptiveReader.app; sourceTree = BUILT_PRODUCTS_DIR; };
+000000000000000000000007 = { isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = AdaptiveReaderUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+000000000000000000000003 = { isa = PBXNativeTarget; buildConfigurationList = 000000000000000000000015; buildPhases = (00000000000000000000000A,00000000000000000000000C); buildRules = (); dependencies = (); name = AdaptiveReader; packageProductDependencies = (00000000000000000000001F); productName = AdaptiveReader; productReference = 000000000000000000000006; productType = "com.apple.product-type.application"; };
+000000000000000000000004 = { isa = PBXNativeTarget; buildConfigurationList = 000000000000000000000016; buildPhases = (00000000000000000000000B); buildRules = (); dependencies = (000000000000000000000021); name = AdaptiveReaderUITests; productName = AdaptiveReaderUITests; productReference = 000000000000000000000007; productType = "com.apple.product-type.bundle.ui-testing"; };
+00000000000000000000000A = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (0000000000000000000000C8,0000000000000000000000C9,0000000000000000000000CA); runOnlyForDeploymentPostprocessing = 0; };
+00000000000000000000000B = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (0000000000000000000000CB); runOnlyForDeploymentPostprocessing = 0; };
+00000000000000000000000C = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (000000000000000000000020); runOnlyForDeploymentPostprocessing = 0; };
+00000000000000000000001E = { isa = XCLocalSwiftPackageReference; relativePath = .; };
+00000000000000000000001F = { isa = XCSwiftPackageProductDependency; package = 00000000000000000000001E; productName = ReaderCore; };
+000000000000000000000020 = { isa = PBXBuildFile; productRef = 00000000000000000000001F; };
+000000000000000000000021 = { isa = PBXTargetDependency; target = 000000000000000000000003; };
+0000000000000000000004B0 = { isa = XCBuildConfiguration; buildSettings = { MACOSX_DEPLOYMENT_TARGET = 15.0; SDKROOT = macosx; SWIFT_VERSION = 6.0; CLANG_ENABLE_MODULES = YES; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; ENABLE_TESTABILITY = YES; }; name = Debug; };
+0000000000000000000004B1 = { isa = XCBuildConfiguration; buildSettings = { MACOSX_DEPLOYMENT_TARGET = 15.0; SDKROOT = macosx; SWIFT_VERSION = 6.0; CLANG_ENABLE_MODULES = YES; SWIFT_OPTIMIZATION_LEVEL = "-O"; }; name = Release; };
+000000000000000000000014 = { isa = XCConfigurationList; buildConfigurations = (0000000000000000000004B0,0000000000000000000004B1); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+0000000000000000000004BA = { isa = XCBuildConfiguration; buildSettings = { PRODUCT_BUNDLE_IDENTIFIER = com.karavaevflow.AdaptiveReader; PRODUCT_NAME = "$(TARGET_NAME)"; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.books"; CODE_SIGN_IDENTITY = "-"; ENABLE_APP_SANDBOX = YES; ENABLE_USER_SELECTED_FILES = readonly; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; ENABLE_TESTABILITY = YES; }; name = Debug; };
+0000000000000000000004BB = { isa = XCBuildConfiguration; buildSettings = { PRODUCT_BUNDLE_IDENTIFIER = com.karavaevflow.AdaptiveReader; PRODUCT_NAME = "$(TARGET_NAME)"; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.books"; CODE_SIGN_IDENTITY = "-"; ENABLE_APP_SANDBOX = YES; ENABLE_USER_SELECTED_FILES = readonly; SWIFT_OPTIMIZATION_LEVEL = "-O"; }; name = Release; };
+000000000000000000000015 = { isa = XCConfigurationList; buildConfigurations = (0000000000000000000004BA,0000000000000000000004BB); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+0000000000000000000004C4 = { isa = XCBuildConfiguration; buildSettings = { PRODUCT_BUNDLE_IDENTIFIER = com.karavaevflow.AdaptiveReaderUITests; PRODUCT_NAME = "$(TARGET_NAME)"; GENERATE_INFOPLIST_FILE = YES; CODE_SIGN_IDENTITY = "-"; TEST_TARGET_NAME = AdaptiveReader; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; ENABLE_TESTABILITY = YES; }; name = Debug; };
+0000000000000000000004C5 = { isa = XCBuildConfiguration; buildSettings = { PRODUCT_BUNDLE_IDENTIFIER = com.karavaevflow.AdaptiveReaderUITests; PRODUCT_NAME = "$(TARGET_NAME)"; GENERATE_INFOPLIST_FILE = YES; CODE_SIGN_IDENTITY = "-"; TEST_TARGET_NAME = AdaptiveReader; SWIFT_OPTIMIZATION_LEVEL = "-O"; }; name = Release; };
+000000000000000000000016 = { isa = XCConfigurationList; buildConfigurations = (0000000000000000000004C4,0000000000000000000004C5); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+}; rootObject = 000000000000000000000001; }
