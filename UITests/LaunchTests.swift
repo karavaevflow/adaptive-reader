@@ -6,7 +6,7 @@ final class LaunchTests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
         XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 10))
-        let appearance = app.buttons["Appearance"]
+        let appearance = app.toolbars.buttons["Appearance"].firstMatch
         XCTAssertTrue(appearance.exists)
         appearance.click()
         XCTAssertTrue(app.radioButtons["System"].waitForExistence(timeout: 3))
