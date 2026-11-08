@@ -14,8 +14,8 @@ Phase 0 remains open. v0.1 is gated by all acceptance items below.
 ## Remaining acceptance
 
 - Clean-clone local app build and UI tests.
-- Investigate the multi-architecture linker warning about ReaderCore.o before shipping a universal binary. Local arm64 UI tests pass.
-- Recheck public macOS CI after the Xcode 26.3 compatibility change. Previous foundation CI passed on Xcode 16.4.
+- Validate Release universal binaries separately. Debug now uses the active architecture, matching normal Xcode development settings.
+- Recheck public macOS CI after the final UI test selector change. The package-name compatibility fix passed public CI.
 - Full Adaptive token palette, component states and RU/EN resources.
 - Wide/compact window checks, focus restoration, VoiceOver, Reduce Motion and Reduce Transparency verification.
 - Reference screenshots of Library, Reader and popover in Light/Dark at 800 and 1440 pt.

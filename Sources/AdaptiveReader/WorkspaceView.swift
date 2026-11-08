@@ -71,6 +71,7 @@ struct WorkspaceView: View {
             ToolbarItemGroup {
                 Button("Open PDF", systemImage: "doc.badge.plus") { importing = true }
                 Button("Appearance", systemImage: "paintpalette") { appearanceVisible.toggle() }
+                    .accessibilityIdentifier("appearance.toggle")
                     .popover(isPresented: $appearanceVisible) {
                         Picker("Appearance", selection: $appearance) {
                             ForEach(ShellAppearance.allCases) { Text($0.title).tag($0) }

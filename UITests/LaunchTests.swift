@@ -6,11 +6,11 @@ final class LaunchTests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
         XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 10))
-        let appearance = app.toolbars.buttons["Appearance"].firstMatch
-        XCTAssertTrue(appearance.exists)
+        let appearance = app.buttons["appearance.toggle"].firstMatch
+        XCTAssertTrue(appearance.waitForExistence(timeout: 5))
         appearance.click()
-        XCTAssertTrue(app.radioButtons["System"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.radioButtons["System"].waitForExistence(timeout: 5))
         app.typeKey(.escape, modifierFlags: [])
-        XCTAssertTrue(appearance.exists)
+        XCTAssertTrue(appearance.waitForExistence(timeout: 5))
     }
 }
