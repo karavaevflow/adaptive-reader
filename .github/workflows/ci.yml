@@ -13,6 +13,8 @@ jobs:
         run: swift test
       - name: Build application
         run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination 'platform=macOS' build
+      - name: Configure visual test desktop
+        run: swift scripts/configure-ci-display.swift
       - name: UI tests
         run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination 'platform=macOS' -resultBundlePath TestResults.xcresult test
       - uses: actions/upload-artifact@v4

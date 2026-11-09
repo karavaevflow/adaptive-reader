@@ -41,3 +41,5 @@ Screenshots are stored inside the `.xcresult` bundle and the CI test-results art
 Manual VoiceOver reading order, keyboard focus restoration, and the operating system's Reduce Motion/Reduce Transparency settings require explicit verification before accepting Phase 0 step 2. Automated audit results and reference-image review are recorded in the Phase 0 checklist as they become available.
 
 The XCTest audit retains diagnostics and accepts two specific framework artifacts: an empty, disabled system Touch Bar on a Mac without that hardware, and an anonymous, disabled Group with the exact window bounds, containing the named library controls. These structural containers have no actionable role. Description failures on controls and contrast failures still fail the test. Manual VoiceOver navigation remains an acceptance item.
+
+CI selects an available logical display mode of at least 1440 × 900 with CoreGraphics before UI tests. This step is intended for the disposable macOS runner. Reference windows are explicitly sized in DEBUG builds. The test opens a new window only when the app has not presented one itself.

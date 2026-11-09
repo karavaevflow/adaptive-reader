@@ -14,9 +14,11 @@ final class LaunchTests: XCTestCase {
         if reader { app.launchArguments += ["-designReader", "YES"] }
         app.launch()
         app.activate()
-        let fileMenu = app.menuBars.menuBarItems.element(boundBy: 2)
-        fileMenu.click()
-        fileMenu.menuItems.firstMatch.click()
+        if !app.windows.firstMatch.waitForExistence(timeout: 2) {
+            let fileMenu = app.menuBars.menuBarItems.element(boundBy: 2)
+            fileMenu.click()
+            fileMenu.menuItems.firstMatch.click()
+        }
         XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 10))
         return app
     }
@@ -47,7 +49,7 @@ final class LaunchTests: XCTestCase {
     @MainActor
     func testAccessibilityDescriptions() throws {
         let app = launch()
-        app.buttons["library.open"].coordinate(withNormalizedOffset: CGVector(dx: -1, dy: -1)).click()
+        app.buttons["library.open"].firstMatch.coordinate(withNormalizedOffset: CGVector(dx: -1, dy: -1)).click()
         try app.performAccessibilityAudit(for: [.sufficientElementDescription, .contrast]) { issue in
             let diagnostic = XCTAttachment(string: "\(issue.compactDescription)\n\(issue.element?.debugDescription ?? "No matching accessibility element")")
             diagnostic.name = "Accessibility issue element"
