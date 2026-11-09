@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "AdaptiveReader",
+    defaultLocalization: "en",
     platforms: [.macOS(.v15)],
     products: [
         .library(name: "ReaderCore", targets: ["ReaderCore"]),
@@ -10,7 +11,7 @@ let package = Package(
     ],
     targets: [
         .target(name: "ReaderCore"),
-        .executableTarget(name: "AdaptiveReaderPreview", dependencies: ["ReaderCore"], path: "Sources/AdaptiveReader"),
+        .executableTarget(name: "AdaptiveReaderPreview", dependencies: ["ReaderCore"], path: "Sources/AdaptiveReader", resources: [.process("Resources")]),
         .testTarget(name: "ReaderCoreTests", dependencies: ["ReaderCore"])
     ]
 )
