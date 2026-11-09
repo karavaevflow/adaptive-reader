@@ -27,8 +27,6 @@ struct WorkspaceView: View {
     @AppStorage("inspectorVisible") private var inspectorVisible = false
     @AppStorage("shellAppearance") private var appearance = ShellAppearance.system
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.controlActiveState) private var controlActiveState
-    @FocusState private var sidebarFocused: Bool
     @State private var document: PDFDocument?
     @State private var title = "Adaptive Reader"
     @State private var importing = false
@@ -36,7 +34,7 @@ struct WorkspaceView: View {
     @State private var catalogVisible = false
     @State private var compactSidebarVisible = false
     @State private var compactInspectorVisible = false
-    @State private var section: LibrarySection? = .all
+    @State private var section = LibrarySection.all
     @State private var errorMessage: String?
     @FocusState private var toolbarFocus: ToolbarFocus?
     private enum ToolbarFocus: Hashable { case sidebar, appearance, inspector }
@@ -152,16 +150,32 @@ struct WorkspaceView: View {
 
     private var sidebar: some View {
         AdaptivePanel {
-            List(selection: $section) {
+            List {
                 ForEach(LibrarySection.allCases) { item in
-                    Label(item.title, systemImage: item.symbol)
-                        .foregroundStyle(section == item && sidebarFocused && controlActiveState != .inactive
-                                         ? Color(nsColor: .selectedControlTextColor) : Adaptive.text)
-                        .tag(item)
+                    Button { section = item } label: {
+                        Label(item.title, systemImage: item.symbol)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 4)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Adaptive.text)
+                    .listRowBackground(section == item ? Adaptive.accent.opacity(0.14) : Color.clear)
+                    .accessibilityAddTraits(section == item ? .isSelected : [])
                 }
             }
             .listStyle(.sidebar)
-            .focused($sidebarFocused)
+            .onMoveCommand { direction in
+                let offset: Int
+                switch direction {
+                case .up: offset = -1
+                case .down: offset = 1
+                default: return
+                }
+                let items = LibrarySection.allCases
+                let current = items.firstIndex(of: section) ?? 0
+                section = items[min(max(current + offset, 0), items.count - 1)]
+            }
             .scrollContentBackground(.hidden)
             .accessibilityLabel(Text("Library"))
             .accessibilityIdentifier("library.sidebar")
@@ -222,7 +236,7 @@ struct WorkspaceView: View {
             Menu {
                 Button("Adaptive components") { catalogVisible = true }
             } label: { Label("More", systemImage: "ellipsis.circle") }
-            .accessibilityLabel(Text("More"))
+            .accessibilityLabel(Text("More actions"))
             .accessibilityIdentifier("workspace.more")
         }
     }

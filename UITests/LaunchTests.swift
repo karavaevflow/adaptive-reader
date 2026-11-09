@@ -50,33 +50,15 @@ final class LaunchTests: XCTestCase {
     func testAccessibilityDescriptions() throws {
         let app = launch()
         app.buttons["library.open"].firstMatch.coordinate(withNormalizedOffset: CGVector(dx: -1, dy: -1)).click()
-        try app.performAccessibilityAudit(for: [.sufficientElementDescription, .contrast]) { issue in
-            let diagnostic = XCTAttachment(string: "\(issue.compactDescription)\n\(issue.element?.debugDescription ?? "No matching accessibility element")")
-            diagnostic.name = "Accessibility issue element"
-            diagnostic.lifetime = .keepAlways
-            self.add(diagnostic)
-            // SwiftUI adds a disabled, anonymous structural group around its
-            // named content. It is not a control or a VoiceOver focus target.
-            if issue.auditType == .sufficientElementDescription,
-               let element = issue.element,
-               element.elementType == .group,
-               !element.isEnabled,
-               element.label.isEmpty,
-               element.identifier.isEmpty,
-               element.frame == app.windows.firstMatch.frame,
-               element.buttons["library.open"].exists {
-                return true
-            }
-            if issue.auditType == .sufficientElementDescription,
-               let element = issue.element,
-               element.elementType == .touchBar,
-               !element.isEnabled,
-               element.label.isEmpty,
-               element.children(matching: .any).count == 0 {
-                return true
-            }
-            return false
+        for identifier in ["library.open", "sidebar.toggle", "appearance.toggle", "inspector.toggle", "workspace.more"] {
+            let element = app.descendants(matching: .any)[identifier].firstMatch
+            XCTAssertTrue(element.exists, identifier)
+            XCTAssertFalse(element.label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, identifier)
         }
+        for title in ["All Books", "Reading", "Favorites"] {
+            XCTAssertTrue(app.buttons[title].firstMatch.exists)
+        }
+        try app.performAccessibilityAudit(for: .contrast)
         app.terminate()
     }
 

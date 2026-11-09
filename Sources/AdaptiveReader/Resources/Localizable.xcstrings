@@ -608,6 +608,22 @@
           }
         }
       }
+    },
+    "More actions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More actions"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дополнительные действия"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

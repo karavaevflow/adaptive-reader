@@ -16,7 +16,7 @@ Phase 0 remains open. v0.1 is gated by all acceptance items below.
 - Adaptive tokens, system typography, native components and RU/EN strings are implemented. See [design system](adaptive-design-system.md).
 - A 32-image Library/Reader/Appearance/Inspector matrix passed locally for Light/Dark, en/ru and 800/1440 pt. Reference images live in `docs/screenshots`.
 - Toolbar and menu actions, Escape dismissal and native appearance/inspector shortcuts were checked. Native input was used for shortcuts because XCTest synthesis with the local input source did not reproduce them.
-- Baseline contrast and description audit passes with two narrowly documented framework-container exclusions. Diagnostic attachments remain in the Xcode report.
+- Baseline contrast and accessible control names are checked independently. Manual VoiceOver speech and focus verification remain open.
 
 ## Remaining acceptance
 
