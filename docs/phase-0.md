@@ -14,14 +14,16 @@ Phase 0 remains open. v0.1 is gated by all acceptance items below.
 - Public macOS CI passes for eab24e8: https://github.com/karavaevflow/adaptive-reader/actions/runs/42517310702
 - Phase 0 step 1 (reproducible build) is complete.
 - Adaptive tokens, system typography, native components and RU/EN strings are implemented. See [design system](adaptive-design-system.md).
-- A 32-image Library/Reader/Appearance/Inspector matrix passed locally for Light/Dark, en/ru and 800/1440 pt. Reference images live in `docs/screenshots`.
+- A 32-image Library/Reader/Appearance/Inspector matrix and four component-catalogue captures passed locally for Light/Dark, en/ru and 800/1440 pt. Reference images live in `docs/screenshots`.
+- Four UI tests and two core tests pass. Public CI passes for 07477ce: https://github.com/karavaevflow/adaptive-reader/actions/runs/42584005312
+- Reduce Transparency was enabled on the control Mac and opaque panels were visually observed. Motion/transparency preferences were restored to their original off values. VoiceOver was also restored to its original off state after the computer-control tool timed out during the speech review.
 - Toolbar and menu actions, Escape dismissal and native appearance/inspector shortcuts were checked. Native input was used for shortcuts because XCTest synthesis with the local input source did not reproduce them.
 - Baseline contrast and accessible control names are checked independently. Manual VoiceOver speech and focus verification remain open.
 
 ## Remaining acceptance
 
 - Validate Release universal binaries separately. Debug now uses the active architecture, matching normal Xcode development settings.
-- Manual VoiceOver reading order and focus restoration with keyboard navigation enabled. Verify system Reduce Motion and Reduce Transparency settings on the control Mac.
+- Manual VoiceOver reading order and focus restoration with keyboard navigation enabled. Confirm reduced-motion transition behavior on the control Mac. The Reduce Transparency rendering path was visually checked.
 - Color Engine study on text, multi-column/table, photo, chart, scanned, dark and protected PDFs. Keep licensed source fixtures and checksums. Compare Original, Core Image raster processing and selective recoloring before choosing the production pipeline.
 - Per-fixture paired images, five Release runs of first/repeated render time and peak memory. Check selection, search, links, zoom and image colors. Document fallback to Original.
 - Integrate ReaderEngine and SourceAnchor with PDFView and persistence after the rendering decision. Test command → navigation → save → reopen and palette changes without anchor drift.
