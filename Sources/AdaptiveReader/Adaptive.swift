@@ -121,6 +121,7 @@ struct AppearancePicker: View {
         .background(Adaptive.surface)
         .foregroundStyle(Adaptive.text)
         .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text("Appearance"))
         .accessibilityIdentifier("appearance.popover")
     }
 }
@@ -190,7 +191,9 @@ struct ComponentCatalog: View {
                         HStack {
                             Button("Select preview", systemImage: "checkmark") { selected.toggle() }
                                 .buttonStyle(.borderedProminent)
+                                .accessibilityIdentifier("catalog.select")
                             Button("Unavailable") {}.disabled(true)
+                                .accessibilityIdentifier("catalog.unavailable")
                         }
                         AdaptiveBookCard(title: "Book preview", author: "Author", progress: 0.42,
                                          selected: selected) { selected.toggle() }

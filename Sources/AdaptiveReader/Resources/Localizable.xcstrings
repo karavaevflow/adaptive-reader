@@ -592,6 +592,22 @@
           }
         }
       }
+    },
+    "Reading workspace": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading workspace"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пространство для чтения"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

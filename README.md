@@ -16,7 +16,9 @@ xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination
 
 ## Current behavior
 
-Open a PDF from the toolbar or empty state. The application owns an in-memory copy while reading. The appearance popover changes the shell between System, Light and Dark. The More menu opens the component catalogue. Sidebar and inspector visibility preferences persist.
+Open a PDF from the toolbar or empty state. The application owns an in-memory copy while reading. The appearance popover changes the shell between System, Light and Dark. The More menu opens the component catalogue. Sidebar and inspector visibility preferences persist. Compact windows expose those panels as a popover and sheet. The app bundle includes English and Russian translations.
+
+The [Adaptive design system](docs/adaptive-design-system.md) documents tokens, controls and shortcuts. [Reference screenshots](docs/screenshots) cover both languages, appearances and window sizes.
 
 The foundation includes versioned PDF/EPUB source anchors, validated navigation commands, reversible palette commands and atomic position records. The running PDF view currently uses Original rendering. Integration of the engine contracts, full library persistence, page palettes, EPUB and AI are upcoming work.
 

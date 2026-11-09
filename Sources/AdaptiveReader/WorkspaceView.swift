@@ -27,6 +27,8 @@ struct WorkspaceView: View {
     @AppStorage("inspectorVisible") private var inspectorVisible = false
     @AppStorage("shellAppearance") private var appearance = ShellAppearance.system
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.controlActiveState) private var controlActiveState
+    @FocusState private var sidebarFocused: Bool
     @State private var document: PDFDocument?
     @State private var title = "Adaptive Reader"
     @State private var importing = false
@@ -43,9 +45,14 @@ struct WorkspaceView: View {
         GeometryReader { geometry in
             workspace(width: geometry.size.width)
                 .toolbar { toolbar(width: geometry.size.width) }
+                .focusedSceneValue(\.workspaceActions, WorkspaceActions(
+                    openDocument: { importing = true },
+                    toggleSidebar: { toggleSidebar(width: geometry.size.width) },
+                    toggleAppearance: { appearanceVisible.toggle() },
+                    toggleInspector: { toggleInspector(width: geometry.size.width) }
+                ))
         }
         .background(Adaptive.background)
-        .foregroundStyle(Adaptive.text)
         .navigationTitle(title)
         #if DEBUG
         .task { loadReviewDocument() }
@@ -93,7 +100,7 @@ struct WorkspaceView: View {
 
     #if DEBUG
     private func loadReviewDocument() {
-        guard ProcessInfo.processInfo.arguments.contains("--design-reader") else { return }
+        guard ProcessInfo.processInfo.arguments.contains("-designReader") else { return }
         let data = NSMutableData()
         var mediaBox = CGRect(x: 0, y: 0, width: 612, height: 792)
         guard let consumer = CGDataConsumer(data: data),
@@ -146,14 +153,17 @@ struct WorkspaceView: View {
     private var sidebar: some View {
         AdaptivePanel {
             List(selection: $section) {
-                Section("Library") {
-                    ForEach(LibrarySection.allCases) { item in
-                        Label(item.title, systemImage: item.symbol).tag(item)
-                    }
+                ForEach(LibrarySection.allCases) { item in
+                    Label(item.title, systemImage: item.symbol)
+                        .foregroundStyle(section == item && sidebarFocused && controlActiveState != .inactive
+                                         ? Color(nsColor: .selectedControlTextColor) : Adaptive.text)
+                        .tag(item)
                 }
             }
             .listStyle(.sidebar)
+            .focused($sidebarFocused)
             .scrollContentBackground(.hidden)
+            .accessibilityLabel(Text("Library"))
             .accessibilityIdentifier("library.sidebar")
         }
     }
@@ -172,18 +182,27 @@ struct WorkspaceView: View {
             }.padding(Adaptive.Space.large)
         }
         .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text("Document"))
         .accessibilityIdentifier("document.inspector")
+    }
+
+    private func toggleSidebar(width: CGFloat) {
+        if width < Adaptive.Layout.sidebarThreshold { compactSidebarVisible.toggle() }
+        else { sidebarVisible.toggle() }
+    }
+
+    private func toggleInspector(width: CGFloat) {
+        if width < Adaptive.Layout.inspectorThreshold { compactInspectorVisible = true }
+        else { inspectorVisible.toggle() }
     }
 
     @ToolbarContentBuilder
     private func toolbar(width: CGFloat) -> some ToolbarContent {
         ToolbarItem(placement: .navigation) {
             Button("Sidebar", systemImage: "sidebar.left") {
-                if width < Adaptive.Layout.sidebarThreshold { compactSidebarVisible.toggle() }
-                else { sidebarVisible.toggle() }
+                toggleSidebar(width: width)
             }
             .focused($toolbarFocus, equals: .sidebar)
-            .keyboardShortcut("s", modifiers: [.command, .control])
             .help("Show or hide the library")
             .accessibilityIdentifier("sidebar.toggle")
             .accessibilityValue(Text(sidebarVisible && width >= Adaptive.Layout.sidebarThreshold ? "Shown" : "Hidden"))
@@ -191,25 +210,19 @@ struct WorkspaceView: View {
         }
         ToolbarItemGroup {
             Button("Open PDF", systemImage: "doc.badge.plus") { importing = true }
-                .keyboardShortcut("o")
-                .help("Open PDF")
             Button("Appearance", systemImage: "paintpalette") { appearanceVisible.toggle() }
                 .focused($toolbarFocus, equals: .appearance)
-                .keyboardShortcut("a", modifiers: [.command, .control])
-                .help("Appearance")
                 .accessibilityIdentifier("appearance.toggle")
                 .popover(isPresented: $appearanceVisible) { AppearancePicker(appearance: $appearance) }
             Button("Document inspector", systemImage: "sidebar.right") {
-                if width < Adaptive.Layout.inspectorThreshold { compactInspectorVisible = true }
-                else { inspectorVisible.toggle() }
+                toggleInspector(width: width)
             }
             .focused($toolbarFocus, equals: .inspector)
-            .keyboardShortcut("i", modifiers: [.command, .control])
-            .help("Document inspector")
             .accessibilityIdentifier("inspector.toggle")
             Menu {
                 Button("Adaptive components") { catalogVisible = true }
             } label: { Label("More", systemImage: "ellipsis.circle") }
+            .accessibilityLabel(Text("More"))
             .accessibilityIdentifier("workspace.more")
         }
     }
