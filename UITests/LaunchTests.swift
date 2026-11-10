@@ -1,5 +1,7 @@
 import XCTest
 import AppKit
+import IOKit.pwr_mgt
+import Carbon.HIToolbox
 
 final class LaunchTests: XCTestCase {
     override func setUp() {
@@ -242,5 +244,132 @@ final class LaunchTests: XCTestCase {
                 }
             }
         }
+    }
+}
+
+final class OfflineReaderTests: XCTestCase {
+    override func tearDown() async throws {
+        await MainActor.run { XCUIApplication().terminate() }
+        try await super.tearDown()
+    }
+    override func setUp() { super.setUp(); continueAfterFailure = false }
+
+    @MainActor private func launch(_ id: String, specimen: Bool) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["-phase0Store", id, "-designWidth", "1440", "-AppleLanguages", "(en)", "-AppleLocale", "en"]
+        if specimen { app.launchArguments += ["-phase0Import", "YES"] }
+        app.launch(); app.activate()
+        if !app.windows.firstMatch.waitForExistence(timeout: 2) {
+            let file = app.menuBars.menuBarItems.element(boundBy: 2)
+            file.click(); file.menuItems.firstMatch.click()
+        }
+        XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 10))
+        return app
+    }
+    @MainActor private func menu(_ app: XCUIApplication, _ group: String, _ command: String) {
+        app.menuBars.menuBarItems[group].click(); app.menuItems[command].firstMatch.click()
+    }
+    @MainActor private func snapshot(_ app: XCUIApplication, _ name: String) {
+        let shot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        shot.name = name; shot.lifetime = .keepAlways; add(shot)
+    }
+    @MainActor private func paste(_ text: String, into field: XCUIElement, app: XCUIApplication) {
+        let board = NSPasteboard.general
+        let previous: [NSPasteboardItem] = board.pasteboardItems?.map { item in
+            let copy = NSPasteboardItem()
+            for type in item.types { if let data = item.data(forType: type) { copy.setData(data, forType: type) } }
+            return copy
+        } ?? []
+        defer { board.clearContents(); if !previous.isEmpty { _ = board.writeObjects(previous as [any NSPasteboardWriting]) } }
+        field.click()
+        menu(app, "Edit", "Select All")
+        board.clearContents(); board.setString(text, forType: .string)
+        menu(app, "Edit", "Paste")
+    }
+    @MainActor private func goToFolderKey() -> String {
+        guard let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue(),
+              let raw = TISGetInputSourceProperty(source, kTISPropertyInputSourceID) else { return "g" }
+        let id = Unmanaged<CFString>.fromOpaque(raw).takeUnretainedValue() as String
+        return id.localizedCaseInsensitiveContains("Russian") ? "п" : "g"
+    }
+
+    @MainActor private func readingAssertions() -> Int {
+        guard let process = NSRunningApplication.runningApplications(withBundleIdentifier: "com.karavaevflow.AdaptiveReader")
+            .filter({ !$0.isTerminated }).max(by: { ($0.launchDate ?? .distantPast) < ($1.launchDate ?? .distantPast) }) else { return 0 }
+        var result: Unmanaged<CFDictionary>?
+        guard IOPMCopyAssertionsByProcess(&result) == kIOReturnSuccess,
+              let dictionary = result?.takeRetainedValue() as NSDictionary?,
+              let assertions = dictionary[NSNumber(value: process.processIdentifier)] as? [[String: Any]] else { return 0 }
+        return assertions.filter { $0[kIOPMAssertionNameKey as String] as? String == "Adaptive Reader reading session" }.count
+    }
+
+    @MainActor func testOfflineReadingRoundTrip() {
+        let id = UUID().uuidString
+        let app = launch(id, specimen: true)
+        XCTAssertTrue(app.windows["Phase 0 reader"].waitForExistence(timeout: 10))
+        app.buttons["page.next"].firstMatch.click()
+        XCTAssertTrue(app.staticTexts["2/3"].waitForExistence(timeout: 5))
+        menu(app, "Edit", "Bookmark page")
+        menu(app, "View", "Keep Awake")
+        let awake = app.descendants(matching: .any)["reader.awake"].firstMatch
+        XCTAssertTrue(awake.exists)
+        XCTAssertEqual(readingAssertions(), 1)
+        menu(app, "Edit", "Find in book")
+        let field = app.textFields["reader.search.query"].firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        paste("Chapter", into: field, app: app)
+        XCTAssertTrue(app.buttons["reader.search.match"].firstMatch.waitForExistence(timeout: 10))
+        app.buttons["reader.search.match"].firstMatch.click()
+        snapshot(app, "v01-search")
+        menu(app, "View", "Focus")
+        XCTAssertFalse(app.descendants(matching: .any)["library.sidebar"].exists)
+        snapshot(app, "v01-focus")
+        menu(app, "View", "Focus")
+        menu(app, "File", "Close book")
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "library.book.")).firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.descendants(matching: .any)["reader.awake"].exists)
+        XCTAssertEqual(readingAssertions(), 0)
+        snapshot(app, "v01-library")
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "library.book.")).firstMatch.click()
+        XCTAssertTrue(app.windows["Phase 0 reader"].waitForExistence(timeout: 10))
+        menu(app, "View", "Document inspector")
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "bookmark.")).firstMatch.waitForExistence(timeout: 5))
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "bookmark.")).firstMatch.click()
+        XCTAssertTrue(app.staticTexts["2/3"].waitForExistence(timeout: 5))
+        app.menuBars.menuBarItems.element(boundBy: 1).click()
+        app.menuItems["Quit AdaptiveReader"].firstMatch.click()
+        XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
+        let reopened = launch(id, specimen: false)
+        XCTAssertTrue(reopened.windows["Phase 0 reader"].waitForExistence(timeout: 10))
+        XCTAssertTrue(reopened.staticTexts["2/3"].waitForExistence(timeout: 5))
+        XCTAssertTrue(reopened.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "bookmark.")).firstMatch.exists)
+        snapshot(reopened, "v01-restored")
+        reopened.terminate()
+    }
+
+    @MainActor func testLinkedImportSurvivesQuit() {
+        let id = UUID().uuidString
+        let app = launch(id, specimen: false)
+        menu(app, "File", "Import linked PDF")
+        let panel = app.sheets["open-panel"].firstMatch
+        XCTAssertTrue(panel.waitForExistence(timeout: 5))
+        panel.typeKey(goToFolderKey(), modifierFlags: [.command, .shift])
+        let path = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Research/Fixtures/text.pdf").path
+        let location = app.textFields["PathTextField"].firstMatch
+        XCTAssertTrue(location.waitForExistence(timeout: 5))
+        paste(path, into: location, app: app); location.typeKey(.return, modifierFlags: [])
+        panel.buttons["Open"].firstMatch.click()
+        XCTAssertTrue(app.windows["text"].waitForExistence(timeout: 10))
+        app.buttons["page.next"].firstMatch.click()
+        app.menuBars.menuBarItems.element(boundBy: 1).click()
+        app.menuItems["Quit AdaptiveReader"].firstMatch.click()
+        XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
+        let restored = launch(id, specimen: false)
+        XCTAssertTrue(restored.windows["text"].waitForExistence(timeout: 10))
+        XCTAssertTrue(restored.staticTexts["2/3"].waitForExistence(timeout: 5))
+        menu(restored, "File", "Close book")
+        XCTAssertTrue(restored.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Linked PDF")).firstMatch.waitForExistence(timeout: 5))
+        snapshot(restored, "v01-linked-library")
+        restored.terminate()
     }
 }

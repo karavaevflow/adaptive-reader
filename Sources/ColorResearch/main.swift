@@ -76,7 +76,15 @@ func generate(_ directory: URL) throws {
 }
 
 let args = CommandLine.arguments
-if args.count > 1 && args[1] == "scroll" {
+if args.count > 1 && args[1] == "large" {
+    let url = URL(fileURLWithPath: args[2])
+    try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+    makePDF(url, pages: 600) { context, page in
+        text("Chapter \(page + 1)\n\nAdaptive Reader large-document performance specimen.\n\nA stable anchor connects the reader to the original source.\n\nSelection, search, bookmarks and page palettes retain the same geometry.\n\n" + String(repeating: "Reading remains responsive while pages load in the background.\n\n", count: 8),
+             rect: CGRect(x: 64, y: 64, width: 484, height: 660), context: context)
+    }
+    print(url.path)
+} else if args.count > 1 && args[1] == "scroll" {
     let url = URL(fileURLWithPath: args[2])
     let data = try Data(contentsOf: url)
     let app = NSApplication.shared

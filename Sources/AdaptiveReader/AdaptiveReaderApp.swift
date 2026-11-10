@@ -75,10 +75,13 @@ struct AdaptiveReaderApp: App {
 
 /// One application entry point, shared by native menus, toolbar and future adapters.
 enum WorkspaceCommand {
-    case openDocument, toggleSidebar, toggleAppearance, toggleInspector, zoomIn, zoomOut
+    case openDocument, importReference, closeBook, search, toggleBookmark, toggleFocus, toggleAwake
+    case toggleSidebar, toggleAppearance, toggleInspector, zoomIn, zoomOut
 }
 
 struct WorkspaceActions {
+    var hasBook: Bool
+    var canSearch: Bool
     var perform: (WorkspaceCommand) -> Void
 }
 
@@ -100,10 +103,20 @@ struct WorkspaceCommands: Commands {
             Button("Open PDF") { actions?.perform(.openDocument) }
                 .keyboardShortcut("o")
                 .disabled(actions == nil)
+            Button("Import linked PDF") { actions?.perform(.importReference) }
+                .keyboardShortcut("o", modifiers: [.command, .shift]).disabled(actions == nil)
+            Button("Close book") { actions?.perform(.closeBook) }
+                .keyboardShortcut("w", modifiers: [.command, .shift]).disabled(actions?.hasBook != true)
+        }
+        CommandGroup(after: .textEditing) {
+            Button("Find in book") { actions?.perform(.search) }.keyboardShortcut("f").disabled(actions?.canSearch != true)
+            Button("Bookmark page") { actions?.perform(.toggleBookmark) }.keyboardShortcut("d").disabled(actions?.hasBook != true)
         }
         CommandGroup(after: .sidebar) {
-            Button("Zoom in") { actions?.perform(.zoomIn) }.keyboardShortcut("+", modifiers: .command).disabled(actions == nil)
-            Button("Zoom out") { actions?.perform(.zoomOut) }.keyboardShortcut("-", modifiers: .command).disabled(actions == nil)
+            Button("Zoom in") { actions?.perform(.zoomIn) }.keyboardShortcut("+", modifiers: .command).disabled(actions?.hasBook != true)
+            Button("Zoom out") { actions?.perform(.zoomOut) }.keyboardShortcut("-", modifiers: .command).disabled(actions?.hasBook != true)
+            Button("Focus") { actions?.perform(.toggleFocus) }.keyboardShortcut("f", modifiers: [.command, .shift]).disabled(actions?.hasBook != true)
+            Button("Keep Awake") { actions?.perform(.toggleAwake) }.keyboardShortcut("k", modifiers: [.command, .shift]).disabled(actions?.hasBook != true)
             Button("Sidebar") { actions?.perform(.toggleSidebar) }
                 .keyboardShortcut("s", modifiers: [.command, .shift])
                 .disabled(actions == nil)

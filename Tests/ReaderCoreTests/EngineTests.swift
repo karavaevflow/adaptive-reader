@@ -150,3 +150,22 @@ func changedAndMissingAssetsAreReported() async throws {
     #expect(commands.palette == .original)
     #expect(!commands.canUndoPalette)
 }
+
+@Test(.timeLimit(.minutes(1))) @MainActor
+func asynchronousSearchReturnsAnchorsAndRetainsNativeSelection() async throws {
+    let engine = try PDFReaderEngine(data: Data(contentsOf: fixtures.appendingPathComponent("text.pdf")), bookID: UUID())
+    let host = window(for: engine); defer { host.close() }
+    let commands = ReaderCommands(engine: engine)
+    var matches: [ReaderSearchMatch] = []
+    for try await match in try commands.search("stable anchor") { matches.append(match) }
+    #expect(matches.count == 3)
+    #expect(matches.allSatisfy { $0.snippet.contains("original source") })
+    try commands.perform(.showSearchMatch(matches[1]))
+    #expect(engine.view.currentSelection?.string?.localizedCaseInsensitiveContains("stable anchor") == true)
+    if case .pdf(let position) = try engine.currentAnchor().position { #expect(position.pageIndex == 1) }
+    let cancelled = try commands.search("Reading")
+    engine.cancelSearch()
+    var count = 0
+    for try await _ in cancelled { count += 1 }
+    #expect(count == 0)
+}

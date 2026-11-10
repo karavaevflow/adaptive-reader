@@ -41,6 +41,10 @@ struct WorkspaceView: View {
     private var document: PDFDocument? { session.engine?.document }
     private var title: String { session.title }
     @State private var importing = false
+    @State private var importReference = false
+    @State private var searchVisible = false
+    @State private var libraryQuery = ""
+    @FocusState private var searchFieldFocused: Bool
     @State private var appearanceVisible = false
     @State private var catalogVisible = false
     @State private var compactSidebarVisible = false
@@ -54,7 +58,7 @@ struct WorkspaceView: View {
         GeometryReader { geometry in
             workspace(width: geometry.size.width)
                 .toolbar { toolbar(width: geometry.size.width) }
-                .focusedSceneValue(\.workspaceActions, WorkspaceActions(perform: { command in
+                .focusedSceneValue(\.workspaceActions, WorkspaceActions(hasBook: document != nil, canSearch: session.engine?.capabilities.contains(.search) == true, perform: { command in
                     perform(command, width: geometry.size.width)
                 }))
         }
@@ -62,11 +66,17 @@ struct WorkspaceView: View {
         .background(WindowIntegration(autosaveName: windowAutosaveName, focusRequest: nativeFocusRequest))
         .navigationTitle(title)
         .task { await startSession() }
-        .onDisappear { Task { await session.flush() } }
+        .onDisappear { session.suspend(); Task { await session.flush() } }
+        .onExitCommand { if session.focusMode { session.focusMode = false } }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
+            if let window = notification.object as? NSWindow, window == session.engine?.view.window {
+                Task { await session.refreshBookmarks() }
+            } else if document == nil { Task { await session.refreshLibrary() } }
+        }
         .overlay { if session.busy { ProgressView("Opening document").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) } }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf]) { result in
             switch result {
-            case .success(let url): Task { await session.importURL(url) }
+            case .success(let url): Task { await session.importURL(url, asReference: importReference) }
             case .failure(let error): session.report(error)
             }
         }
@@ -82,7 +92,7 @@ struct WorkspaceView: View {
         }
         .sheet(isPresented: $compactInspectorVisible, onDismiss: { restoreFocus(.inspector) }) {
             VStack(alignment: .trailing) {
-                inspector.frame(width: 320, height: 240)
+                inspector.frame(width: 320, height: 400)
                 Button("Done") { compactInspectorVisible = false }.keyboardShortcut(.cancelAction)
                     .padding(Adaptive.Space.regular)
             }
@@ -109,18 +119,13 @@ struct WorkspaceView: View {
         context.beginPDFPage(nil)
         context.setFillColor(NSColor.white.cgColor)
         context.fill(mediaBox)
-        let paragraph = NSAttributedString(string: "A quiet place to read.\n\nChapter One\n\nA book opens a space for thought.\nFollow the words, pause, and return to the page.", attributes: [
+        let chapter = page == 0 ? "Chapter One" : "Chapter \(page + 1)"
+        let paragraph = NSAttributedString(string: "A quiet place to read.\n\n\(chapter)\n\nA book opens a space for thought.\nFollow the words, pause, and return to the page.", attributes: [
             .font: NSFont.systemFont(ofSize: 18), .foregroundColor: NSColor.black
         ])
         let path = CGPath(rect: CGRect(x: 64, y: 64, width: 484, height: 650), transform: nil)
         let frame = CTFramesetterCreateFrame(CTFramesetterCreateWithAttributedString(paragraph), CFRange(), path, nil)
         CTFrameDraw(frame, context)
-        if page > 0 {
-            context.setFillColor(NSColor.white.cgColor)
-            context.fill(CGRect(x: 60, y: 540, width: 490, height: 190))
-            let label = NSAttributedString(string: "Chapter \(page + 1)", attributes: [.font: NSFont.systemFont(ofSize: 24)])
-            CTFrameDraw(CTFramesetterCreateFrame(CTFramesetterCreateWithAttributedString(label), CFRange(), CGPath(rect: CGRect(x: 64, y: 560, width: 480, height: 160), transform: nil), nil), context)
-        }
         context.endPDFPage()
         }
         context.closePDF()
@@ -135,25 +140,20 @@ struct WorkspaceView: View {
 
     private func workspace(width: CGFloat) -> some View {
         HStack(spacing: 0) {
-            if sidebarVisible && width >= Adaptive.Layout.sidebarThreshold {
+            if !session.focusMode && sidebarVisible && width >= Adaptive.Layout.sidebarThreshold {
                 sidebar.frame(width: Adaptive.Layout.sidebar)
                     .transition(.move(edge: .leading).combined(with: .opacity))
                 Divider().overlay(Adaptive.divider)
             }
+            if searchVisible && document != nil && !session.focusMode {
+                searchPanel.frame(width: 260)
+                Divider()
+            }
             Group {
                 if let engine = session.engine { NativePDFView(engine: engine, session: session).id(engine.bookID) }
-                else {
-                    VStack(spacing: Adaptive.Space.small) {
-                        AdaptiveEmptyState(title: "Your next chapter", message: "Open a PDF to begin reading.",
-                                           symbol: "book.closed")
-                        Button("Open PDF", systemImage: "plus") { importing = true }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(session.busy)
-                            .accessibilityIdentifier("library.open")
-                    }
-                }
+                else { library }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
-            if inspectorVisible && width >= Adaptive.Layout.inspectorThreshold {
+            if !session.focusMode && inspectorVisible && width >= Adaptive.Layout.inspectorThreshold {
                 Divider().overlay(Adaptive.divider)
                 inspector.frame(width: Adaptive.Layout.inspector)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
@@ -161,13 +161,106 @@ struct WorkspaceView: View {
         }
         .animation(reduceMotion ? nil : Adaptive.Motion.panel, value: sidebarVisible)
         .animation(reduceMotion ? nil : Adaptive.Motion.panel, value: inspectorVisible)
+        .animation(reduceMotion ? nil : Adaptive.Motion.panel, value: session.focusMode)
+        .animation(reduceMotion ? nil : Adaptive.Motion.panel, value: searchVisible)
+    }
+
+    private var filteredBooks: [BookRecord] {
+        session.books.filter { book in
+            (libraryQuery.isEmpty || book.title.localizedCaseInsensitiveContains(libraryQuery)) &&
+            (section != .favorites || book.favorite) && (section != .reading || session.states[book.id] != nil)
+        }
+    }
+
+    @ViewBuilder private var library: some View {
+        if session.books.isEmpty {
+            VStack(spacing: Adaptive.Space.small) {
+                AdaptiveEmptyState(title: "Your next chapter", message: "Open a PDF to begin reading.", symbol: "book.closed")
+                Button("Open PDF", systemImage: "plus") { importReference = false; importing = true }
+                    .buttonStyle(.borderedProminent).disabled(session.busy).accessibilityIdentifier("library.open")
+                Button("Import linked PDF") { importReference = true; importing = true }.disabled(session.busy)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 24) {
+                HStack {
+                    Text(section.title).font(Adaptive.TypeStyle.title)
+                    Spacer()
+                    TextField("Search books", text: $libraryQuery).textFieldStyle(.roundedBorder).frame(maxWidth: 240)
+                    Menu("Import PDF", systemImage: "plus") {
+                        Button("Import a copy") { importReference = false; importing = true }
+                        Button("Import linked PDF") { importReference = true; importing = true }
+                    }.menuStyle(.borderlessButton).fixedSize().disabled(session.busy).accessibilityIdentifier("library.import")
+                }
+                if filteredBooks.isEmpty { Text("No books in this view").foregroundStyle(Adaptive.secondary) }
+                ScrollView {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 280, maximum: 460))], alignment: .leading, spacing: 16) {
+                        ForEach(filteredBooks) { book in
+                            VStack(alignment: .leading, spacing: 12) {
+                                Button { Task { await session.openBook(book) } } label: {
+                                    HStack(spacing: 16) {
+                                        Image(systemName: "book.closed").font(.system(size: 28, weight: .light))
+                                            .frame(width: 56, height: 80).background(Adaptive.background, in: RoundedRectangle(cornerRadius: 6)).accessibilityHidden(true)
+                                        VStack(alignment: .leading, spacing: 8) {
+                                            Text(book.title).font(.headline).lineLimit(2).multilineTextAlignment(.leading)
+                                            Text(LocalizedStringKey(book.isReference ? "Linked PDF" : "Managed PDF")).font(.caption).foregroundStyle(Adaptive.secondary)
+                                            if case .pdf(let point) = session.states[book.id]?.anchor?.position {
+                                                Text("Page \(point.pageIndex + 1)").font(.caption).foregroundStyle(Adaptive.secondary)
+                                            }
+                                        }.frame(maxWidth: .infinity, alignment: .leading)
+                                    }.contentShape(Rectangle())
+                                }.buttonStyle(.plain).accessibilityIdentifier("library.book.\(book.id)").disabled(session.busy)
+                                HStack {
+                                    if book.pageCount > 0 {
+                                        let page = session.states[book.id]?.anchor.flatMap { anchor -> Int? in
+                                            if case .pdf(let p) = anchor.position { return p.pageIndex + 1 }; return nil
+                                        } ?? 0
+                                        ProgressView(value: min(1, Double(page) / Double(book.pageCount))).accessibilityLabel(Text("Reading progress"))
+                                    }
+                                    Spacer()
+                                    Button("Favorite", systemImage: book.favorite ? "star.fill" : "star") { Task { await session.toggleFavorite(book) } }
+                                        .labelStyle(.iconOnly).buttonStyle(.plain).accessibilityValue(Text(LocalizedStringKey(book.favorite ? "On" : "Off")))
+                                        .accessibilityIdentifier("library.favorite.\(book.id)")
+                                }
+                            }.padding(16).background(Adaptive.surface, in: RoundedRectangle(cornerRadius: Adaptive.corner))
+                        }
+                    }
+                }
+            }.padding(32)
+        }
+    }
+
+    private var searchPanel: some View {
+        AdaptivePanel {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Find in book").font(.headline)
+                    Spacer()
+                    Button("Close search", systemImage: "xmark") { searchVisible = false; session.search("") }.labelStyle(.iconOnly)
+                }
+                TextField("Find text", text: Binding(get: { session.searchQuery }, set: { session.search($0) }))
+                    .textFieldStyle(.roundedBorder).focused($searchFieldFocused).accessibilityIdentifier("reader.search.query")
+                if session.checkingText { ProgressView("Checking document text") }
+                else if session.engine?.capabilities.contains(.search) != true { Text("This PDF has no searchable text.").foregroundStyle(Adaptive.secondary) }
+                else if session.searching { ProgressView("Searching") }
+                else if !session.searchQuery.isEmpty { Text("\(session.searchMatches.count) matches").font(.caption).foregroundStyle(Adaptive.secondary) }
+                if session.searchLimitReached { Text("Showing the first 1,000 matches. Refine your search.").font(.caption) }
+                List(session.searchMatches) { match in
+                    Button { session.selectMatch(match) } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            if case .pdf(let point) = match.anchor.position { Text("Page \(point.pageIndex + 1)").font(.caption).foregroundStyle(Adaptive.secondary) }
+                            Text(match.snippet).lineLimit(3)
+                        }.frame(maxWidth: .infinity, alignment: .leading)
+                    }.buttonStyle(.plain).accessibilityIdentifier("reader.search.match")
+                }.listStyle(.plain).scrollContentBackground(.hidden)
+            }.padding(16)
+        }.accessibilityElement(children: .contain).accessibilityIdentifier("reader.search.panel")
     }
 
     private var sidebar: some View {
         AdaptivePanel {
             List {
                 ForEach(LibrarySection.allCases) { item in
-                    Button { section = item } label: {
+                    Button { section = item; if document != nil { Task { await session.closeBook() } } } label: {
                         Label(item.title, systemImage: item.symbol)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.vertical, 4)
@@ -205,6 +298,25 @@ struct WorkspaceView: View {
                     Text(title).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                     Text("Page \(session.pageNumber) of \(document.pageCount)").foregroundStyle(Adaptive.secondary)
                     Text("Zoom \(Int((session.scale * 100).rounded()))%").accessibilityIdentifier("reader.scale")
+                    if !session.checkingText && session.engine?.capabilities.contains(.search) != true {
+                        Text("This PDF has no searchable text.").font(.caption).foregroundStyle(Adaptive.secondary)
+                    }
+                    Text("Bookmarks").font(.headline)
+                    if session.bookmarks.isEmpty { Text("No bookmarks yet").foregroundStyle(Adaptive.secondary) }
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 12) {
+                            ForEach(session.bookmarks) { mark in
+                                HStack {
+                                    Button { session.navigate(to: mark.anchor) } label: {
+                                        if case .pdf(let point) = mark.anchor.position { Text("Page \(point.pageIndex + 1)") }
+                                    }.accessibilityIdentifier("bookmark.\(mark.id)")
+                                    Spacer()
+                                    Button("Remove bookmark", systemImage: "minus.circle") { Task { await session.removeBookmark(mark) } }.labelStyle(.iconOnly)
+                                }
+                            }
+                        }
+                    }
+
                 } else {
                     Text("Open a book to see document details.").foregroundStyle(Adaptive.secondary)
                 }
@@ -223,7 +335,13 @@ struct WorkspaceView: View {
 
     private func perform(_ command: WorkspaceCommand, width: CGFloat) {
         switch command {
-        case .openDocument: if !session.busy { importing = true }
+        case .openDocument: if !session.busy { importReference = false; importing = true }
+        case .importReference: if !session.busy { importReference = true; importing = true }
+        case .closeBook: searchVisible = false; Task { await session.closeBook() }
+        case .search: session.focusMode = false; searchVisible = true; searchFieldFocused = true
+        case .toggleBookmark: Task { await session.toggleBookmark() }
+        case .toggleFocus: session.focusMode.toggle()
+        case .toggleAwake: session.setKeepAwake(!session.keepAwake)
         case .toggleSidebar: toggleSidebar(width: width)
         case .toggleAppearance: appearanceVisible.toggle()
         case .toggleInspector: toggleInspector(width: width)
@@ -257,12 +375,25 @@ struct WorkspaceView: View {
         }
         ToolbarItemGroup {
             if let engine = session.engine {
+                Button("Library", systemImage: "books.vertical") { perform(.closeBook, width: width) }
+                    .accessibilityIdentifier("reader.close").disabled(session.busy)
                 Button("Previous page", systemImage: "chevron.left") { session.navigate(page: session.pageNumber - 1) }
                     .disabled(session.pageNumber <= 1).accessibilityIdentifier("page.previous")
                 Text("\(session.pageNumber)/\(engine.document.pageCount)").monospacedDigit()
                     .accessibilityIdentifier("page.current")
                 Button("Next page", systemImage: "chevron.right") { session.navigate(page: session.pageNumber + 1) }
                     .disabled(session.pageNumber >= engine.document.pageCount).accessibilityIdentifier("page.next")
+            }
+            if document != nil && width >= 1100 {
+                Button("Find in book", systemImage: "magnifyingglass") { perform(.search, width: width) }
+                    .disabled(session.engine?.capabilities.contains(.search) != true).accessibilityIdentifier("reader.find")
+                Button("Bookmark page", systemImage: session.pageIsBookmarked ? "bookmark.fill" : "bookmark") { perform(.toggleBookmark, width: width) }
+                    .accessibilityValue(Text(LocalizedStringKey(session.pageIsBookmarked ? "Bookmarked" : "Not bookmarked")))
+                    .accessibilityIdentifier("reader.bookmark")
+                Button("Focus", systemImage: session.focusMode ? "viewfinder.circle.fill" : "viewfinder") { perform(.toggleFocus, width: width) }
+                    .accessibilityValue(Text(LocalizedStringKey(session.focusMode ? "On" : "Off"))).accessibilityIdentifier("reader.focus")
+                Toggle("Keep Awake", systemImage: "sun.max", isOn: Binding(get: { session.keepAwake }, set: { session.setKeepAwake($0) }))
+                    .toggleStyle(.button).labelStyle(.iconOnly).accessibilityIdentifier("reader.awake")
             }
             Button("Open PDF", systemImage: "doc.badge.plus") { perform(.openDocument, width: width) }.disabled(session.busy)
             Button("Appearance", systemImage: "paintpalette") { perform(.toggleAppearance, width: width) }
@@ -298,6 +429,18 @@ struct WorkspaceView: View {
             .onKeyPress(.space) { perform(.toggleInspector, width: width); return .handled }
             .accessibilityIdentifier("inspector.toggle")
             Menu {
+                Button("Import linked PDF") { perform(.importReference, width: width) }
+                Button("Appearance") { perform(.toggleAppearance, width: width) }
+                Button("Sidebar") { perform(.toggleSidebar, width: width) }
+                Button("Document inspector") { perform(.toggleInspector, width: width) }
+                if document != nil {
+                    Button("Find in book") { perform(.search, width: width) }.disabled(session.engine?.capabilities.contains(.search) != true)
+                    Button("Bookmark page") { perform(.toggleBookmark, width: width) }
+                    Button("Focus") { perform(.toggleFocus, width: width) }
+                    Button("Keep Awake") { perform(.toggleAwake, width: width) }
+                    Button("Close book") { perform(.closeBook, width: width) }
+                }
+                Divider()
                 Button("Adaptive components") { catalogVisible = true }
             } label: { Label("More", systemImage: "ellipsis.circle") }
             .accessibilityLabel(Text("More actions"))
