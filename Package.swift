@@ -11,6 +11,7 @@ let package = Package(
     ],
     targets: [
         .target(name: "ReaderCore"),
+        .executableTarget(name: "ColorResearch", dependencies: ["ReaderCore"]),
         .executableTarget(name: "AdaptiveReaderPreview", dependencies: ["ReaderCore"], path: "Sources/AdaptiveReader", resources: [.process("Resources")]),
         .testTarget(name: "ReaderCoreTests", dependencies: ["ReaderCore"])
     ]

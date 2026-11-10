@@ -1,0 +1,149 @@
+import Testing
+import Foundation
+import AppKit
+import PDFKit
+@testable import ReaderCore
+
+private var fixtures: URL {
+    URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent().appendingPathComponent("Research/Fixtures")
+}
+
+@MainActor
+private func window(for engine: PDFReaderEngine) -> NSWindow {
+    let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 800, height: 650),
+                          styleMask: [.titled], backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    window.contentView = engine.view
+    engine.view.layoutSubtreeIfNeeded()
+    engine.view.layoutDocumentView()
+    return window
+}
+
+@Test @MainActor
+func commandNavigationSurvivesReopenAndPalette() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let data = try Data(contentsOf: fixtures.appendingPathComponent("text.pdf"))
+    let engine = try PDFReaderEngine(data: data, bookID: UUID())
+    let host = window(for: engine)
+    defer { host.close() }
+    #expect(engine.document.page(at: 0) is AdaptivePDFPage)
+    #expect(engine.capabilities.contains(.search))
+    let commands = ReaderCommands(engine: engine)
+    let target = SourceAnchor(bookID: engine.bookID, sourceRevision: engine.sourceRevision,
+                              position: .pdf(.init(pageIndex: 1, x: 0, y: 650)))
+    try commands.perform(.navigate(target))
+    let before = try engine.currentAnchor()
+    try commands.perform(.setPalette(.midnight))
+    let after = try engine.currentAnchor()
+    #expect(before == after)
+    if case .pdf(let point) = before.position { #expect(point.pageIndex == 1) }
+    #expect(engine.palette == .midnight)
+    #expect(!engine.document.findString("stable anchor", withOptions: .caseInsensitive).isEmpty)
+    #expect(engine.document.page(at: 0)?.annotations.contains { $0.url != nil } == true)
+    let store = LibraryStore(root: root)
+    let record = try await store.importBook(data: data, id: engine.bookID, title: "Test", revision: engine.sourceRevision)
+    try await store.save(ReadingState(anchor: after, palette: commands.palette, scale: engine.view.scaleFactor), for: record)
+    let (restoredRecord, restoredData, state) = try #require(try await LibraryStore(root: root).lastBook())
+    #expect(restoredData == data)
+    let reopened = try PDFReaderEngine(data: restoredData, bookID: restoredRecord.id)
+    let reopenedHost = window(for: reopened)
+    defer { reopenedHost.close() }
+    reopened.view.autoScales = false
+    reopened.view.scaleFactor = try #require(state?.scale)
+    try reopened.applyPagePalette(try #require(state?.palette))
+    try reopened.navigate(to: try #require(state?.anchor))
+    let position = try reopened.currentAnchor()
+    guard case .pdf(let expected) = after.position, case .pdf(let actual) = position.position else {
+        Issue.record("Expected PDF anchors"); return
+    }
+    #expect(actual.pageIndex == expected.pageIndex)
+    #expect(abs(actual.y - expected.y) < 2)
+    try commands.undoPalette()
+    #expect(engine.palette == .original)
+    #expect(try Data(contentsOf: root.appendingPathComponent("Assets/\(record.assetName)")) == data)
+}
+
+@Test @MainActor
+func invalidCommandsAndProtectedDocumentsPreserveState() throws {
+    let data = try Data(contentsOf: fixtures.appendingPathComponent("text.pdf"))
+    let engine = try PDFReaderEngine(data: data, bookID: UUID())
+    let host = window(for: engine)
+    defer { host.close() }
+    let commands = ReaderCommands(engine: engine)
+    let wrongFormat = SourceAnchor(bookID: engine.bookID, sourceRevision: engine.sourceRevision,
+                                   position: .epub(resource: "chapter.xhtml", locator: "cfi"))
+    #expect(throws: ReaderError.unsupportedCommand) { try commands.perform(.navigate(wrongFormat)) }
+    let invalid = SourceAnchor(bookID: engine.bookID, sourceRevision: engine.sourceRevision,
+                               position: .pdf(.init(pageIndex: 999, x: 0, y: 100)))
+    #expect(throws: ReaderError.invalidAnchor) { try commands.perform(.navigate(invalid)) }
+    let protected = try Data(contentsOf: fixtures.appendingPathComponent("protected.pdf"))
+    #expect(throws: ReaderError.lockedDocument) { _ = try PDFReaderEngine(data: protected, bookID: UUID()) }
+    let scan = try PDFReaderEngine(data: Data(contentsOf: fixtures.appendingPathComponent("scan.pdf")), bookID: UUID())
+    #expect(!scan.capabilities.contains(.textSelection))
+}
+
+@Test
+func conservativeColorPolicyAndChromaticPreservation() throws {
+    let renderer = PDFColorRenderer()
+    for name in ["scan.pdf", "photo-caption.pdf", "dark.pdf", "nasa-apollo-earth.pdf", "usgs-earth-as-home.pdf"] {
+        let document = try #require(CGPDFDocument(fixtures.appendingPathComponent(name) as CFURL))
+        let page = try #require(document.page(at: 1))
+        #expect(renderer.support(for: page) != .available)
+    }
+    let document = try #require(CGPDFDocument(fixtures.appendingPathComponent("chart.pdf") as CFURL))
+    let page = try #require(document.page(at: 1))
+    #expect(renderer.support(for: page) == .available)
+    let original = try #require(renderer.original(page: page))
+    let selected = try #require(renderer.render(page: page, palette: .midnight))
+    #expect(original.width == selected.width)
+    #expect(original.dataProvider?.data != selected.dataProvider?.data)
+    func pixels(_ image: CGImage) -> Data {
+        let context = CGContext(data: nil, width: image.width, height: image.height, bitsPerComponent: 8,
+            bytesPerRow: image.width * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        return Data(bytes: context.data!, count: image.width * image.height * 4)
+    }
+    let raw = pixels(original), adapted = pixels(selected)
+    for target in [[UInt8](arrayLiteral: 255, 0, 0), [0, 255, 0], [0, 0, 255]] {
+        let offset = try #require(stride(from: 0, to: raw.count, by: 4).first { i in
+            Array(raw[i..<i+3]) == target
+        })
+        for channel in 0..<3 { #expect(abs(Int(raw[offset+channel]) - Int(adapted[offset+channel])) <= 1) }
+    }
+}
+
+@Test
+func changedAndMissingAssetsAreReported() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let data = try Data(contentsOf: fixtures.appendingPathComponent("text.pdf"))
+    let store = LibraryStore(root: root)
+    let record = try await store.importBook(data: data, id: UUID(), title: "Test", revision: PDFReaderEngine.revision(data))
+    let asset = root.appendingPathComponent("Assets/\(record.assetName)")
+    try Data("changed".utf8).write(to: asset)
+    await #expect(throws: ReaderError.sourceChanged) { try await store.lastBook() }
+    try FileManager.default.removeItem(at: asset)
+    await #expect(throws: ReaderError.unavailableSource) { try await store.lastBook() }
+}
+
+@MainActor private final class LimitedEngine: ReaderEngine {
+    let bookID = UUID()
+    let sourceRevision = "v1"
+    var capabilities: Set<ReaderCapability> { [] }
+    func currentAnchor() throws -> SourceAnchor { throw ReaderError.unsupportedCommand }
+    func navigate(to anchor: SourceAnchor) throws { Issue.record("Dispatcher must reject unsupported navigation") }
+}
+
+@Test @MainActor func unsupportedCommandsDoNotCommitHistory() throws {
+    let engine = LimitedEngine(), commands = ReaderCommands(engine: LimitedEngine())
+    #expect(throws: ReaderError.unsupportedCommand) { try commands.perform(.setPalette(.forest)) }
+    #expect(throws: ReaderError.unsupportedCommand) { try commands.perform(.setScale(2)) }
+    #expect(throws: ReaderError.unsupportedCommand) {
+        try commands.perform(.navigate(SourceAnchor(bookID: engine.bookID, sourceRevision: "v1", position: .epub(resource: "chapter", locator: "cfi"))))
+    }
+    #expect(commands.palette == .original)
+    #expect(!commands.canUndoPalette)
+}

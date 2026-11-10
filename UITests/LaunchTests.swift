@@ -63,6 +63,76 @@ final class LaunchTests: XCTestCase {
     }
 
     @MainActor
+    func testReaderSessionRestoresAfterQuit() {
+        let id = UUID().uuidString
+        func open(importBook: Bool) -> XCUIApplication {
+            let app = XCUIApplication()
+            app.launchArguments = ["-phase0Store", id, "-designWidth", "1440", "-AppleLanguages", "(en)", "-AppleLocale", "en"]
+            if importBook { app.launchArguments += ["-phase0Import", "YES"] }
+            app.launch()
+            app.activate()
+            if !app.windows.firstMatch.waitForExistence(timeout: 2) {
+                let file = app.menuBars.menuBarItems.element(boundBy: 2)
+                file.click(); file.menuItems.firstMatch.click()
+            }
+            XCTAssertTrue(app.windows["Phase 0 reader"].waitForExistence(timeout: 10))
+            return app
+        }
+        let app = open(importBook: true)
+        app.buttons["page.next"].firstMatch.click()
+        XCTAssertTrue(app.staticTexts["2/3"].waitForExistence(timeout: 5))
+        app.menuBars.menuBarItems["View"].click()
+        app.menuItems["Zoom in"].firstMatch.click()
+        app.buttons["inspector.toggle"].firstMatch.buttons["inspector.toggle"].firstMatch.click()
+        let scale = app.staticTexts["reader.scale"].firstMatch.label
+        app.buttons["appearance.toggle"].firstMatch.buttons["appearance.toggle"].firstMatch.click()
+        app.popUpButtons["page.palette"].firstMatch.click()
+        app.menuItems["Midnight"].firstMatch.click()
+        app.typeKey(.escape, modifierFlags: [])
+        if app.popUpButtons["page.palette"].firstMatch.exists { app.typeKey(.escape, modifierFlags: []) }
+        XCTAssertFalse(app.popUpButtons["page.palette"].firstMatch.exists)
+        let reference = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        reference.name = "Reader-Midnight-integrated"
+        reference.lifetime = .keepAlways
+        add(reference)
+        let frame = app.windows.firstMatch.frame
+        app.menuBars.menuBarItems.element(boundBy: 1).click()
+        app.menuItems["Quit AdaptiveReader"].firstMatch.click()
+        XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
+        let restored = open(importBook: false)
+        XCTAssertTrue(restored.staticTexts["2/3"].waitForExistence(timeout: 5))
+        XCTAssertTrue(restored.staticTexts["reader.scale"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(restored.staticTexts["reader.scale"].firstMatch.label, scale)
+        XCTAssertEqual(restored.windows.firstMatch.frame.width, frame.width, accuracy: 2)
+        XCTAssertEqual(restored.windows.firstMatch.frame.height, frame.height, accuracy: 2)
+        restored.buttons["appearance.toggle"].firstMatch.buttons["appearance.toggle"].firstMatch.click()
+        XCTAssertTrue(restored.popUpButtons["page.palette"].firstMatch.value as? String == "Midnight")
+        restored.terminate()
+    }
+
+    @MainActor
+    func testPhase0ReleaseMeasurements() throws {
+        guard ProcessInfo.processInfo.environment["ADAPTIVE_BENCHMARK"] == "1" else {
+            throw XCTSkip("Run the opt-in Release benchmark on the control Mac")
+        }
+        var rows = [[String: Double]]()
+        for _ in 0..<5 {
+            let start = ProcessInfo.processInfo.systemUptime
+            let app = launch(reader: true)
+            let ready = ProcessInfo.processInfo.systemUptime
+            app.buttons["inspector.toggle"].firstMatch.buttons["inspector.toggle"].firstMatch.click()
+            XCTAssertTrue(app.descendants(matching: .any)["document.inspector"].firstMatch.waitForExistence(timeout: 5))
+            let panel = ProcessInfo.processInfo.systemUptime
+            rows.append(["processLaunchToReadyMS": (ready-start)*1000, "panelInteractionMS": (panel-ready)*1000])
+            app.terminate()
+        }
+        let attachment = XCTAttachment(data: try JSONSerialization.data(withJSONObject: rows, options: [.prettyPrinted, .sortedKeys]), uniformTypeIdentifier: "public.json")
+        attachment.name = "Phase0-Release-UI-measurements"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    @MainActor
     func testComponentCatalog() {
         for language in ["en", "ru"] {
             for theme in ["light", "dark"] {

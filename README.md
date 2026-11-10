@@ -1,6 +1,6 @@
 # Adaptive Reader
 
-Native macOS reading workspace, currently in Phase 0 development. Requires macOS 15 or later. SwiftUI and AppKit provide the shell, PDFKit displays documents. MIT licensed.
+Native macOS reading workspace, Phase 0 foundation. Requires macOS 15 or later. SwiftUI and AppKit provide the shell, PDFKit displays documents. MIT licensed.
 
 ## Build
 
@@ -16,11 +16,11 @@ xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination
 
 ## Current behavior
 
-Open a PDF from the toolbar or empty state. The application owns an in-memory copy while reading. The appearance popover changes the shell between System, Light and Dark. The More menu opens the component catalogue. Sidebar and inspector visibility preferences persist. Compact windows expose those panels as a popover and sheet. The app bundle includes English and Russian translations.
+Open a PDF from the toolbar or empty state. The application stores a managed local copy and verifies its SHA-256 on reopen. It restores the last document, page position, zoom and palette after Quit. The appearance popover changes the shell between System, Light and Dark. The More menu opens the component catalogue. Sidebar and inspector visibility preferences persist. Compact windows expose those panels as a popover and sheet. The app bundle includes English and Russian translations.
 
 The [Adaptive design system](docs/adaptive-design-system.md) documents tokens, controls and shortcuts. [Reference screenshots](docs/screenshots) cover both languages, appearances and window sizes.
 
-The foundation includes versioned PDF/EPUB source anchors, validated navigation commands, reversible palette commands and atomic position records. The running PDF view currently uses Original rendering. Integration of the engine contracts, full library persistence, page palettes, EPUB and AI are upcoming work.
+The foundation includes versioned PDF/EPUB source anchors, validated navigation commands, reversible palette commands and atomic position records. PDFKit retains native selection, search and links. Page palettes use the bounded selective Color Engine for eligible text/vector pages; complex pages preserve Original and display a fallback explanation. [Color Engine evidence and reproduction](Research/README.md) include nine PDFs, paired images and five-run Release measurements. [Reader contracts](docs/reader-architecture.md) describe the boundaries for EPUB and AI. Full library browsing, EPUB and AI belong to later releases.
 
 Books stay on the device. This build has no AI provider or network feature.
 

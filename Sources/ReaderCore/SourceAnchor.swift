@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 /// Coordinates use the PDF page's unrotated crop-box coordinate system.
 public struct PDFPosition: Codable, Equatable, Sendable {
@@ -53,7 +54,7 @@ public enum ReaderError: Error, Equatable {
 }
 
 public enum ReaderCapability: String, Codable, Sendable {
-    case textSelection, search, pageNavigation, reflow
+    case textSelection, search, pageNavigation, reflow, pagePalette, zoom
 }
 
 @MainActor
@@ -61,8 +62,17 @@ public protocol ReaderEngine: AnyObject {
     var bookID: UUID { get }
     var sourceRevision: String { get }
     var capabilities: Set<ReaderCapability> { get }
+    var palette: PagePalette { get }
     func currentAnchor() throws -> SourceAnchor
     func navigate(to anchor: SourceAnchor) throws
+    func setScale(_ scale: Double) throws
+    func applyPagePalette(_ palette: PagePalette) throws
+}
+
+public extension ReaderEngine {
+    var palette: PagePalette { .original }
+    func setScale(_ scale: Double) throws { throw ReaderError.unsupportedCommand }
+    func applyPagePalette(_ palette: PagePalette) throws { throw ReaderError.unsupportedCommand }
 }
 
 public enum PagePalette: String, Codable, CaseIterable, Sendable {
@@ -72,28 +82,54 @@ public enum PagePalette: String, Codable, CaseIterable, Sendable {
 public enum ApplicationCommand: Sendable {
     case navigate(SourceAnchor)
     case setPalette(PagePalette)
+    case setScale(Double)
 }
 
 @MainActor
+@Observable
 public final class ReaderCommands {
     public let engine: any ReaderEngine
     public private(set) var palette: PagePalette = .original
     private var paletteHistory: [PagePalette] = []
 
-    public init(engine: any ReaderEngine) { self.engine = engine }
+    public init(engine: any ReaderEngine) { self.engine = engine; palette = engine.palette }
 
     public func perform(_ command: ApplicationCommand) throws {
         switch command {
         case .navigate(let anchor):
+            guard engine.capabilities.contains(.pageNavigation) || engine.capabilities.contains(.reflow) else { throw ReaderError.unsupportedCommand }
             try anchor.validate(bookID: engine.bookID, revision: engine.sourceRevision)
             try engine.navigate(to: anchor)
+        case .setScale(let scale):
+            guard engine.capabilities.contains(.zoom) else { throw ReaderError.unsupportedCommand }
+            try engine.setScale(scale)
         case .setPalette(let palette):
+            guard engine.capabilities.contains(.pagePalette) else { throw ReaderError.unsupportedCommand }
+            try engine.applyPagePalette(palette)
             paletteHistory.append(self.palette)
             self.palette = palette
         }
     }
 
-    public func undoPalette() {
-        if let previous = paletteHistory.popLast() { palette = previous }
+    public var canUndoPalette: Bool { !paletteHistory.isEmpty }
+
+    public func undoPalette() throws {
+        guard let previous = paletteHistory.last else { return }
+        try engine.applyPagePalette(previous)
+        palette = previous
+        paletteHistory.removeLast()
+    }
+}
+
+extension ReaderError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .unavailableSource: "The document is unavailable or could not be opened."
+        case .sourceChanged: "The source changed. Import the document again to create a new revision."
+        case .invalidAnchor: "This reading position is unavailable."
+        case .unsupportedAnchorVersion: "This record was created by an unsupported version."
+        case .unsupportedCommand: "This document does not support that action."
+        case .lockedDocument: "Unlock this PDF before importing it."
+        }
     }
 }

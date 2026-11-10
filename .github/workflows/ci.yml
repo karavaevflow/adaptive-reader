@@ -13,6 +13,8 @@ jobs:
         run: swift test
       - name: Build application
         run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination 'platform=macOS' build
+      - name: Universal Release
+        run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -configuration Release -destination 'generic/platform=macOS' ONLY_ACTIVE_ARCH=NO 'ARCHS=arm64 x86_64' build
       - name: Configure visual test desktop
         run: swift scripts/configure-ci-display.swift
       - name: UI tests

@@ -2,11 +2,12 @@ import SwiftUI
 
 @main
 struct AdaptiveReaderApp: App {
+    @NSApplicationDelegateAdaptor(ReaderAppDelegate.self) private var delegate
     @AppStorage("shellAppearance") private var appearance = ShellAppearance.system
     private let preferences: UserDefaults
 
     init() {
-        #if DEBUG
+        #if DEBUG || FOUNDATION_BENCHMARK
         if ProcessInfo.processInfo.arguments.contains("-designReview") {
             let suite = "com.karavaevflow.AdaptiveReader.designReview"
             let store = UserDefaults(suiteName: suite)!
@@ -15,6 +16,11 @@ struct AdaptiveReaderApp: App {
             store.set(true, forKey: "sidebarVisible")
             store.set(false, forKey: "inspectorVisible")
             preferences = store
+        } else if let index = ProcessInfo.processInfo.arguments.firstIndex(of: "-phase0Store"),
+                  index + 1 < ProcessInfo.processInfo.arguments.count,
+                  let id = UUID(uuidString: ProcessInfo.processInfo.arguments[index + 1]) {
+            preferences = UserDefaults(suiteName: "com.karavaevflow.AdaptiveReader.phase0.\(id.uuidString)")!
+            preferences.register(defaults: ["shellAppearance": "light", "sidebarVisible": true, "inspectorVisible": false])
         } else { preferences = .standard }
         #else
         preferences = .standard
@@ -23,8 +29,8 @@ struct AdaptiveReaderApp: App {
     }
 
     private var reviewMode: Bool {
-        #if DEBUG
-        ProcessInfo.processInfo.arguments.contains("-designReview")
+        #if DEBUG || FOUNDATION_BENCHMARK
+        ProcessInfo.processInfo.arguments.contains("-designReview") || ProcessInfo.processInfo.arguments.contains("-phase0Store")
         #else
         false
         #endif
@@ -41,7 +47,6 @@ struct AdaptiveReaderApp: App {
                 .preferredColorScheme(appearance.colorScheme)
                 .defaultAppStorage(preferences)
                 .frame(minWidth: 800, minHeight: 560)
-                .background(WindowIntegration())
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel(Text("Reading workspace"))
 
@@ -73,6 +78,8 @@ struct WorkspaceActions {
     var toggleSidebar: () -> Void
     var toggleAppearance: () -> Void
     var toggleInspector: () -> Void
+    var zoomIn: () -> Void
+    var zoomOut: () -> Void
 }
 
 private struct WorkspaceActionsKey: FocusedValueKey {
@@ -95,6 +102,8 @@ struct WorkspaceCommands: Commands {
                 .disabled(actions == nil)
         }
         CommandGroup(after: .sidebar) {
+            Button("Zoom in") { actions?.zoomIn() }.keyboardShortcut("+", modifiers: .command).disabled(actions == nil)
+            Button("Zoom out") { actions?.zoomOut() }.keyboardShortcut("-", modifiers: .command).disabled(actions == nil)
             Button("Sidebar") { actions?.toggleSidebar() }
                 .keyboardShortcut("s", modifiers: [.command, .shift])
                 .disabled(actions == nil)
@@ -110,13 +119,23 @@ struct WorkspaceCommands: Commands {
 
 /// Sizes DEBUG visual-review windows after attachment to the native window.
 struct WindowIntegration: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView { FrameView() }
+    let autosaveName: String
+    func makeNSView(context: Context) -> NSView {
+        let view = FrameView()
+        view.autosaveName = autosaveName
+        return view
+    }
     func updateNSView(_ nsView: NSView, context: Context) {}
     private final class FrameView: NSView {
+        var autosaveName = ""
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             setAccessibilityElement(false)
-            #if DEBUG
+            if let window, !autosaveName.isEmpty {
+                window.setFrameUsingName(autosaveName)
+                window.setFrameAutosaveName(autosaveName)
+            }
+            #if DEBUG || FOUNDATION_BENCHMARK
             let arguments = ProcessInfo.processInfo.arguments
             guard arguments.contains("-designReview"),
                   let index = arguments.firstIndex(of: "-designWidth"), index + 1 < arguments.count,

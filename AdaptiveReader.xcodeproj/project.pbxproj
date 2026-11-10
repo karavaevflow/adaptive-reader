@@ -1,5 +1,7 @@
 // !$*UTF8*$!
 { archiveVersion = 1; classes = {}; objectVersion = 56; objects = {
+000000000000000000000400 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/AdaptiveReader/ReaderSession.swift"; sourceTree = SOURCE_ROOT; };
+000000000000000000000401 = { isa = PBXBuildFile; fileRef = 000000000000000000000400; };
 000000000000000000000300 = { isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = "Sources/AdaptiveReader/Resources/Localizable.xcstrings"; sourceTree = SOURCE_ROOT; };
 000000000000000000000301 = { isa = PBXBuildFile; fileRef = 000000000000000000000300; };
 000000000000000000000302 = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (000000000000000000000301); runOnlyForDeploymentPostprocessing = 0; };
@@ -12,13 +14,13 @@
 000000000000000000000067 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UITests/LaunchTests.swift"; sourceTree = SOURCE_ROOT; };
 0000000000000000000000CB = { isa = PBXBuildFile; fileRef = 000000000000000000000067; };
 000000000000000000000001 = { isa = PBXProject; attributes = { LastUpgradeCheck = 1630; TargetAttributes = { 000000000000000000000004 = { TestTargetID = 000000000000000000000003; }; }; }; buildConfigurationList = 000000000000000000000014; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; knownRegions = (en, ru, Base); mainGroup = 000000000000000000000002; productRefGroup = 000000000000000000000005; projectDirPath = ""; targets = (000000000000000000000003,000000000000000000000004); packageReferences = (00000000000000000000001E); };
-000000000000000000000002 = { isa = PBXGroup; children = (000000000000000000000300,000000000000000000000064,000000000000000000000065,000000000000000000000066,000000000000000000000067,000000000000000000000005); sourceTree = "<group>"; };
+000000000000000000000002 = { isa = PBXGroup; children = (000000000000000000000400,000000000000000000000300,000000000000000000000064,000000000000000000000065,000000000000000000000066,000000000000000000000067,000000000000000000000005); sourceTree = "<group>"; };
 000000000000000000000005 = { isa = PBXGroup; name = Products; children = (000000000000000000000006,000000000000000000000007); sourceTree = "<group>"; };
 000000000000000000000006 = { isa = PBXFileReference; explicitFileType = wrapper.application; path = AdaptiveReader.app; sourceTree = BUILT_PRODUCTS_DIR; };
 000000000000000000000007 = { isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = AdaptiveReaderUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 000000000000000000000003 = { isa = PBXNativeTarget; buildConfigurationList = 000000000000000000000015; buildPhases = (00000000000000000000000A,00000000000000000000000C,000000000000000000000302); buildRules = (); dependencies = (); name = AdaptiveReader; packageProductDependencies = (00000000000000000000001F); productName = AdaptiveReader; productReference = 000000000000000000000006; productType = "com.apple.product-type.application"; };
 000000000000000000000004 = { isa = PBXNativeTarget; buildConfigurationList = 000000000000000000000016; buildPhases = (00000000000000000000000B); buildRules = (); dependencies = (000000000000000000000021); name = AdaptiveReaderUITests; productName = AdaptiveReaderUITests; productReference = 000000000000000000000007; productType = "com.apple.product-type.bundle.ui-testing"; };
-00000000000000000000000A = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (0000000000000000000000C8,0000000000000000000000C9,0000000000000000000000CA); runOnlyForDeploymentPostprocessing = 0; };
+00000000000000000000000A = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (000000000000000000000401,0000000000000000000000C8,0000000000000000000000C9,0000000000000000000000CA); runOnlyForDeploymentPostprocessing = 0; };
 00000000000000000000000B = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (0000000000000000000000CB); runOnlyForDeploymentPostprocessing = 0; };
 00000000000000000000000C = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (000000000000000000000020); runOnlyForDeploymentPostprocessing = 0; };
 00000000000000000000001E = { isa = XCLocalSwiftPackageReference; relativePath = .; };
