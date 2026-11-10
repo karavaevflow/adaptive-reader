@@ -73,13 +73,13 @@ struct AdaptiveReaderApp: App {
     }
 }
 
+/// One application entry point, shared by native menus, toolbar and future adapters.
+enum WorkspaceCommand {
+    case openDocument, toggleSidebar, toggleAppearance, toggleInspector, zoomIn, zoomOut
+}
+
 struct WorkspaceActions {
-    var openDocument: () -> Void
-    var toggleSidebar: () -> Void
-    var toggleAppearance: () -> Void
-    var toggleInspector: () -> Void
-    var zoomIn: () -> Void
-    var zoomOut: () -> Void
+    var perform: (WorkspaceCommand) -> Void
 }
 
 private struct WorkspaceActionsKey: FocusedValueKey {
@@ -97,20 +97,20 @@ struct WorkspaceCommands: Commands {
     @FocusedValue(\.workspaceActions) private var actions
     var body: some Commands {
         CommandGroup(after: .newItem) {
-            Button("Open PDF") { actions?.openDocument() }
+            Button("Open PDF") { actions?.perform(.openDocument) }
                 .keyboardShortcut("o")
                 .disabled(actions == nil)
         }
         CommandGroup(after: .sidebar) {
-            Button("Zoom in") { actions?.zoomIn() }.keyboardShortcut("+", modifiers: .command).disabled(actions == nil)
-            Button("Zoom out") { actions?.zoomOut() }.keyboardShortcut("-", modifiers: .command).disabled(actions == nil)
-            Button("Sidebar") { actions?.toggleSidebar() }
+            Button("Zoom in") { actions?.perform(.zoomIn) }.keyboardShortcut("+", modifiers: .command).disabled(actions == nil)
+            Button("Zoom out") { actions?.perform(.zoomOut) }.keyboardShortcut("-", modifiers: .command).disabled(actions == nil)
+            Button("Sidebar") { actions?.perform(.toggleSidebar) }
                 .keyboardShortcut("s", modifiers: [.command, .shift])
                 .disabled(actions == nil)
-            Button("Appearance") { actions?.toggleAppearance() }
+            Button("Appearance") { actions?.perform(.toggleAppearance) }
                 .keyboardShortcut("a", modifiers: [.command, .shift])
                 .disabled(actions == nil)
-            Button("Document inspector") { actions?.toggleInspector() }
+            Button("Document inspector") { actions?.perform(.toggleInspector) }
                 .keyboardShortcut("i", modifiers: [.command, .shift])
                 .disabled(actions == nil)
         }
@@ -118,19 +118,63 @@ struct WorkspaceCommands: Commands {
 }
 
 /// Sizes DEBUG visual-review windows after attachment to the native window.
+struct NativeFocusRequest: Equatable {
+    let identifier: String
+    let token = UUID()
+}
+
 struct WindowIntegration: NSViewRepresentable {
     let autosaveName: String
+    var focusRequest: NativeFocusRequest?
     func makeNSView(context: Context) -> NSView {
         let view = FrameView()
         view.autosaveName = autosaveName
         return view
     }
-    func updateNSView(_ nsView: NSView, context: Context) {}
+    func updateNSView(_ nsView: NSView, context: Context) {
+        guard let view = nsView as? FrameView, let focusRequest else { return }
+        view.requestFocus(focusRequest)
+    }
     private final class FrameView: NSView {
         var autosaveName = ""
+        private var lastRequest: UUID?
+        private var pendingFocus: NativeFocusRequest?
+        private var keyObserver: NSObjectProtocol?
+        func requestFocus(_ request: NativeFocusRequest) {
+            guard request.token != lastRequest else { return }
+            lastRequest = request.token
+            pendingFocus = request
+            DispatchQueue.main.async { [weak self] in self?.applyPendingFocus() }
+        }
+
+        private func applyPendingFocus() {
+            guard let window, window.isKeyWindow, let request = pendingFocus else { return }
+            func target(in node: any NSAccessibilityProtocol, depth: Int = 0) -> (any NSAccessibilityProtocol)? {
+                guard depth < 20 else { return nil }
+                for child in node.accessibilityChildren() ?? [] {
+                    if let element = child as? any NSAccessibilityProtocol,
+                       let found = target(in: element, depth: depth + 1) { return found }
+                }
+                return node.accessibilityIdentifier() == request.identifier ? node : nil
+            }
+            guard let element = target(in: window) else { return }
+            if let view = element as? NSView { window.makeFirstResponder(view) }
+            element.setAccessibilityFocused(true)
+            NSAccessibility.post(element: element, notification: .focusedUIElementChanged)
+            pendingFocus = nil
+        }
+
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             setAccessibilityElement(false)
+            if let keyObserver { NotificationCenter.default.removeObserver(keyObserver) }
+            keyObserver = nil
+            if let window {
+                keyObserver = NotificationCenter.default.addObserver(forName: NSWindow.didBecomeKeyNotification,
+                    object: window, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.applyPendingFocus() }
+                }
+            }
             if let window, !autosaveName.isEmpty {
                 window.setFrameUsingName(autosaveName)
                 window.setFrameAutosaveName(autosaveName)

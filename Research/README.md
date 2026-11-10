@@ -55,3 +55,15 @@ swift scripts/control-mac.swift
 The scroll runner opens an actual 800×650 pt PDFView window and traverses all pages in 120 requested 60 Hz steps, five independent processes per PDF and policy. Results/scroll.json retains every CPU display duration and actual main-runloop interval, open latency and peak RSS. CPU frame duration includes clip movement and displayIfNeeded; it is not a GPU/compositor frame-time claim. Timer intervals expose delayed main-thread delivery. Compare the same metric on the same control Mac; do not compare a CI VM against this baseline.
 
 A median time or peak-memory increase above 20% on the fixed corpus triggers regression investigation before release. Original fallback costs remain visible in the same results. The research harness is separate from application behavior; global inversion never ships in the app.
+
+For the five-run optimized application launch/panel measurement:
+
+```sh
+sh scripts/benchmark-ui.sh /private/tmp/adaptive-foundation-benchmark.xcresult
+```
+
+Export `Phase0-Release-UI-measurements` with xcresulttool. The stopwatch includes XCTest launch/activation/window readiness and native click plus AX readiness. These are end-to-end automation latencies (an upper bound on visible UI readiness), including driver overhead; they are not the panel's 220 ms animation duration. Keep this driver and protocol fixed for future comparisons. The benchmark build uses `-O` and explicitly enables fixture flags with FOUNDATION_BENCHMARK. Ordinary Release builds do not accept those flags.
+
+The final UI baseline is Results/ui.json (five runs). Median process launch to ready: 5309.53 ms; median panel interaction to AX-ready: 1607.24 ms. These include automation overhead as described above.
+
+[PDFView summary](Results/scroll-summary.md) contains the medians and p95 CPU frame durations for both policies. The scroll runner starts a fresh five-run dataset by default; `--resume` explicitly resumes an interrupted dataset. Choose a new xcresult output path for each UI benchmark run.

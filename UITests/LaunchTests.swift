@@ -1,4 +1,5 @@
 import XCTest
+import AppKit
 
 final class LaunchTests: XCTestCase {
     override func setUp() {
@@ -24,6 +25,12 @@ final class LaunchTests: XCTestCase {
     }
 
     @MainActor
+    private func toolbarButton(_ app: XCUIApplication, _ id: String) -> XCUIElement {
+        let matches = app.buttons.matching(identifier: id)
+        return matches.element(boundBy: max(0, matches.count - 1))
+    }
+
+    @MainActor
     private func capture(_ app: XCUIApplication, name: String) {
         let attachment = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
         attachment.name = name
@@ -34,7 +41,7 @@ final class LaunchTests: XCTestCase {
     @MainActor
     func testWindowAndAppearancePopover() {
         let app = launch()
-        let appearance = app.buttons["appearance.toggle"].firstMatch.buttons["appearance.toggle"].firstMatch
+        let appearance = toolbarButton(app, "appearance.toggle")
         XCTAssertTrue(appearance.waitForExistence(timeout: 5))
         appearance.click()
         XCTAssertTrue(app.radioButtons["System"].waitForExistence(timeout: 5))
@@ -83,9 +90,9 @@ final class LaunchTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["2/3"].waitForExistence(timeout: 5))
         app.menuBars.menuBarItems["View"].click()
         app.menuItems["Zoom in"].firstMatch.click()
-        app.buttons["inspector.toggle"].firstMatch.buttons["inspector.toggle"].firstMatch.click()
+        toolbarButton(app, "inspector.toggle").click()
         let scale = app.staticTexts["reader.scale"].firstMatch.label
-        app.buttons["appearance.toggle"].firstMatch.buttons["appearance.toggle"].firstMatch.click()
+        toolbarButton(app, "appearance.toggle").click()
         app.popUpButtons["page.palette"].firstMatch.click()
         app.menuItems["Midnight"].firstMatch.click()
         app.typeKey(.escape, modifierFlags: [])
@@ -105,22 +112,22 @@ final class LaunchTests: XCTestCase {
         XCTAssertEqual(restored.staticTexts["reader.scale"].firstMatch.label, scale)
         XCTAssertEqual(restored.windows.firstMatch.frame.width, frame.width, accuracy: 2)
         XCTAssertEqual(restored.windows.firstMatch.frame.height, frame.height, accuracy: 2)
-        restored.buttons["appearance.toggle"].firstMatch.buttons["appearance.toggle"].firstMatch.click()
+        toolbarButton(restored, "appearance.toggle").click()
         XCTAssertTrue(restored.popUpButtons["page.palette"].firstMatch.value as? String == "Midnight")
         restored.terminate()
     }
 
     @MainActor
     func testPhase0ReleaseMeasurements() throws {
-        guard ProcessInfo.processInfo.environment["ADAPTIVE_BENCHMARK"] == "1" else {
-            throw XCTSkip("Run the opt-in Release benchmark on the control Mac")
-        }
+        #if !FOUNDATION_BENCHMARK
+        throw XCTSkip("Run the opt-in Release benchmark on the control Mac")
+        #else
         var rows = [[String: Double]]()
         for _ in 0..<5 {
             let start = ProcessInfo.processInfo.systemUptime
             let app = launch(reader: true)
             let ready = ProcessInfo.processInfo.systemUptime
-            app.buttons["inspector.toggle"].firstMatch.buttons["inspector.toggle"].firstMatch.click()
+            toolbarButton(app, "inspector.toggle").click()
             XCTAssertTrue(app.descendants(matching: .any)["document.inspector"].firstMatch.waitForExistence(timeout: 5))
             let panel = ProcessInfo.processInfo.systemUptime
             rows.append(["processLaunchToReadyMS": (ready-start)*1000, "panelInteractionMS": (panel-ready)*1000])
@@ -130,6 +137,62 @@ final class LaunchTests: XCTestCase {
         attachment.name = "Phase0-Release-UI-measurements"
         attachment.lifetime = .keepAlways
         add(attachment)
+        #endif
+    }
+
+    @MainActor
+    func testVoiceOverRuntime() throws {
+        #if !VOICEOVER_REVIEW
+        throw XCTSkip("Opt-in review with VoiceOver enabled on the control Mac")
+        #else
+        let app = launch()
+        toolbarButton(app, "appearance.toggle").click()
+        XCTAssertTrue(app.radioButtons["System"].waitForExistence(timeout: 5))
+        app.typeKey(.tab, modifierFlags: [])
+        app.typeKey(XCUIKeyboardKey(rawValue: "\u{F707}"), modifierFlags: [.control, .option])
+        func snapshot(_ name: String) {
+            let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            shot.name = name; shot.lifetime = .keepAlways; add(shot)
+        }
+        for _ in 0..<3 {
+            if app.radioButtons["System"].exists { app.typeKey(.escape, modifierFlags: []) }
+        }
+        XCTAssertFalse(app.radioButtons["System"].exists)
+        app.typeKey(XCUIKeyboardKey(rawValue: "\u{F707}"), modifierFlags: [.control, .option])
+        snapshot("VoiceOver-focus-return")
+        app.terminate()
+        #endif
+    }
+
+    @MainActor
+    func testReducedAccessibilityAndFocus() throws {
+        #if !ACCESSIBILITY_REVIEW
+        throw XCTSkip("Opt-in review with Reduce Motion and Reduce Transparency enabled")
+        #else
+        XCTAssertTrue(NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
+        XCTAssertTrue(NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency)
+        let app = launch()
+        toolbarButton(app, "inspector.toggle").click()
+        XCTAssertTrue(app.descendants(matching: .any)["document.inspector"].firstMatch.waitForExistence(timeout: 5))
+        capture(app, name: "Accessibility-opaque-inspector")
+        toolbarButton(app, "inspector.toggle").click()
+        toolbarButton(app, "appearance.toggle").click()
+        XCTAssertTrue(app.radioButtons["System"].waitForExistence(timeout: 5))
+        app.typeKey(.escape, modifierFlags: [])
+        XCTAssertFalse(app.radioButtons["System"].exists)
+        let focus = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            app.buttons.matching(identifier: "appearance.toggle").allElementsBoundByIndex.contains {
+                $0.debugDescription.contains("Keyboard Focused")
+            }
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [focus], timeout: 5), .completed, "Focus returns after native dismissal finishes")
+        capture(app, name: "Accessibility-restored-focus")
+        app.typeKey(.space, modifierFlags: [])
+        capture(app, name: "Accessibility-space-activation")
+        XCTAssertTrue(app.radioButtons["System"].waitForExistence(timeout: 5), "Space reopens the popover from restored toolbar focus")
+        app.typeKey(.escape, modifierFlags: [])
+        app.terminate()
+        #endif
     }
 
     @MainActor
@@ -161,14 +224,14 @@ final class LaunchTests: XCTestCase {
                     let app = launch(width: width, theme: theme, language: language)
                     XCTAssertTrue(app.buttons["library.open"].waitForExistence(timeout: 5))
                     capture(app, name: "Library-\(name)")
-                    app.buttons["appearance.toggle"].firstMatch.buttons["appearance.toggle"].firstMatch.click()
+                    toolbarButton(app, "appearance.toggle").click()
                     XCTAssertTrue(app.descendants(matching: .any)["appearance.popover"].firstMatch.waitForExistence(timeout: 5))
                     let popover = XCTAttachment(screenshot: app.descendants(matching: .any)["appearance.popover"].firstMatch.screenshot())
                     popover.name = "Appearance-\(name)"
                     popover.lifetime = .keepAlways
                     add(popover)
                     app.typeKey(.escape, modifierFlags: [])
-                    app.buttons["inspector.toggle"].firstMatch.buttons["inspector.toggle"].firstMatch.click()
+                    toolbarButton(app, "inspector.toggle").click()
                     XCTAssertTrue(app.descendants(matching: .any)["document.inspector"].firstMatch.waitForExistence(timeout: 5))
                     capture(app, name: "Inspector-\(name)")
                     app.terminate()

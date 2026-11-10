@@ -47,22 +47,19 @@ struct WorkspaceView: View {
     @State private var compactInspectorVisible = false
     @State private var section = LibrarySection.all
     @FocusState private var toolbarFocus: ToolbarFocus?
+    @State private var nativeFocusRequest: NativeFocusRequest?
     private enum ToolbarFocus: Hashable { case sidebar, appearance, inspector }
 
     var body: some View {
         GeometryReader { geometry in
             workspace(width: geometry.size.width)
                 .toolbar { toolbar(width: geometry.size.width) }
-                .focusedSceneValue(\.workspaceActions, WorkspaceActions(
-                    openDocument: { if !session.busy { importing = true } },
-                    toggleSidebar: { toggleSidebar(width: geometry.size.width) },
-                    toggleAppearance: { appearanceVisible.toggle() },
-                    toggleInspector: { toggleInspector(width: geometry.size.width) },
-                    zoomIn: { session.zoom(by: 1.1) }, zoomOut: { session.zoom(by: 1 / 1.1) }
-                ))
+                .focusedSceneValue(\.workspaceActions, WorkspaceActions(perform: { command in
+                    perform(command, width: geometry.size.width)
+                }))
         }
         .background(Adaptive.background)
-        .background(WindowIntegration(autosaveName: windowAutosaveName))
+        .background(WindowIntegration(autosaveName: windowAutosaveName, focusRequest: nativeFocusRequest))
         .navigationTitle(title)
         .task { await startSession() }
         .onDisappear { Task { await session.flush() } }
@@ -83,7 +80,7 @@ struct WorkspaceView: View {
                 }.padding(Adaptive.Space.regular)
             }
         }
-        .sheet(isPresented: $compactInspectorVisible, onDismiss: { toolbarFocus = .inspector }) {
+        .sheet(isPresented: $compactInspectorVisible, onDismiss: { restoreFocus(.inspector) }) {
             VStack(alignment: .trailing) {
                 inspector.frame(width: 320, height: 240)
                 Button("Done") { compactInspectorVisible = false }.keyboardShortcut(.cancelAction)
@@ -95,12 +92,6 @@ struct WorkspaceView: View {
         )) {
             Button("OK") { session.errorMessage = nil }
         } message: { Text(session.errorMessage ?? "") }
-        .onChange(of: appearanceVisible) { _, visible in
-            if !visible { toolbarFocus = .appearance }
-        }
-        .onChange(of: compactSidebarVisible) { _, visible in
-            if !visible { toolbarFocus = .sidebar }
-        }
     }
 
     private func startSession() async {
@@ -225,6 +216,22 @@ struct WorkspaceView: View {
         .accessibilityIdentifier("document.inspector")
     }
 
+    private func restoreFocus(_ target: ToolbarFocus) {
+        toolbarFocus = target
+        nativeFocusRequest = NativeFocusRequest(identifier: "\(target).toggle")
+    }
+
+    private func perform(_ command: WorkspaceCommand, width: CGFloat) {
+        switch command {
+        case .openDocument: if !session.busy { importing = true }
+        case .toggleSidebar: toggleSidebar(width: width)
+        case .toggleAppearance: appearanceVisible.toggle()
+        case .toggleInspector: toggleInspector(width: width)
+        case .zoomIn: session.zoom(by: 1.1)
+        case .zoomOut: session.zoom(by: 1 / 1.1)
+        }
+    }
+
     private func toggleSidebar(width: CGFloat) {
         if width < Adaptive.Layout.sidebarThreshold { compactSidebarVisible.toggle() }
         else { sidebarVisible.toggle() }
@@ -239,13 +246,14 @@ struct WorkspaceView: View {
     private func toolbar(width: CGFloat) -> some ToolbarContent {
         ToolbarItem(placement: .navigation) {
             Button("Sidebar", systemImage: "sidebar.left") {
-                toggleSidebar(width: width)
+                perform(.toggleSidebar, width: width)
             }
+            .focusable()
             .focused($toolbarFocus, equals: .sidebar)
-            .help("Show or hide the library")
+            .onKeyPress(.space) { perform(.toggleSidebar, width: width); return .handled }
             .accessibilityIdentifier("sidebar.toggle")
             .accessibilityValue(Text(sidebarVisible && width >= Adaptive.Layout.sidebarThreshold ? "Shown" : "Hidden"))
-            .popover(isPresented: $compactSidebarVisible) { sidebar.frame(width: 240, height: 240) }
+            .popover(isPresented: $compactSidebarVisible) { sidebar.frame(width: 240, height: 240).onExitCommand { compactSidebarVisible = false }.onDisappear { restoreFocus(.sidebar) } }
         }
         ToolbarItemGroup {
             if let engine = session.engine {
@@ -256,9 +264,11 @@ struct WorkspaceView: View {
                 Button("Next page", systemImage: "chevron.right") { session.navigate(page: session.pageNumber + 1) }
                     .disabled(session.pageNumber >= engine.document.pageCount).accessibilityIdentifier("page.next")
             }
-            Button("Open PDF", systemImage: "doc.badge.plus") { importing = true }.disabled(session.busy)
-            Button("Appearance", systemImage: "paintpalette") { appearanceVisible.toggle() }
+            Button("Open PDF", systemImage: "doc.badge.plus") { perform(.openDocument, width: width) }.disabled(session.busy)
+            Button("Appearance", systemImage: "paintpalette") { perform(.toggleAppearance, width: width) }
+                .focusable()
                 .focused($toolbarFocus, equals: .appearance)
+                .onKeyPress(.space) { perform(.toggleAppearance, width: width); return .handled }
                 .accessibilityIdentifier("appearance.toggle")
                  .popover(isPresented: $appearanceVisible) {
                     VStack(spacing: 0) {
@@ -278,12 +288,14 @@ struct WorkspaceView: View {
                                     .disabled(!(session.commands?.canUndoPalette ?? false))
                             }.padding(24).frame(width: 280)
                         }
-                    }
+                    }.onExitCommand { appearanceVisible = false }.onDisappear { restoreFocus(.appearance) }
                 }
             Button("Document inspector", systemImage: "sidebar.right") {
-                toggleInspector(width: width)
+                perform(.toggleInspector, width: width)
             }
+            .focusable()
             .focused($toolbarFocus, equals: .inspector)
+            .onKeyPress(.space) { perform(.toggleInspector, width: width); return .handled }
             .accessibilityIdentifier("inspector.toggle")
             Menu {
                 Button("Adaptive components") { catalogVisible = true }

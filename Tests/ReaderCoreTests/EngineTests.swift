@@ -34,12 +34,15 @@ func commandNavigationSurvivesReopenAndPalette() async throws {
     let target = SourceAnchor(bookID: engine.bookID, sourceRevision: engine.sourceRevision,
                               position: .pdf(.init(pageIndex: 1, x: 0, y: 650)))
     try commands.perform(.navigate(target))
+    let selection = try #require(engine.document.findString("stable anchor", withOptions: .caseInsensitive).first)
+    engine.view.setCurrentSelection(selection, animate: false)
     let before = try engine.currentAnchor()
     try commands.perform(.setPalette(.midnight))
     let after = try engine.currentAnchor()
     #expect(before == after)
     if case .pdf(let point) = before.position { #expect(point.pageIndex == 1) }
     #expect(engine.palette == .midnight)
+    #expect(engine.view.currentSelection?.string == selection.string)
     #expect(!engine.document.findString("stable anchor", withOptions: .caseInsensitive).isEmpty)
     #expect(engine.document.page(at: 0)?.annotations.contains { $0.url != nil } == true)
     let store = LibraryStore(root: root)

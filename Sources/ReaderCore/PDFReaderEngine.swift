@@ -77,6 +77,7 @@ public final class PDFReaderEngine: ReaderEngine {
             throw ReaderError.unavailableSource
         }
         let anchor = try? currentAnchor()
+        let selection = view.currentSelection, highlights = view.highlightedSelections
         self.palette = palette
         let scale = view.scaleFactor, automatic = view.autoScales
         documentDelegate.setPalette(palette)
@@ -86,5 +87,7 @@ public final class PDFReaderEngine: ReaderEngine {
         if !automatic { view.scaleFactor = scale }
         view.layoutDocumentView()
         if let anchor { try navigate(to: anchor) }
+        view.setCurrentSelection(selection, animate: false)
+        view.highlightedSelections = highlights
     }
 }

@@ -18,3 +18,9 @@ ReaderSession debounces saves during scrolling and flushes them through a normal
 ReadingState's optional auto-scale/display-mode fields decode the first schema-1 form. No earlier released storage schema exists. At the first schema-version change, retain a fixture of this schema and add a migration test before changing the writer.
 
 The research command-line program owns global-inversion experiments and measurements. The app only contains the selected, bounded rendering path. Raster scale/cache policy can evolve within the rendering boundary without changing ReaderEngine or SourceAnchor.
+
+## Shell commands and native focus
+
+`WorkspaceCommand` gives native menus and toolbar a single typed dispatcher for opening a source, panels and zoom. Document operations delegate to ReaderCommands, so future command-centre and AI adapters share the same validation path.
+
+Popover/sheet dismissal requests focus by semantic toolbar identifier. WindowIntegration waits for the parent NSWindow to become key, finds the actual accessibility element and restores native keyboard/accessibility focus using public AppKit APIs. This avoids relying on a fixed animation delay. Escape is handled at popover content as well as by the native presentation.
