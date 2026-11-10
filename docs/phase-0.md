@@ -1,33 +1,41 @@
-# Phase 0 acceptance
+# Phase 0 — Foundation
 
-Phase 0 remains open. v0.1 is gated by all acceptance items below.
+Phase 0 завершена 10 ноября 2026 года. Критерии Foundation выполнены. Реализация v0.1 не начиналась.
 
-## Verified locally
+Проверенный код — `d7c5952`. [Публичный репозиторий](https://github.com/karavaevflow/adaptive-reader), MIT для кода и собственного содержимого. Исключения для исследовательских PDF описаны в [NOTICE](../NOTICE.md). [macOS CI для итогового кода](https://github.com/karavaevflow/adaptive-reader/actions/runs/42863618297) прошёл успешно.
 
-- macOS 15.8.2 arm64, Xcode 26.3 (17C529), selected at `/Applications/Xcode.app/Contents/Developer`.
-- Local Xcode build and UI test pass. The UI test opens the main window and the appearance popover.
-- Xcode 26.3 required disambiguating the package executable name from the app target. The package preview is now AdaptiveReaderPreview.
-- Swift package builds the SwiftUI application executable.
-- Two Swift Testing tests pass, covering PDF/EPUB anchor round trips, source revision rejection, and position persistence after store recreation.
-- Xcode project property-list syntax validates.
-- Clean-clone local build and UI test pass on Xcode 26.3.
-- Public macOS CI passes for eab24e8: https://github.com/karavaevflow/adaptive-reader/actions/runs/42517310702
-- Phase 0 step 1 (reproducible build) is complete.
-- Adaptive tokens, system typography, native components and RU/EN strings are implemented. See [design system](adaptive-design-system.md).
-- A 32-image Library/Reader/Appearance/Inspector matrix and four component-catalogue captures passed locally for Light/Dark, en/ru and 800/1440 pt. Reference images live in `docs/screenshots`.
-- Four UI tests and two core tests pass. Public CI passes for 07477ce: https://github.com/karavaevflow/adaptive-reader/actions/runs/42584005312
-- Reduce Transparency was enabled on the control Mac and opaque panels were visually observed. Motion/transparency preferences were restored to their original off values. VoiceOver was also restored to its original off state after the computer-control tool timed out during the speech review.
-- Toolbar and menu actions, Escape dismissal and native appearance/inspector shortcuts were checked. Native input was used for shortcuts because XCTest synthesis with the local input source did not reproduce them.
-- Baseline contrast and accessible control names are checked independently. Manual VoiceOver speech and focus verification remain open.
+## Результаты пяти шагов
 
-## Remaining acceptance
+| Шаг | Результат и доказательство |
+|---|---|
+| Воспроизводимая сборка | Чистый клон `d7c5952`: универсальный Release arm64/x86_64, успешная проверка локальной подписи, `swift test` и общая схема `xcodebuild test`. Минимальная macOS 15.0. Публичный CI повторяет сборку и тесты. |
+| Дизайн-система Adaptive | System/Light/Dark, семантические токены, системная типографика и символы, акцент, компоненты и состояния, адаптивные панели. [Описание](adaptive-design-system.md), [снимки](screenshots). |
+| Color Engine | Девять PDF, включая реальные материалы NASA и USGS. Три способа отрисовки, 27 парных/сравнительных изображений, 135 отдельных Release-замеров. Выбран избирательный CIColorCube поверх отрисовки PDFKit; сложные страницы используют Original. [Исследование, ограничения и повторение](../Research/README.md). |
+| Общая архитектура | ReaderEngine, версионированный SourceAnchor для PDF/EPUB, типизированная маршрутизация команд, раздельные исходники/данные/кэш. Сохранение позиции, палитры и масштаба, проверка ревизии источника. [Контракты](reader-architecture.md). |
+| Приёмка Foundation | Library и Reader собраны из Adaptive. PDF открывается через выбранный путь; обычный Quit сохраняет документ, позицию, масштаб, палитру, инспектор и размер окна. Контрольные снимки и воспроизводимые стенды сохранены в репозитории. |
 
-- Validate Release universal binaries separately. Debug now uses the active architecture, matching normal Xcode development settings.
-- Manual VoiceOver reading order and focus restoration with keyboard navigation enabled. Confirm reduced-motion transition behavior on the control Mac. The Reduce Transparency rendering path was visually checked.
-- Color Engine study on text, multi-column/table, photo, chart, scanned, dark and protected PDFs. Keep licensed source fixtures and checksums. Compare Original, Core Image raster processing and selective recoloring before choosing the production pipeline.
-- Per-fixture paired images, five Release runs of first/repeated render time and peak memory. Check selection, search, links, zoom and image colors. Document fallback to Original.
-- Integrate ReaderEngine and SourceAnchor with PDFView and persistence after the rendering decision. Test command → navigation → save → reopen and palette changes without anchor drift.
-- Restore window, source access, reading position and panel settings across app restarts.
-- Fix benchmark Mac model/display and collect cold launch, panel latency, frame time during scrolling and memory baselines. Investigate later regressions exceeding 20% of baseline medians.
+## Три проверки приёмки
 
-The shell has a reusable design system and Original PDF view. Phase 0 step 2 remains open for the manual accessibility checks above. Color Engine research follows within Phase 0.
+**Визуальная.** Проверены 36 эталонов Library, Reader, Appearance, Inspector и каталога компонентов: RU/EN, Light/Dark, 800/1440 pt. Дополнительно сохранены действующая Midnight, непрозрачный инспектор, видимый восстановленный фокус и повторное открытие popover пробелом. Текст и основные команды помещаются; в компактном окне панели доступны через native popover/sheet. Тема оболочки не меняет палитру страницы.
+
+**Производительность.** Контрольный Mac — MacBookAir10,1, Apple M1, 8 GiB; macOS 15.8.2, Xcode 26.3; экран 1440×900 pt / 2880×1800 px, 60 Hz. Сохранены пять прогонов каждого сценария. [Данные](../Research/Results) включают первое/повторное растровое отображение, открытие настоящего PDFView, CPU-время кадров и интервалы доставки при прокрутке, пиковую память для всех девяти PDF, запуск приложения и открытие панели.
+
+Медианы UI-протокола — 5309.53 ms от запуска процесса до готового окна и 1607.24 ms для взаимодействия с панелью. Они включают накладные расходы XCTest; это не длительность анимации. Для текстового PDF выбранный растровый путь даёт 16.26/8.77 ms первого/повторного рендера; отдельный стенд настоящего PDFView — 52.55 ms открытия. CPU-кадры и таймерные интервалы не выдаются за время GPU/compositor. Границы измерений и все исходные значения описаны в исследовании. Для следующих релизов рост медианы времени или пиковой памяти более чем на 20% в том же протоколе требует разбора до выпуска.
+
+**Удобство и доступность.** Пройдены открытие/закрытие панелей и popover, Escape, возврат к вызвавшей кнопке и повторная активация пробелом после фактического восстановления фокуса. VoiceOver озвучил названия, порядок вариантов и выбранное состояние темы. Пройдены реальные Reduce Motion/Reduce Transparency; временные настройки восстановлены. [Подробная приёмка доступности](accessibility-review.md).
+
+## Тесты и локальное свидетельство
+
+- 9 модульных тестов прошли из чистого клона: PDF/EPUB-якоря, версии и ревизии, сериализация/повторное чтение, команда → переход → палитра → сохранение → повторное открытие, сохранение выделения, ссылки и поиск, цвета диаграммы, неподдерживаемые команды, скан, защищённый/изменённый/недоступный источник.
+- Общая UI-схема: 5 прошли, 0 ошибок. Три машинно-зависимых теста по умолчанию пропущены и отдельно выполнены на контрольном Mac: Release-замеры, VoiceOver и reduced-effects/focus review.
+- Чистый клон: `/private/tmp/adaptive-foundation-clean-d7c5952`.
+- Полная локальная UI-схема: `/private/tmp/adaptive-foundation-final.xcresult`.
+- Reduced-effects/focus: `/private/tmp/adaptive-accessibility12.xcresult`.
+- Release UI-замеры: `/private/tmp/adaptive-foundation-ui-final.xcresult`.
+- Временный обзор панели речи: `/private/tmp/vo-captions.png`; полные снимки рабочего стола не опубликованы.
+
+## Зафиксированные границы Foundation
+
+Импорт сейчас создаёт управляемую копию. Locked PDF требует предварительной разблокировки; исследовательский стенд использует только известный пароль собственного образца. Изображения, сканы, исходно тёмные и сложные страницы сохраняют Original. Цветные пастельные области могут меняться; Original доступен вручную. Цветной растровый путь использует 2 px/pt и может смягчать текст при большом масштабе. Эти ограничения приняты и описаны в решении, а не скрыты за общим обещанием перекрашивать любые PDF.
+
+Подпись локальная ad-hoc, Developer ID и нотарификация не заявляются. Для разработки Foundation участие владельца сертификата не требуется. Следующие релизы проходят отдельные [визуальные, производительные и пользовательские критерии](release-gates.md).

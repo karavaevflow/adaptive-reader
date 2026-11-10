@@ -24,4 +24,4 @@ The foundation includes versioned PDF/EPUB source anchors, validated navigation 
 
 Books stay on the device. This build has no AI provider or network feature.
 
-See [Phase 0 acceptance](docs/phase-0.md) for verified results and remaining work.
+Phase 0 is complete. See [acceptance evidence](docs/phase-0.md) and the [release gates](docs/release-gates.md) for the next milestones. The first UI-test run may require confirming macOS “Enable UI Automation”.
