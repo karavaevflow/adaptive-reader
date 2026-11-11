@@ -3562,6 +3562,38 @@
           }
         }
       }
+    },
+    "Question": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Question"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вопрос"
+          }
+        }
+      }
+    },
+    "Find related passages in this book for this excerpt:": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Find related passages in this book for this excerpt:"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Найди в этой книге фрагменты, связанные с этим отрывком:"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -188,7 +188,11 @@ struct MagicSelectionBar: View {
                 Button("Explain") { session.askCompanion(String(localized: "Explain the selected source.")) }.accessibilityIdentifier("ai.explainSelection")
                 Menu("More") {
                     Button("Translate") { session.askCompanion(String(localized: "Translate the selected source into my question language.")) }
-                    Button("Find Sources") { session.askCompanion(String(localized: "Explain what the selected source supports, citing its evidence.")) }
+                    Button("Find Sources") {
+                        session.companion.selection = nil
+                        session.askCompanion(String(localized: "Find related passages in this book for this excerpt:") + "\n" + selection.text)
+                    }
+                    Button("Question") { session.companion.newTopic(); session.askCompanion("") }
                     Button("Note") { session.companionVisible = true; session.companion.prepareNote(selection) }
                 }
             }.buttonStyle(.borderless).padding(12).background(Adaptive.surface).accessibilityElement(children: .contain).accessibilityIdentifier("ai.magicSelection")
