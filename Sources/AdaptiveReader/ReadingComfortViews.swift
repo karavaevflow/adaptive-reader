@@ -166,7 +166,11 @@ struct CommandCenterView: View {
                 Image(systemName: "command").foregroundStyle(Adaptive.secondary)
                 TextField("Command or page number", text: $query).textFieldStyle(.plain)
                     .focused($fieldFocused).accessibilityIdentifier("command.query")
-                    .onSubmit { if let page { session.navigate(page: page); dismiss() } else if let first = filtered.first(where: { $0.isEnabled(in: session) }) { perform(first) } }
+                    .onSubmit {
+                        if let page { session.navigate(page: page); dismiss() }
+                        else if let first = filtered.first(where: { $0.isEnabled(in: session) }) { perform(first) }
+                        else if let palette = palettes.first { session.setPalette(palette); dismiss() }
+                    }
                 Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
             }.padding(20)
             Divider()

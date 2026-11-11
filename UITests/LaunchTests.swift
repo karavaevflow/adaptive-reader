@@ -501,12 +501,12 @@ final class OfflineReaderTests: XCTestCase {
     }
 
     @MainActor func testDailyCommandCenterAndSmartBack() {
-        let app = launch(UUID().uuidString, specimen: true)
+        let id = UUID().uuidString, app = launch(id, specimen: true, diagnostics: true)
         menu(app, "View", "Command Center")
         let field = app.textFields["command.query"].firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         paste("2", into: field, app: app)
-        app.buttons["command.page"].firstMatch.click()
+        field.typeKey(.return, modifierFlags: [])
         XCTAssertTrue(app.staticTexts["2/3"].waitForExistence(timeout: 5))
         menu(app, "View", "Back")
         XCTAssertTrue(app.staticTexts["1/3"].waitForExistence(timeout: 5))
@@ -517,6 +517,13 @@ final class OfflineReaderTests: XCTestCase {
         snapshot(app, "v02-command-center")
         app.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(app.textFields["command.query"].firstMatch.waitForNonExistence(timeout: 5))
+        menu(app, "View", "Command Center")
+        let paletteQuery = app.textFields["command.query"].firstMatch
+        XCTAssertTrue(paletteQuery.waitForExistence(timeout: 5))
+        paste("Forest", into: paletteQuery, app: app)
+        paletteQuery.typeKey(.return, modifierFlags: [])
+        expectComfort(id, "palette", "forest")
+        XCTAssertTrue(paletteQuery.waitForNonExistence(timeout: 5))
     }
 
     @MainActor func testDailyTimerAndManualScrollCancellation() {
