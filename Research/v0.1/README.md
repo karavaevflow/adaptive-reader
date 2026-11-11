@@ -84,3 +84,15 @@ sh scripts/benchmark-v01-ui.sh /private/tmp/adaptive-v01-ui-measurement.xcresult
 ```
 
 Use the archived Foundation CLI built from `d7c5952`; keep source fixtures and control display unchanged. UI import-to-capture measurements include automation overhead and are recorded separately. Palette reference images in `palettes` use production eligibility for Original, Paper, Dusk, Midnight and Forest. Photo pages fall back to unchanged Original.
+
+## Full application Release protocol
+
+`ui.json` and `large-ui.json` retain five independent application runs on the control Mac. The full optimized shared scheme passed 11 UI tests; the two opt-in VoiceOver/reduced-effects tests are skipped in this normal run and retain their separately recorded Phase 0 review.
+
+| Metric | v0.1 median ms | Foundation median ms | Difference |
+|---|---:|---:|---:|
+| Process launch to ready | 5209.60 | 5309.53 | −1.9% |
+| Panel interaction to AX-ready | 1642.90 | 1607.24 | +2.2% |
+| 600-page copy import: Open click to captured window | 5851.67 | new scenario | — |
+
+These are automation latencies, including launch/activation, native chooser actions, accessibility queries and screenshot capture. They are upper bounds on UI readiness, not engine render timings or animation durations. Do not compare the import's 5.85 s with the PDFView harness's 48–66 ms as if they were the same scenario. The native large-document flow separately requires physical scrolling to change the displayed page, Focus to remove panels, and closure to return to the library. Searches and background workers are cancelled when the session closes.

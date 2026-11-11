@@ -388,6 +388,7 @@ final class OfflineReaderTests: XCTestCase {
         choosePDF(app, relativePath: "Research/Fixtures/text.pdf")
         XCTAssertTrue(app.windows["text"].waitForExistence(timeout: 10))
         app.buttons["page.next"].firstMatch.click()
+        XCTAssertTrue(app.staticTexts["2/3"].waitForExistence(timeout: 5))
         app.menuBars.menuBarItems.element(boundBy: 1).click()
         app.menuItems["Quit AdaptiveReader"].firstMatch.click()
         XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
