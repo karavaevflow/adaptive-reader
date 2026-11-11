@@ -33,6 +33,14 @@ enum CompanionSecrets {
     }
 }
 
+/// Security IPC may wait for the user; keep it away from the reader's main actor.
+actor CompanionKeyVault {
+    static let shared = CompanionKeyVault()
+    func read(_ destination: String) throws -> String { try CompanionSecrets.read(destination) }
+    func save(_ key: String, destination: String) throws { try CompanionSecrets.save(key, destination: destination) }
+    func remove(_ destination: String) throws { try CompanionSecrets.remove(destination) }
+}
+
 @MainActor @Observable
 final class CompanionModel {
     var settings = CompanionSettings()
@@ -98,7 +106,7 @@ final class CompanionModel {
         cancel()
         do {
             if value.mode != .off { _ = try value.validatedURL() }
-            if value.mode == .cloud && !key.isEmpty { try CompanionSecrets.save(key, destination: value.destination) }
+            if value.mode == .cloud && !key.isEmpty { try await CompanionKeyVault.shared.save(key, destination: value.destination) }
             try await store?.saveCompanionSettings(value); settings = value; settingsVisible = false
         } catch { errorMessage = error.localizedDescription }
     }
@@ -107,7 +115,7 @@ final class CompanionModel {
         do { if let bookID { try await store?.clearEvidence(bookID: bookID, revision: revision) } }
         catch { errorMessage = error.localizedDescription }
     }
-    func ask(page: Int, question: String? = nil, refinement: String? = nil) {
+    func ask(page: Int, question: String? = nil, refinement: String? = nil, chapter: String? = nil) {
         let question = refinement != nil ? (lastRequest?.question ?? "") : (question ?? query.trimmingCharacters(in: .whitespacesAndNewlines))
         guard !question.isEmpty, let data, let bookID, let store else { return }
         cancel(); answer = nil; errorMessage = nil; receivedCharacters = 0; busy = true
@@ -147,14 +155,20 @@ final class CompanionModel {
                 guard self.generation == token else { return }
                 guard !sources.isEmpty else { throw CompanionError.noText }
                 self.indexing = false; self.evidence = sources
-                let request = CompanionRequest(question: finalQuestion, title: title, page: page, sources: sources)
+                let request = CompanionRequest(question: finalQuestion, title: title,
+                    page: refinement == nil ? page : previous?.page, sources: sources,
+                    chapter: refinement == nil ? chapter : previous?.chapter)
                 self.lastRequest = request
                 let provider: any CompanionProvider
+                let apiKey: String
+                if !isFixture && settings.mode == .cloud { apiKey = try await CompanionKeyVault.shared.read(settings.destination) }
+                else { apiKey = "" }
+                try Task.checkCancellation()
                 #if DEBUG || FOUNDATION_BENCHMARK
                 if isFixture { provider = FixtureCompanionProvider(delayMilliseconds: ProcessInfo.processInfo.arguments.contains("-companionSlowFixture") ? 10000 : 300) }
-                else { provider = CompanionHTTPProvider(settings: settings, apiKey: settings.mode == .cloud ? try CompanionSecrets.read(settings.destination) : "") }
+                else { provider = CompanionHTTPProvider(settings: settings, apiKey: apiKey) }
                 #else
-                provider = CompanionHTTPProvider(settings: settings, apiKey: settings.mode == .cloud ? try CompanionSecrets.read(settings.destination) : "")
+                provider = CompanionHTTPProvider(settings: settings, apiKey: apiKey)
                 #endif
                 var response = ""
                 for try await chunk in provider.response(to: request) {
@@ -162,6 +176,7 @@ final class CompanionModel {
                     response += chunk; self.receivedCharacters = response.count
                     guard response.count <= 64000 else { throw CompanionError.limitExceeded }
                 }
+                try Task.checkCancellation()
                 let answer = try JSONDecoder().decode(CompanionAnswer.self, from: Data(response.utf8))
                 try answer.validate(sources: sources, pageCount: pageCount)
                 try Task.checkCancellation(); guard self.generation == token else { return }

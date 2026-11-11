@@ -62,13 +62,31 @@ public struct PDFEvidenceIndex: Codable, Sendable {
         }
     }
     public func retrieve(_ query: String, visiblePage: Int, limit: Int = 6) throws -> [EvidencePassage] {
-        let terms = Set(Self.terms(query).prefix(64))
-        var scored: [(Int, Double)] = []
+        let ignored: Set<String> = ["the", "and", "for", "this", "that", "what", "why", "how", "please", "explain", "это", "как", "что", "для", "или", "его", "она", "они", "объясни", "пожалуйста"]
+        let terms = Set(Self.terms(query).filter { !ignored.contains($0) }.prefix(64))
+        var candidates: [(index: Int, length: Int, matches: [String: Int], visible: Bool)] = []
+        var frequency: [String: Int] = [:], totalLength = 0
         for (index, passage) in passages.enumerated() {
             if index % 64 == 0 { try Task.checkCancellation() }
-            let words = Set(Self.terms(passage.text)); let matches = words.intersection(terms).count
+            let words = Self.terms(passage.text); totalLength += words.count
+            var matches: [String: Int] = [:]
+            for word in words where terms.contains(word) { matches[word, default: 0] += 1 }
+            for word in matches.keys { frequency[word, default: 0] += 1 }
             let onPage: Bool = { if case .pdf(let point) = passage.anchor.position { point.pageIndex == visiblePage } else { false } }()
-            if matches > 0 || onPage { scored.append((index, Double(matches) * 3 + (onPage ? 1 : 0))) }
+            if !matches.isEmpty || onPage { candidates.append((index, words.count, matches, onPage)) }
+        }
+        let count = Double(max(1, passages.count)), average = Double(max(1, totalLength)) / count
+        var scored: [(Int, Double)] = []
+        for candidate in candidates {
+            try Task.checkCancellation()
+            var score = candidate.visible ? 0.25 : 0
+            for word in candidate.matches.keys.sorted() {
+                let hits = candidate.matches[word] ?? 0
+                let df = Double(frequency[word] ?? 0), tf = Double(hits)
+                let idf = log(1 + (count - df + 0.5) / (df + 0.5))
+                score += idf * (tf * 2.2) / (tf + 1.2 * (0.25 + 0.75 * Double(candidate.length) / average))
+            }
+            scored.append((candidate.index, score))
         }
         return scored.sorted { $0.1 == $1.1 ? $0.0 < $1.0 : $0.1 > $1.1 }.prefix(min(8, max(0, limit))).map { passages[$0.0] }
     }

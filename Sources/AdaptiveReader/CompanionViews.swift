@@ -60,7 +60,7 @@ struct CompanionView: View {
                         }
                         Menu("Explain Again") {
                             ForEach(["Simpler", "More detail", "With an example", "With an analogy", "Step by step", "As a text diagram"], id: \.self) { style in
-                                Button(LocalizedStringKey(style)) { model.ask(page: session.pageNumber, question: model.query, refinement: style) }
+                                Button(LocalizedStringKey(style)) { model.ask(page: session.pageNumber, question: model.query, refinement: style, chapter: session.companionChapterLabel) }
                             }
                         }.accessibilityIdentifier("ai.explainAgain")
                         if !answer.actions.isEmpty {
@@ -99,20 +99,20 @@ struct CompanionView: View {
             VStack(alignment: .leading, spacing: 8) {
                 TextField("Question about the book", text: $model.query, axis: .vertical).lineLimit(2...5)
                     .textFieldStyle(.plain).accessibilityIdentifier("ai.query")
-                    .onSubmit { model.ask(page: session.pageNumber) }
+                    .onSubmit { model.ask(page: session.pageNumber, chapter: session.companionChapterLabel) }
                 HStack {
                     Text(model.settings.mode == .cloud ? "Cloud · selected excerpts will be sent" : "Local context · on this Mac").font(.caption).foregroundStyle(.secondary)
                     Spacer()
-                    Button("Ask", systemImage: "arrow.up") { model.ask(page: session.pageNumber) }
+                    Button("Ask", systemImage: "arrow.up") { model.ask(page: session.pageNumber, chapter: session.companionChapterLabel) }
                         .disabled(model.busy || model.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty).accessibilityIdentifier("ai.ask")
                 }
             }.padding(16)
-        }.background(Adaptive.surface).accessibilityIdentifier("ai.companion")
+        }.background(Adaptive.surface).accessibilityElement(children: .contain).accessibilityIdentifier("ai.companion")
             .sheet(isPresented: $model.settingsVisible) { CompanionSettingsView(model: model) }
             .onAppear {
                 #if DEBUG || FOUNDATION_BENCHMARK
                 if model.fixtureMode && ProcessInfo.processInfo.arguments.contains("-companionReview") && !model.reviewStarted {
-                    model.reviewStarted = true; model.query = "Explain this source"; model.ask(page: session.pageNumber)
+                    model.reviewStarted = true; model.query = "Explain this source"; model.ask(page: session.pageNumber, chapter: session.companionChapterLabel)
                 }
                 #endif
             }
@@ -153,7 +153,7 @@ private struct CompanionSettingsView: View {
                     .font(.callout).foregroundStyle(.secondary)
                 Toggle("Allow sending these excerpts to this endpoint and model", isOn: $cloudConsent).accessibilityIdentifier("ai.cloudConsent")
                 Button("Remove saved API key") {
-                    do { try CompanionSecrets.remove(draft.destination) } catch { model.errorMessage = error.localizedDescription }
+                    Task { do { try await CompanionKeyVault.shared.remove(draft.destination) } catch { model.errorMessage = error.localizedDescription } }
                 }
             } else if draft.mode == .local { Text("Local mode accepts only localhost. Install and choose your own Ollama model.").font(.callout).foregroundStyle(.secondary) }
             Button("Clear this book's AI index") { Task { await model.clearIndex() } }
@@ -168,8 +168,7 @@ private struct CompanionSettingsView: View {
             }
         }.padding(24).frame(width: 410)
             .onAppear { draft = model.settings; cloudConsent = draft.consentDestination == draft.destination }
-            .onChange(of: draft.endpoint) { cloudConsent = false }
-            .onChange(of: draft.model) { cloudConsent = false }
+            .onChange(of: draft.destination) { if draft.destination != model.settings.destination { cloudConsent = false } }
     }
 }
 
@@ -188,7 +187,7 @@ struct MagicSelectionBar: View {
                     Button("Find Sources") { session.askCompanion(String(localized: "Explain what the selected source supports, citing its evidence.")) }
                     Button("Note") { session.companionVisible = true; session.companion.prepareNote(selection) }
                 }
-            }.buttonStyle(.borderless).padding(12).background(Adaptive.surface).accessibilityIdentifier("ai.magicSelection")
+            }.buttonStyle(.borderless).padding(12).background(Adaptive.surface).accessibilityElement(children: .contain).accessibilityIdentifier("ai.magicSelection")
         }
     }
 }
@@ -212,7 +211,7 @@ struct SmartMarginRail: View {
                 }.buttonStyle(.plain).frame(width: 126).position(x: 66, y: min(max(50, y), max(50, geometry.size.height - 60)))
                     .popover(isPresented: $expanded) { Text(answer.answer).padding(16).frame(width: 280) }
             }
-        }.frame(width: 132).background(Adaptive.background).accessibilityIdentifier("ai.marginRail")
+        }.frame(width: 132).background(Adaptive.background).accessibilityElement(children: .contain).accessibilityIdentifier("ai.marginRail")
             .id(session.companionViewportRevision)
     }
 }

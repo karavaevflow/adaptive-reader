@@ -27,6 +27,17 @@ private func fixture(_ name: String) throws -> Data {
     await #expect(throws: CancellationError.self) { try await task.value }
 }
 
+@Test func rareEvidenceOutranksRepeatedCommonQueryWords() throws {
+    let id = UUID(), revision = String(repeating: "a", count: 64)
+    let texts = [String(repeating: "reading ", count: 100), "rareterm explains this reading", "reading about another topic"]
+    let passages = texts.enumerated().map { index, text in
+        EvidencePassage(id: String(repeating: String(index + 1), count: 24),
+            anchor: .init(bookID: id, sourceRevision: revision, position: .pdf(.init(pageIndex: index, x: 0, y: 600))), text: text)
+    }
+    let index = PDFEvidenceIndex(schemaVersion: 1, bookID: id, revision: revision, pageCount: 3, passages: passages, truncated: false)
+    #expect(try index.retrieve("please explain rareterm reading", visiblePage: 0).first?.id == passages[1].id)
+}
+
 @Test func cloudConsentIsDestinationSpecificAndLocalCannotSendRemotely() throws {
     var value = CompanionSettings(); value.mode = .local; value.model = "test-model"
     _ = try value.validatedURL()

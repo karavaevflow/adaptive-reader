@@ -264,6 +264,9 @@ final class LaunchTests: XCTestCase {
                     capture(app, name: "v03-Companion-\(language)-\(width)-\(theme)")
                     app.buttons["ai.settings"].firstMatch.click()
                     XCTAssertTrue(app.textFields["ai.endpoint"].firstMatch.waitForExistence(timeout: 5))
+                    app.popUpButtons[language == "ru" ? "Режим провайдера" : "Provider mode"].firstMatch.click()
+                    app.menuItems[language == "ru" ? "Облачный API" : "Cloud API"].firstMatch.click()
+                    XCTAssertTrue(app.checkBoxes["ai.cloudConsent"].firstMatch.waitForExistence(timeout: 5))
                     capture(app, name: "v03-Settings-\(language)-\(width)-\(theme)")
                     app.terminate()
                 }
@@ -583,7 +586,25 @@ final class OfflineReaderTests: XCTestCase {
         XCTAssertTrue(app.windows["scan"].firstMatch.waitForExistence(timeout: 10))
         menu(app, "View", "AI Companion")
         XCTAssertTrue(app.staticTexts["ai.error"].firstMatch.waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["ai.error"].firstMatch.label.contains("OCR"))
+        let error = app.staticTexts["ai.error"].firstMatch
+        XCTAssertTrue(((error.value as? String) ?? error.label).contains("OCR"))
+        XCTAssertFalse(app.staticTexts["ai.answer"].firstMatch.exists)
+    }
+
+    @MainActor func testCompanionCloudConsentIsExplicit() {
+        let app = launch(UUID().uuidString, specimen: true)
+        menu(app, "View", "AI Companion")
+        app.buttons["ai.settings"].firstMatch.click()
+        app.popUpButtons["Provider mode"].firstMatch.click(); app.menuItems["Cloud API"].firstMatch.click()
+        paste("https://fixture.example/v1/chat/completions", into: app.textFields["ai.endpoint"].firstMatch, app: app)
+        paste("fixture-model", into: app.textFields["ai.model"].firstMatch, app: app)
+        app.buttons["Save"].firstMatch.click()
+        XCTAssertTrue(app.staticTexts["Enable cloud sending for this endpoint before asking a question."].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.checkBoxes["ai.cloudConsent"].firstMatch.exists)
+        app.checkBoxes["ai.cloudConsent"].firstMatch.click()
+        app.buttons["Save"].firstMatch.click()
+        XCTAssertTrue(app.textFields["ai.endpoint"].firstMatch.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Cloud · selected excerpts will be sent"].firstMatch.exists)
         XCTAssertFalse(app.staticTexts["ai.answer"].firstMatch.exists)
     }
 

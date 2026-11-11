@@ -458,7 +458,7 @@ final class ReaderSession {
             closeMiniReader(); focusMode = false
             if let question = pendingCompanionQuestion {
                 pendingCompanionQuestion = nil; companionVisible = true; companion.query = question
-                companion.ask(page: pageNumber, question: question)
+                companion.ask(page: pageNumber, question: question, chapter: companionChapterLabel)
             } else { companionVisible.toggle() }
             if !companionVisible { companion.cancel() }
         case .nextPassage: stepPassage(1)

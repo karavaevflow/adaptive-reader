@@ -5,6 +5,23 @@ import ReaderCore
 import CryptoKit
 
 extension ReaderSession {
+    var companionChapterLabel: String? {
+        guard let document = engine?.document, let root = document.outlineRoot else { return nil }
+        var visited = 0, bestPage = -1, label: String?
+        func visit(_ node: PDFOutline, depth: Int) {
+            guard depth < 16, visited < 512 else { return }; visited += 1
+            if let page = (node.destination ?? (node.action as? PDFActionGoTo)?.destination)?.page {
+                let index = document.index(for: page)
+                if index >= bestPage && index >= 0 && index < pageNumber, let value = node.label {
+                    bestPage = index; label = String(value.prefix(300))
+                }
+            }
+            for index in 0..<min(node.numberOfChildren, 512 - visited) {
+                if let child = node.child(at: index) { visit(child, depth: depth + 1) }
+            }
+        }
+        visit(root, depth: 0); return label
+    }
     func updateCompanionSelection() {
         guard let engine, engine.capabilities.contains(.textSelection),
               let selection = engine.view.currentSelection, let page = selection.pages.first,
@@ -25,7 +42,7 @@ extension ReaderSession {
         guard engine != nil else { return }
         if miniReaderActive { closeMiniReader() }
         focusMode = false; companionVisible = true; companion.query = question
-        companion.ask(page: pageNumber, question: question)
+        companion.ask(page: pageNumber, question: question, chapter: companionChapterLabel)
     }
     func goToCompanionSource(_ source: EvidencePassage) {
         do {

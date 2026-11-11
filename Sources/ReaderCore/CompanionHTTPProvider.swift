@@ -18,6 +18,7 @@ public struct CompanionHTTPProvider: CompanionProvider {
             let worker = Task {
                 let config = configuration.copy() as! URLSessionConfiguration
                 config.urlCache = nil; config.httpCookieStorage = nil; config.httpShouldSetCookies = false
+                if settings.mode == .local { config.connectionProxyDictionary = [:] }
                 config.timeoutIntervalForRequest = 120; config.timeoutIntervalForResource = 180
                 let session = URLSession(configuration: config, delegate: NoCompanionRedirects(), delegateQueue: nil)
                 defer { session.invalidateAndCancel() }
