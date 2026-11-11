@@ -12,7 +12,7 @@ let package = Package(
     targets: [
         .target(name: "ReaderCore"),
         .executableTarget(name: "ColorResearch", dependencies: ["ReaderCore"]),
-        .executableTarget(name: "AdaptiveReaderPreview", dependencies: ["ReaderCore"], path: "Sources/AdaptiveReader", exclude: ["AdaptiveReader.entitlements"], resources: [.process("Resources")]),
+        .executableTarget(name: "AdaptiveReaderPreview", dependencies: ["ReaderCore"], path: "Sources/AdaptiveReader", exclude: ["AdaptiveReader.entitlements", "AppInfo.plist"], resources: [.process("Resources")]),
         .testTarget(name: "ReaderCoreTests", dependencies: ["ReaderCore"])
     ]
 )

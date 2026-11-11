@@ -9,6 +9,26 @@ import CryptoKit
 import ReaderCore
 import Darwin
 
+/// Research-only paced JSON response; measures pipeline overlap, never model quality or inference latency.
+struct ResearchCompanionProvider: CompanionProvider {
+    func response(to request: CompanionRequest) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            let worker = Task {
+                do {
+                    let value = CompanionAnswer(kind: .book, answer: String(repeating: "Research fixture response. ", count: 120), sourceIDs: request.sources.prefix(1).map(\.id))
+                    let bytes = Array(try JSONEncoder().encode(value))
+                    for start in stride(from: 0, to: bytes.count, by: 48) {
+                        try await Task.sleep(for: .milliseconds(50)); try Task.checkCancellation()
+                        continuation.yield(String(decoding: bytes[start..<min(start + 48, bytes.count)], as: UTF8.self))
+                    }
+                    continuation.finish()
+                } catch { continuation.finish(throwing: error) }
+            }
+            continuation.onTermination = { @Sendable _ in worker.cancel() }
+        }
+    }
+}
+
 func text(_ value: String, rect: CGRect, color: NSColor = .black, size: Double = 16, context: CGContext) {
     let string = NSAttributedString(string: value, attributes: [.font: NSFont.systemFont(ofSize: size), .foregroundColor: color])
     CTFrameDraw(CTFramesetterCreateFrame(CTFramesetterCreateWithAttributedString(string), CFRange(), CGPath(rect: rect, transform: nil), nil), context)
@@ -127,6 +147,26 @@ if args.count > 1 && args[1] == "footnote" {
     let searching: Task<Void, Never>? = args.contains("search") ? Task { @MainActor in
         do { for try await _ in try engine.search("responsive") { searchCount += 1 } } catch {}
     } : nil
+    var aiFinished = false, indexMS = 0.0, indexedPassages = 0, responseChunks = 0, aiError = ""
+    let aiTask: Task<Void, Never>? = args.contains("companion") ? Task { @MainActor in
+        do {
+            let started = CFAbsoluteTimeGetCurrent(), id = engine.bookID, revision = engine.sourceRevision
+            let worker = Task.detached(priority: .utility) { try await PDFEvidenceIndex.build(data: data, bookID: id, revision: revision) }
+            let index = try await withTaskCancellationHandler(operation: { try await worker.value }, onCancel: { worker.cancel() })
+            indexMS = (CFAbsoluteTimeGetCurrent() - started) * 1000; indexedPassages = index.passages.count
+            let retrieval = Task.detached { try index.retrieve("responsive", visiblePage: 0) }
+            let sources = try await withTaskCancellationHandler(operation: { try await retrieval.value }, onCancel: { retrieval.cancel() })
+            let request = CompanionRequest(question: "Explain", title: "Research fixture", page: 1, sources: sources)
+            var text = ""
+            for try await chunk in ResearchCompanionProvider().response(to: request) {
+                try Task.checkCancellation(); text += chunk; responseChunks += 1
+            }
+            try Task.checkCancellation()
+            try JSONDecoder().decode(CompanionAnswer.self, from: Data(text.utf8)).validate(sources: sources, pageCount: index.pageCount)
+        } catch is CancellationError { aiError = "cancelled" }
+        catch { aiError = error.localizedDescription }
+        aiFinished = true
+    } : nil
     var frames = [Double](), intervals = [Double](), last = CFAbsoluteTimeGetCurrent()
     let timer = Timer(timeInterval: 1.0 / 60, repeats: true) { _ in
         MainActor.assumeIsolated {
@@ -145,10 +185,18 @@ if args.count > 1 && args[1] == "footnote" {
     while frames.count < 120 { RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01)) }
     timer.invalidate()
     searching?.cancel(); engine.cancelSearch()
+    let cancellationStart = CFAbsoluteTimeGetCurrent()
+    aiTask?.cancel()
+    if aiTask != nil {
+        while !aiFinished && CFAbsoluteTimeGetCurrent() - cancellationStart < 2 { RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.005)) }
+    }
+    let cancellationMS = (CFAbsoluteTimeGetCurrent() - cancellationStart) * 1000
     var usage = rusage(); getrusage(RUSAGE_SELF, &usage)
     let result: [String: Any] = ["fixture": url.lastPathComponent, "mode": args[3],
         "searchMatches": searchCount, "openMS": openMS, "cpuFrameMS": frames, "frameIntervalMS": intervals,
-        "peakRSSBytes": usage.ru_maxrss]
+        "peakRSSBytes": usage.ru_maxrss, "companionWorkload": aiTask != nil, "indexMS": indexMS,
+        "indexedPassages": indexedPassages, "responseChunks": responseChunks, "aiFinished": aiFinished,
+        "aiError": aiError, "cancellationMS": cancellationMS]
     print(String(data: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), encoding: .utf8)!)
     window.close()
 } else if args.count > 1 && args[1] == "measure" {

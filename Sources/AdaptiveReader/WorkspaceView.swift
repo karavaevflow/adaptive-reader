@@ -73,9 +73,12 @@ struct WorkspaceView: View {
         .onChange(of: appearance, initial: true) { session.shellAppearance = appearance }
         .onDisappear { session.suspend(); Task { await session.flush() } }
         .onExitCommand { if session.focusMode { session.focusMode = false } }
+        .onReceive(NotificationCenter.default.publisher(for: .PDFViewSelectionChanged)) { notification in
+            if let view = notification.object as? PDFView, view === session.engine?.view { session.updateCompanionSelection() }
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
             if let window = notification.object as? NSWindow, window == session.engine?.view.window {
-                Task { await session.refreshBookmarks(); await session.refreshComfortPreferences() }
+                Task { await session.refreshBookmarks(); await session.refreshComfortPreferences(); await session.companion.refreshSettings() }
             } else if document == nil { Task { await session.refreshLibrary() } }
         }
         .overlay { if session.busy { ProgressView("Opening document").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) } }
@@ -100,6 +103,11 @@ struct WorkspaceView: View {
                 Divider()
                 HStack { Spacer(); Button("Done") { readingToolsVisible = false }.keyboardShortcut(.cancelAction) }.padding(16)
             }
+        }
+        .sheet(isPresented: Binding(get: { session.companionVisible && !session.focusMode && (session.engine?.view.window?.contentView?.bounds.width ?? 800) < Adaptive.Layout.inspectorThreshold }, set: {
+            if !$0 { session.companionVisible = false; session.companion.cancel() }
+        })) {
+            CompanionView(session: session).frame(width: 380, height: 600)
         }
         .sheet(isPresented: $catalogVisible) {
             VStack(spacing: 0) {
@@ -184,10 +192,21 @@ struct WorkspaceView: View {
                         Button("Return to Reader") { session.closeMiniReader() }
                     }
                 }
-                else if let engine = session.engine { NativePDFView(engine: engine, session: session).id(engine.bookID) }
+                else if let engine = session.engine {
+                    HStack(spacing: 0) {
+                        NativePDFView(engine: engine, session: session).id(engine.bookID)
+                            .safeAreaInset(edge: .bottom, spacing: 0) {
+                                if !session.focusMode { MagicSelectionBar(session: session) }
+                            }
+                        if session.companion.smartMargins && !session.focusMode && width >= Adaptive.Layout.inspectorThreshold { SmartMarginRail(session: session) }
+                    }
+                }
                 else { library }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
-            if !session.focusMode && inspectorVisible && width >= Adaptive.Layout.inspectorThreshold {
+            if !session.focusMode && session.companionVisible && width >= Adaptive.Layout.inspectorThreshold {
+                Divider(); CompanionView(session: session).frame(width: 340)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            } else if !session.focusMode && inspectorVisible && width >= Adaptive.Layout.inspectorThreshold {
                 Divider().overlay(Adaptive.divider)
                 inspector.frame(width: Adaptive.Layout.inspector)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
@@ -197,6 +216,7 @@ struct WorkspaceView: View {
         .animation(reduceMotion ? nil : Adaptive.Motion.panel, value: inspectorVisible)
         .animation(reduceMotion ? nil : Adaptive.Motion.panel, value: session.focusMode)
         .animation(reduceMotion ? nil : Adaptive.Motion.panel, value: searchVisible)
+        .animation(reduceMotion ? nil : Adaptive.Motion.panel, value: session.companionVisible)
     }
 
     private var filteredBooks: [BookRecord] {
@@ -395,6 +415,7 @@ struct WorkspaceView: View {
         case .toggleInspector: toggleInspector(width: width)
         case .zoomIn: session.zoom(by: 1.1)
         case .zoomOut: session.zoom(by: 1 / 1.1)
+        case .companion: _ = session.performReadingCommand(.companion)
         }
     }
 
@@ -480,8 +501,13 @@ struct WorkspaceView: View {
             .focused($toolbarFocus, equals: .inspector)
             .onKeyPress(.space) { perform(.toggleInspector, width: width); return .handled }
             .accessibilityIdentifier("inspector.toggle")
+            if document != nil && width >= Adaptive.Layout.inspectorThreshold {
+                Button("AI Companion", systemImage: "sparkle") { perform(.companion, width: width) }
+                    .accessibilityIdentifier("ai.toggle")
+            }
             Menu {
                 Button("Command Center") { perform(.commandCenter, width: width) }
+                Button("AI Companion") { perform(.companion, width: width) }.disabled(document == nil)
                 Button("Reading tools") { perform(.readingTools, width: width) }
                 if document != nil {
                     Button("Back") { perform(.back, width: width) }.disabled(session.commands?.canGoBack != true)
