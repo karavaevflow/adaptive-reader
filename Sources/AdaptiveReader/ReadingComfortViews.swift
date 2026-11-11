@@ -177,6 +177,9 @@ struct CommandCenterView: View {
             ScrollViewReader { _ in
                 List {
                     if let page { Button("Go to page \(page)") { session.navigate(page: page); dismiss() }.accessibilityIdentifier("command.page") }
+                    if !query.isEmpty && page == nil && session.engine != nil {
+                        Button("Ask AI Companion") { session.pendingCompanionQuestion = query; perform(.companion) }.accessibilityIdentifier("command.askAI")
+                    }
                     ForEach(filtered) { command in
                         Button { perform(command) } label: {
                             HStack { Text(LocalizedStringKey(command.displayLabel(in: session))); Spacer(); Image(systemName: "return").foregroundStyle(Adaptive.secondary) }

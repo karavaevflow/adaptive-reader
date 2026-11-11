@@ -13,7 +13,7 @@ final class LaunchTests: XCTestCase {
         continueAfterFailure = false
     }
     @MainActor
-    private func launch(width: Int = 1440, theme: String = "light", language: String = "en", reader: Bool = false, library: Bool = false, storedReader: Bool = false) -> XCUIApplication {
+    private func launch(width: Int = 1440, theme: String = "light", language: String = "en", reader: Bool = false, library: Bool = false, storedReader: Bool = false, companionReview: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-designReview", "YES", "-designWidth", String(width),
                                "-reviewAppearance", theme,
@@ -21,6 +21,7 @@ final class LaunchTests: XCTestCase {
         if reader { app.launchArguments += ["-designReader", "YES"] }
         if library { app.launchArguments += ["-libraryReview", "YES"] }
         if storedReader { app.launchArguments += ["-phase0Import", "YES"] }
+        if companionReview { app.launchArguments += ["-companionFixture", "YES", "-companionReview", "YES"] }
         app.launch()
         app.activate()
         if !app.windows.firstMatch.waitForExistence(timeout: 2) {
@@ -246,6 +247,24 @@ final class LaunchTests: XCTestCase {
                     XCTAssertTrue(mini.waitForExistence(timeout: 5))
                     let image = XCTAttachment(screenshot: mini.screenshot())
                     image.name = "v02-Mini-\(name)"; image.lifetime = .keepAlways; add(image)
+                    app.terminate()
+                }
+            }
+        }
+    }
+
+    @MainActor func testCompanionVisualMatrix() {
+        for language in ["en", "ru"] {
+            for width in [800, 1440] {
+                for theme in ["light", "dark"] {
+                    let app = launch(width: width, theme: theme, language: language, storedReader: true, companionReview: true)
+                    let menu = app.menuBars.menuBarItems[language == "ru" ? "Вид" : "View"]
+                    menu.click(); app.menuItems["AI Companion"].firstMatch.click()
+                    XCTAssertTrue(app.staticTexts["ai.answer"].firstMatch.waitForExistence(timeout: 15))
+                    capture(app, name: "v03-Companion-\(language)-\(width)-\(theme)")
+                    app.buttons["ai.settings"].firstMatch.click()
+                    XCTAssertTrue(app.textFields["ai.endpoint"].firstMatch.waitForExistence(timeout: 5))
+                    capture(app, name: "v03-Settings-\(language)-\(width)-\(theme)")
                     app.terminate()
                 }
             }
@@ -524,6 +543,59 @@ final class OfflineReaderTests: XCTestCase {
         paletteQuery.typeKey(.return, modifierFlags: [])
         expectComfort(id, "palette", "forest")
         XCTAssertTrue(paletteQuery.waitForNonExistence(timeout: 5))
+    }
+
+    @MainActor func testCompanionEvidenceActionsAndNoteUndo() {
+        let id = UUID().uuidString
+        let app = launch(id, specimen: true, diagnostics: true, additionalArguments: ["-companionFixture", "YES", "-companionReview", "YES"])
+        menu(app, "View", "AI Companion")
+        XCTAssertTrue(app.staticTexts["ai.answer"].firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["ai.citation"].firstMatch.exists)
+        XCTAssertFalse(app.descendants(matching: .any)["ai.marginRail"].exists)
+        app.buttons["ai.citation"].firstMatch.click()
+        menu(app, "View", "Back")
+        app.popUpButtons["ai.explainAgain"].firstMatch.click()
+        app.menuItems["Simpler"].firstMatch.click()
+        XCTAssertTrue(app.staticTexts["ai.answer"].firstMatch.waitForExistence(timeout: 10))
+        app.buttons["ai.action.setTheme"].firstMatch.click()
+        expectComfort(id, "palette", "forest")
+        app.buttons["ai.action.createNote"].firstMatch.click()
+        XCTAssertTrue(app.buttons["ai.saveNote"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["ai.saveNote"].firstMatch.click()
+        XCTAssertTrue(app.buttons["ai.undoNote"].firstMatch.waitForExistence(timeout: 5))
+        snapshot(app, "v03-source-and-note")
+        app.buttons["ai.undoNote"].firstMatch.click()
+        XCTAssertTrue(app.buttons["ai.undoNote"].firstMatch.waitForNonExistence(timeout: 5))
+        app.buttons["ai.newTopic"].firstMatch.click()
+        XCTAssertTrue(app.staticTexts["ai.answer"].firstMatch.waitForNonExistence(timeout: 5))
+    }
+
+    @MainActor func testCompanionCancellationAndScanWithoutText() {
+        let app = launch(UUID().uuidString, specimen: true, additionalArguments: ["-companionFixture", "YES", "-companionReview", "YES", "-companionSlowFixture", "YES"])
+        menu(app, "View", "AI Companion")
+        XCTAssertTrue(app.buttons["ai.cancel"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["ai.cancel"].firstMatch.click()
+        XCTAssertTrue(app.buttons["ai.cancel"].firstMatch.waitForNonExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["ai.answer"].firstMatch.exists)
+        menu(app, "File", "Close book")
+        menu(app, "File", "Open PDF")
+        choosePDF(app, relativePath: "Research/Fixtures/scan.pdf")
+        XCTAssertTrue(app.windows["scan"].firstMatch.waitForExistence(timeout: 10))
+        menu(app, "View", "AI Companion")
+        XCTAssertTrue(app.staticTexts["ai.error"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["ai.error"].firstMatch.label.contains("OCR"))
+        XCTAssertFalse(app.staticTexts["ai.answer"].firstMatch.exists)
+    }
+
+    @MainActor func testMagicSelectionKeepsSourceVisible() {
+        let app = launch(UUID().uuidString, specimen: true, additionalArguments: ["-companionFixture", "YES"])
+        app.scrollViews["reader.pages"].firstMatch.click()
+        menu(app, "Edit", "Select All")
+        XCTAssertTrue(app.buttons["ai.explainSelection"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["ai.explainSelection"].firstMatch.click()
+        XCTAssertTrue(app.staticTexts["ai.answer"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["ai.explainSelection"].firstMatch.exists)
+        snapshot(app, "v03-magic-selection")
     }
 
     @MainActor func testDailyTimerAndManualScrollCancellation() {

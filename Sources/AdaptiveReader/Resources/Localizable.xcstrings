@@ -2410,6 +2410,1046 @@
           }
         }
       }
+    },
+    "AI Companion": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI Companion"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI Companion"
+          }
+        }
+      }
+    },
+    "New topic": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New topic"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новая тема"
+          }
+        }
+      }
+    },
+    "AI settings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI settings"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки ИИ"
+          }
+        }
+      }
+    },
+    "Test provider · no model request": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test provider · no model request"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тестовый провайдер · без запроса к модели"
+          }
+        }
+      }
+    },
+    "Ask about this book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask about this book"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Спросите об этой книге"
+          }
+        }
+      }
+    },
+    "Connect a local model or explicitly enable a cloud provider. Reading works without AI.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect a local model or explicitly enable a cloud provider. Reading works without AI."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключите локальную модель или явно разрешите облачный API. Читать можно без ИИ."
+          }
+        }
+      }
+    },
+    "Configure AI": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configure AI"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настроить ИИ"
+          }
+        }
+      }
+    },
+    "Selected source": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected source"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбранный источник"
+          }
+        }
+      }
+    },
+    "Use visible page instead": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use visible page instead"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Использовать текущую страницу"
+          }
+        }
+      }
+    },
+    "Preparing local text index": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing local text index"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подготовка локального индекса"
+          }
+        }
+      }
+    },
+    "Receiving answer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Receiving answer"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Получение ответа"
+          }
+        }
+      }
+    },
+    "Index limit reached. Search covers the indexed portion.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Index limit reached. Search covers the indexed portion."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Достигнут предел индекса. Поиск охватывает подготовленную часть."
+          }
+        }
+      }
+    },
+    "From the book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From the book"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По материалам книги"
+          }
+        }
+      }
+    },
+    "General model knowledge": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "General model knowledge"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Общие знания модели"
+          }
+        }
+      }
+    },
+    "Insufficient evidence": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Insufficient evidence"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Недостаточно источников"
+          }
+        }
+      }
+    },
+    "Explain Again": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Explain Again"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Объяснить иначе"
+          }
+        }
+      }
+    },
+    "Simpler": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simpler"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проще"
+          }
+        }
+      }
+    },
+    "More detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More detail"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подробнее"
+          }
+        }
+      }
+    },
+    "With an example": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "With an example"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На примере"
+          }
+        }
+      }
+    },
+    "With an analogy": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "With an analogy"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "С аналогией"
+          }
+        }
+      }
+    },
+    "Step by step": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Step by step"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По шагам"
+          }
+        }
+      }
+    },
+    "As a text diagram": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "As a text diagram"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Текстовой схемой"
+          }
+        }
+      }
+    },
+    "Suggested actions · review before applying": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggested actions · review before applying"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предложенные действия · проверьте перед применением"
+          }
+        }
+      }
+    },
+    "Review note": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review note"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверьте заметку"
+          }
+        }
+      }
+    },
+    "Save note": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save note"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить заметку"
+          }
+        }
+      }
+    },
+    "Cancel note": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel note"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить заметку"
+          }
+        }
+      }
+    },
+    "Undo saved note": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undo saved note"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить сохранение заметки"
+          }
+        }
+      }
+    },
+    "Reader notes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reader notes"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заметки читателя"
+          }
+        }
+      }
+    },
+    "Open note source": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open note source"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть источник заметки"
+          }
+        }
+      }
+    },
+    "Smart Margins": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smart Margins"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Умные поля"
+          }
+        }
+      }
+    },
+    "Source hints appear only when enabled; Focus hides them.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source hints appear only when enabled; Focus hides them."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подсказки появляются только по вашему выбору. Фокус их скрывает."
+          }
+        }
+      }
+    },
+    "Question about the book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Question about the book"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вопрос по книге"
+          }
+        }
+      }
+    },
+    "Ask": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Спросить"
+          }
+        }
+      }
+    },
+    "Cloud · selected excerpts will be sent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud · selected excerpts will be sent"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Облако · будут отправлены выбранные фрагменты"
+          }
+        }
+      }
+    },
+    "Local context · on this Mac": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Local context · on this Mac"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Локальный контекст · на этом Mac"
+          }
+        }
+      }
+    },
+    "Source": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Источник"
+          }
+        }
+      }
+    },
+    "Open source": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open source"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть источник"
+          }
+        }
+      }
+    },
+    "Apply palette": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply palette"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Применить палитру"
+          }
+        }
+      }
+    },
+    "Review suggested note": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review suggested note"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить предложенную заметку"
+          }
+        }
+      }
+    },
+    "Provider mode": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Provider mode"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Режим провайдера"
+          }
+        }
+      }
+    },
+    "Local Ollama": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Local Ollama"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Локальный Ollama"
+          }
+        }
+      }
+    },
+    "Cloud API": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud API"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Облачный API"
+          }
+        }
+      }
+    },
+    "Endpoint URL": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Endpoint URL"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Адрес API"
+          }
+        }
+      }
+    },
+    "Model identifier": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model identifier"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Идентификатор модели"
+          }
+        }
+      }
+    },
+    "API key · stored in Keychain": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API key · stored in Keychain"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API-ключ · хранится в Связке ключей"
+          }
+        }
+      }
+    },
+    "When you ask, the question, book title, visible page and up to eight retrieved or selected excerpts are sent to this endpoint. The provider may retain them under its own policy. The whole book is not uploaded.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When you ask, the question, book title, visible page and up to eight retrieved or selected excerpts are sent to this endpoint. The provider may retain them under its own policy. The whole book is not uploaded."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "При запросе на этот адрес отправятся вопрос, название книги, текущая страница и до восьми найденных или выделенных фрагментов. Провайдер может хранить их по своей политике. Вся книга не загружается."
+          }
+        }
+      }
+    },
+    "Allow sending these excerpts to this endpoint and model": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow sending these excerpts to this endpoint and model"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрешить отправку фрагментов на этот адрес и модель"
+          }
+        }
+      }
+    },
+    "Remove saved API key": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove saved API key"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить сохранённый API-ключ"
+          }
+        }
+      }
+    },
+    "Local mode accepts only localhost. Install and choose your own Ollama model.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Local mode accepts only localhost. Install and choose your own Ollama model."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Локальный режим работает только с localhost. Установите и выберите свою модель Ollama."
+          }
+        }
+      }
+    },
+    "Clear this book's AI index": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear this book's AI index"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Очистить ИИ-индекс этой книги"
+          }
+        }
+      }
+    },
+    "Selected text": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected text"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выделенный текст"
+          }
+        }
+      }
+    },
+    "Explain": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Explain"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Объяснить"
+          }
+        }
+      }
+    },
+    "Find Sources": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Find Sources"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить источники"
+          }
+        }
+      }
+    },
+    "Note": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заметка"
+          }
+        }
+      }
+    },
+    "Source hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source hint"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подсказка к источнику"
+          }
+        }
+      }
+    },
+    "Ask AI Companion": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask AI Companion"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Спросить AI Companion"
+          }
+        }
+      }
+    },
+    "Explain the selected source.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Explain the selected source."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Объясни выделенный фрагмент."
+          }
+        }
+      }
+    },
+    "Translate the selected source into my question language.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translate the selected source into my question language."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переведи выделенный фрагмент на русский язык."
+          }
+        }
+      }
+    },
+    "Explain what the selected source supports, citing its evidence.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Explain what the selected source supports, citing its evidence."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Объясни, какие выводы поддерживает выделенный фрагмент, со ссылкой на источник."
+          }
+        }
+      }
+    },
+    "Configure an AI provider and model first.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configure an AI provider and model first."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сначала настройте провайдера и модель ИИ."
+          }
+        }
+      }
+    },
+    "Enable cloud sending for this endpoint before asking a question.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enable cloud sending for this endpoint before asking a question."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перед запросом разрешите отправку в облако на этот адрес."
+          }
+        }
+      }
+    },
+    "This source has no accessible text. OCR is required for scanned pages.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This source has no accessible text. OCR is required for scanned pages."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В источнике нет доступного текста. Для сканов требуется OCR."
+          }
+        }
+      }
+    },
+    "The answer refers to an unavailable source.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The answer refers to an unavailable source."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ответ ссылается на недоступный источник."
+          }
+        }
+      }
+    },
+    "The provider returned an unsupported or incomplete answer.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The provider returned an unsupported or incomplete answer."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Провайдер вернул неподдерживаемый или неполный ответ."
+          }
+        }
+      }
+    },
+    "The AI context or response exceeded the configured limit.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The AI context or response exceeded the configured limit."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Контекст или ответ ИИ превысил установленный предел."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
