@@ -54,3 +54,13 @@ sh scripts/benchmark-v02-soak.sh /private/tmp/v02-soak.xcresult
 ```
 
 For paired investigation, alternate the archived v0.1 and current `ColorResearch scroll PDF policy` executables for five runs of each PDF/policy in the table. Do not run other builds or UI benchmarks concurrently. Original fixture checksums and earlier release data are unchanged.
+
+## Real 25-minute Release session
+
+`soak.json` retains 51 samples at approximately 30-second intervals from the real Mini Reader/auto-scroll session on the 600-page fixture, Original palette, 32 pt/s, explicit floating window. The timer reached 1,500 seconds and stopped automatic scrolling and the activity driver. The native test passed in 1,549.97 seconds including launch, file selection, capture, viewport return and book closure. Result: `/private/tmp/adaptive-v02-soak3.xcresult`.
+
+After the first five minutes, sampled RSS ranged from 80.7 to 121.3 MiB; completion RSS was 83.8 MiB. Process peak RSS was 342.8 MiB including startup and native automation caches. Cumulative CPU growth during the sampled session corresponds to 27.55% of one CPU core. This is one real long run, not five repeated sessions and not an energy measurement.
+
+`soak-after-close.json` confirms documentOpen=false, miniOpen=false, autoScrolling=false, driverActive=false and timerStatus=completed after closure. Its RSS is 275.3 MiB after capture/viewport transfer; process RSS includes retained framework caches, so the activity assertions do not claim all cached memory is released immediately. Native main-window closure is independently covered by the regular lifecycle test.
+
+The soak and full local Release suite use application/test source `11998b3`. The later `5e62476` change adds Enter execution for a filtered palette and extends its keyboard test; the activity driver, engine and persistence implementation are identical. Full CI on `5e62476` passed. Interrupted earlier harness attempts are excluded from accepted measurements.

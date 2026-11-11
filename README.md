@@ -41,4 +41,4 @@ Versioned PDF/EPUB source anchors, typed navigation/search commands and atomic r
 
 Books stay on the device. This build has no AI provider or network feature.
 
-Phase 0 is complete; the v0.1 offline PDF workflow has passed local acceptance. See [acceptance evidence](docs/phase-0.md) and the [release gates](docs/release-gates.md) for all milestones. The first UI-test run may require confirming macOS “Enable UI Automation”.
+Phase 0, the v0.1 offline PDF workflow and v0.2 daily reading have passed acceptance. The v0.2 report includes the real 25-minute Release session, final-source CI and the precise local automation limitation. See [acceptance evidence](docs/phase-0.md) and the [release gates](docs/release-gates.md) for all milestones. The first UI-test run may require confirming macOS “Enable UI Automation”.
