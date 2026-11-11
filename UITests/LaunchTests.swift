@@ -3,6 +3,10 @@ import AppKit
 import IOKit.pwr_mgt
 import Carbon.HIToolbox
 
+private var targetApplicationBundleID: String {
+    Bundle(for: OfflineReaderTests.self).object(forInfoDictionaryKey: "AdaptiveReaderTargetBundleID") as? String ?? "com.karavaevflow.AdaptiveReader"
+}
+
 final class LaunchTests: XCTestCase {
     override func setUp() {
         super.setUp()
@@ -271,10 +275,12 @@ final class OfflineReaderTests: XCTestCase {
     }
     override func setUp() { super.setUp(); continueAfterFailure = false }
 
-    @MainActor private func launch(_ id: String, specimen: Bool) -> XCUIApplication {
+    @MainActor private func launch(_ id: String, specimen: Bool, diagnostics: Bool = false, additionalArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-phase0Store", id, "-designWidth", "1440", "-AppleLanguages", "(en)", "-AppleLocale", "en"]
         if specimen { app.launchArguments += ["-phase0Import", "YES"] }
+        if diagnostics { app.launchArguments += ["-comfortDiagnostics", "YES"] }
+        app.launchArguments += additionalArguments
         app.launch(); app.activate()
         if !app.windows.firstMatch.waitForExistence(timeout: 2) {
             let file = app.menuBars.menuBarItems.element(boundBy: 2)
@@ -315,7 +321,7 @@ final class OfflineReaderTests: XCTestCase {
     }
 
     @MainActor private func readingAssertions() -> Int {
-        guard let process = NSRunningApplication.runningApplications(withBundleIdentifier: "com.karavaevflow.AdaptiveReader")
+        guard let process = NSRunningApplication.runningApplications(withBundleIdentifier: targetApplicationBundleID)
             .filter({ !$0.isTerminated }).max(by: { ($0.launchDate ?? .distantPast) < ($1.launchDate ?? .distantPast) }) else { return 0 }
         var result: Unmanaged<CFDictionary>?
         guard IOPMCopyAssertionsByProcess(&result) == kIOReturnSuccess,
@@ -446,6 +452,179 @@ final class OfflineReaderTests: XCTestCase {
         }
         let attachment = XCTAttachment(data: try JSONSerialization.data(withJSONObject: rows, options: [.prettyPrinted, .sortedKeys]), uniformTypeIdentifier: "public.json")
         attachment.name = "v01-large-ui-measurements"; attachment.lifetime = .keepAlways; add(attachment)
+        #endif
+    }
+
+    @MainActor private func expectComfort(_ id: String, _ key: String, _ expected: String, timeout: TimeInterval = 6) {
+        let home = URL(fileURLWithPath: String(cString: getpwuid(getuid())!.pointee.pw_dir))
+        let url = home.appendingPathComponent("Library/Containers/\(targetApplicationBundleID)/Data/Library/Application Support/AdaptiveReader/Phase0Tests/\(id)/ComfortDiagnostics.json")
+        let predicate = NSPredicate { _, _ in
+            guard let data = try? Data(contentsOf: url), let value = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return false }
+            let actual = (value[key] as? String) ?? (value[key] as? Bool).map { String($0) } ?? (value[key] as? Int).map { String($0) }
+            return actual == expected
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: nil)], timeout: timeout), .completed, "Comfort state \(key) = \(expected)")
+    }
+
+    @MainActor func testDailyCommandCenterAndSmartBack() {
+        let app = launch(UUID().uuidString, specimen: true)
+        menu(app, "View", "Command Center")
+        let field = app.textFields["command.query"].firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        paste("2", into: field, app: app)
+        app.buttons["command.page"].firstMatch.click()
+        XCTAssertTrue(app.staticTexts["2/3"].waitForExistence(timeout: 5))
+        menu(app, "View", "Back")
+        XCTAssertTrue(app.staticTexts["1/3"].waitForExistence(timeout: 5))
+        menu(app, "View", "Forward")
+        XCTAssertTrue(app.staticTexts["2/3"].waitForExistence(timeout: 5))
+        app.typeKey(goToFolderKey() == "п" ? "л" : "k", modifierFlags: .command)
+        XCTAssertTrue(app.textFields["command.query"].firstMatch.waitForExistence(timeout: 5))
+        snapshot(app, "v02-command-center")
+        app.typeKey(.escape, modifierFlags: [])
+        XCTAssertTrue(app.textFields["command.query"].firstMatch.waitForNonExistence(timeout: 5))
+    }
+
+    @MainActor func testDailyTimerAndManualScrollCancellation() {
+        let id = UUID().uuidString, app = launch(id, specimen: true, diagnostics: true)
+        menu(app, "View", "Reading tools")
+        XCTAssertTrue(app.buttons["comfort.start"].waitForExistence(timeout: 5))
+        app.buttons["comfort.start"].click()
+        expectComfort(id, "timerStatus", "running")
+        app.buttons["comfort.pause"].click()
+        expectComfort(id, "timerStatus", "paused")
+        expectComfort(id, "driverActive", "false")
+        app.buttons["comfort.pause"].click()
+        expectComfort(id, "timerStatus", "running")
+        app.buttons["comfort.stop"].click()
+        expectComfort(id, "timerStatus", "completed")
+        app.checkBoxes["comfort.spotlight"].firstMatch.click()
+        app.checkBoxes["comfort.autoscroll"].firstMatch.click()
+        expectComfort(id, "autoScrolling", "true")
+        snapshot(app, "v02-reading-tools")
+        app.buttons["Done"].firstMatch.click()
+        app.scrollViews["reader.pages"].firstMatch.click()
+        expectComfort(id, "autoScrolling", "false")
+        expectComfort(id, "driverActive", "false")
+        snapshot(app, "v02-spotlight")
+        menu(app, "File", "Close book")
+        expectComfort(id, "documentOpen", "false")
+        expectComfort(id, "driverActive", "false")
+    }
+
+    @MainActor func testDailyMiniReaderTransfersPositionAndCommands() {
+        let id = UUID().uuidString, app = launch(id, specimen: true, diagnostics: true)
+        app.buttons["page.next"].firstMatch.click()
+        XCTAssertTrue(app.staticTexts["2/3"].waitForExistence(timeout: 5))
+        menu(app, "View", "Mini Reader")
+        let mini = app.windows["Mini Reader"]
+        XCTAssertTrue(mini.waitForExistence(timeout: 5))
+        XCTAssertTrue(mini.staticTexts["2/3"].waitForExistence(timeout: 5))
+        mini.buttons["Next page"].firstMatch.click()
+        XCTAssertTrue(mini.staticTexts["3/3"].waitForExistence(timeout: 5))
+        mini.checkBoxes["mini.onTop"].click()
+        let top = mini.checkBoxes["mini.onTop"].value
+        XCTAssertTrue((top as? NSNumber)?.boolValue == true || top as? String == "1")
+        expectComfort(id, "miniLevel", String(NSWindow.Level.floating.rawValue))
+        app.typeKey(goToFolderKey() == "п" ? "л" : "k", modifierFlags: .command)
+        XCTAssertTrue(app.textFields["command.query"].firstMatch.waitForExistence(timeout: 5))
+        app.typeKey(.escape, modifierFlags: [])
+        let image = XCTAttachment(screenshot: mini.screenshot())
+        image.name = "v02-mini-reader"; image.lifetime = .keepAlways; add(image)
+        mini.buttons["mini.return"].firstMatch.click()
+        XCTAssertTrue(mini.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["3/3"].waitForExistence(timeout: 5))
+        expectComfort(id, "miniOpen", "false")
+        menu(app, "File", "Close book")
+        expectComfort(id, "driverActive", "false")
+    }
+
+    @MainActor func testDailyPhysicalFootnoteLinkReturnsToSource() {
+        let app = launch(UUID().uuidString, specimen: false)
+        menu(app, "File", "Open PDF")
+        choosePDF(app, relativePath: "Research/Comfort/footnote.pdf")
+        XCTAssertTrue(app.windows["footnote"].waitForExistence(timeout: 10))
+        let pages = app.scrollViews["reader.pages"].firstMatch
+        XCTAssertTrue(pages.waitForExistence(timeout: 5))
+        let scale = (pages.frame.width - 16) / 612
+        pages.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0)).withOffset(CGVector(dx: 8 + 145 * scale, dy: 4 + (792 - 468) * scale)).click()
+        XCTAssertTrue(app.staticTexts["3/3"].waitForExistence(timeout: 5))
+        menu(app, "View", "Back")
+        XCTAssertTrue(app.staticTexts["1/3"].waitForExistence(timeout: 5))
+        snapshot(app, "v02-smart-back-footnote")
+    }
+
+    @MainActor func testDailyScheduledPaletteHonorsManualOverrideUntilBoundary() {
+        let id = UUID().uuidString
+        let app = launch(id, specimen: true, diagnostics: true, additionalArguments: ["-comfortScheduleProbe", "YES"])
+        expectComfort(id, "palette", "paper")
+        menu(app, "View", "Command Center")
+        app.buttons["command.palette.forest"].firstMatch.click()
+        expectComfort(id, "palette", "forest")
+        expectComfort(id, "palette", "midnight", timeout: 135)
+        snapshot(app, "v02-scheduled-palette")
+        menu(app, "File", "Close book")
+        expectComfort(id, "driverActive", "false")
+    }
+
+    @MainActor func testDailyClosingMainWindowClosesMiniAndStopsActivity() {
+        let id = UUID().uuidString, app = launch(id, specimen: true, diagnostics: true)
+        XCTAssertTrue(app.windows["Phase 0 reader"].waitForExistence(timeout: 10))
+        menu(app, "View", "Reading tools")
+        XCTAssertTrue(app.buttons["comfort.start"].waitForExistence(timeout: 5))
+        app.buttons["comfort.start"].click()
+        app.buttons["Done"].firstMatch.click()
+        menu(app, "View", "Mini Reader")
+        XCTAssertTrue(app.windows["Mini Reader"].waitForExistence(timeout: 5))
+        app.windows["Phase 0 reader"].buttons["sidebar.toggle"].firstMatch.click()
+        app.windows["Phase 0 reader"].buttons[XCUIIdentifierCloseWindow].click()
+        XCTAssertTrue(app.windows["Mini Reader"].waitForNonExistence(timeout: 5))
+        expectComfort(id, "driverActive", "false")
+        expectComfort(id, "sessionActive", "false")
+    }
+
+    @MainActor func testComfortTwentyFiveMinuteReleaseSession() throws {
+        #if !COMFORT_SOAK
+        throw XCTSkip("Opt-in real 25-minute Release Mini Reader/auto-scroll session on the control Mac")
+        #else
+        let id = UUID().uuidString, app = launch(id, specimen: false, diagnostics: true, additionalArguments: ["-comfortSoak", "YES"])
+        menu(app, "File", "Open PDF")
+        choosePDF(app, relativePath: "Research/Large/large-text.pdf")
+        XCTAssertTrue(app.windows["large-text"].waitForExistence(timeout: 10))
+        menu(app, "View", "Mini Reader")
+        let mini = app.windows["Mini Reader"]
+        XCTAssertTrue(mini.waitForExistence(timeout: 5))
+        mini.checkBoxes["mini.onTop"].click()
+        mini.buttons["Reading tools"].firstMatch.click()
+        XCTAssertTrue(app.buttons["comfort.start"].waitForExistence(timeout: 5))
+        app.buttons["comfort.start"].click()
+        app.checkBoxes["comfort.autoscroll"].firstMatch.click()
+        app.typeKey(.escape, modifierFlags: [])
+        expectComfort(id, "autoScrolling", "true")
+        let home = URL(fileURLWithPath: String(cString: getpwuid(getuid())!.pointee.pw_dir))
+        let diagnostic = home.appendingPathComponent("Library/Containers/\(targetApplicationBundleID)/Data/Library/Application Support/AdaptiveReader/Phase0Tests/\(id)/ComfortDiagnostics.json")
+        let start = ProcessInfo.processInfo.systemUptime
+        var rows = [[String: Any]]()
+        var complete = false
+        while ProcessInfo.processInfo.systemUptime - start < 26 * 60 {
+            XCTAssertNotEqual(app.state, .notRunning)
+            let state = try JSONSerialization.jsonObject(with: Data(contentsOf: diagnostic)) as! [String: Any]
+            XCTAssertGreaterThan(state["rssBytes"] as? Double ?? -1, 0)
+            var sample = state; sample["testElapsedSeconds"] = ProcessInfo.processInfo.systemUptime - start
+            rows.append(sample)
+            if state["timerStatus"] as? String == "completed" { complete = true; break }
+            Thread.sleep(forTimeInterval: 30)
+        }
+        XCTAssertTrue(complete)
+        expectComfort(id, "autoScrolling", "false")
+        expectComfort(id, "driverActive", "false")
+        let attachment = XCTAttachment(data: try JSONSerialization.data(withJSONObject: rows, options: [.prettyPrinted, .sortedKeys]), uniformTypeIdentifier: "public.json")
+        attachment.name = "v02-25-minute-release-session"; attachment.lifetime = .keepAlways; add(attachment)
+        let image = XCTAttachment(screenshot: mini.screenshot()); image.name = "v02-soak-complete"; image.lifetime = .keepAlways; add(image)
+        mini.buttons["mini.return"].firstMatch.click()
+        menu(app, "File", "Close book")
+        expectComfort(id, "documentOpen", "false")
+        expectComfort(id, "driverActive", "false")
         #endif
     }
 

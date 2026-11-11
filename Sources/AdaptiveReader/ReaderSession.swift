@@ -2,6 +2,7 @@ import SwiftUI
 import ReaderCore
 import PDFKit
 import Combine
+import Darwin
 
 @MainActor
 @Observable
@@ -24,7 +25,30 @@ final class ReaderSession {
     var keepAwake = false
     var focusMode = false
     var record: BookRecord?
+    var comfort = ReadingComfortPreferences()
+    var ambientDefaults = AmbientReadingSettings()
+    var systemDark = false
+    var shellAppearance = ShellAppearance.system
+    var readingTimer = ReadingSessionTimer()
+    var autoScrolling = false
+    var miniReaderActive = false
+    var commandCenterVisible = false
+    let activity = ReadingActivityDriver()
+    @ObservationIgnored var miniReader: MiniReaderController?
+    @ObservationIgnored private var appliedAmbientPhase: Bool?
+    @ObservationIgnored private var preferencesSaveTask: Task<Void, Never>?
+    @ObservationIgnored private var pendingComfort: (id: UUID, record: BookRecord, value: ReadingComfortPreferences)?
+    @ObservationIgnored private var checkpointTask: Task<Void, Never>?
+    @ObservationIgnored private var checkpointToken = UUID()
+    @ObservationIgnored private var nextCheckpoint: TimeInterval = 0
+    @ObservationIgnored private var nextSessionTick: TimeInterval = 0
+    @ObservationIgnored private var nextAmbientTick: TimeInterval = 0
+    @ObservationIgnored private var soakSamples: [[String: Any]] = []
+    @ObservationIgnored private var lastSoakSample: TimeInterval = 0
+    @ObservationIgnored private var diagnosticsTime: TimeInterval = 0
+    @ObservationIgnored private var pendingAmbient: (id: UUID, value: AmbientReadingSettings)?
     @ObservationIgnored private let store: LibraryStore
+    @ObservationIgnored private let storageRoot: URL
     @ObservationIgnored private let awake = DisplayAwake()
     @ObservationIgnored private var pendingState: ReadingState?
     @ObservationIgnored private var subscriptions = Set<AnyCancellable>()
@@ -47,12 +71,16 @@ final class ReaderSession {
             root = root.appendingPathComponent("Phase0Tests/\(id.uuidString)")
         }
         #endif
+        storageRoot = root
         store = ReaderStores.store(at: root)
         SessionRegistry.shared.add(self)
+        activity.onTick = { [weak self] now, delta, date in self?.readingTick(now: now, delta: delta, date: date) }
     }
 
     func refreshLibrary() async {
+        await flushPreferences()
         do {
+            ambientDefaults = try await store.ambientDefaults()
             books = try await store.books()
             var positions: [UUID: ReadingState] = [:]
             for book in books { positions[book.id] = try await store.readingState(for: book) }
@@ -90,8 +118,10 @@ final class ReaderSession {
         let candidate = try PDFReaderEngine(source: prepared, bookID: record.id)
         try candidate.applyPagePalette(state?.palette ?? .original)
         let marks = try await store.bookmarks(for: record)
+        let preferences = try await store.comfortPreferences(for: record)
+        let defaults = try await store.ambientDefaults()
         guard active, !Task.isCancelled else { return }
-        install(candidate, title: record.title, record: record, state: state, bookmarks: marks, data: data)
+        install(candidate, title: record.title, record: record, state: state, bookmarks: marks, data: data, preferences: preferences, defaults: defaults)
     }
 
     func importURL(_ url: URL, asReference: Bool = false) async {
@@ -136,7 +166,8 @@ final class ReaderSession {
         let record = try await store.importBook(data: data, id: candidate.bookID, title: title, revision: candidate.sourceRevision, reference: reference, pageCount: candidate.document.pageCount)
         await flush()
         guard active, !Task.isCancelled else { return }
-        install(candidate, title: title, record: record, state: nil, bookmarks: [], data: data)
+        let defaults = try await store.ambientDefaults()
+        install(candidate, title: title, record: record, state: nil, bookmarks: [], data: data, defaults: defaults)
         await refreshLibrary()
     }
 
@@ -144,13 +175,26 @@ final class ReaderSession {
         install(try PDFReaderEngine(data: data, bookID: UUID()), title: "Reading specimen", record: nil, state: nil, bookmarks: [], data: data)
     }
 
-    private func install(_ candidate: PDFReaderEngine, title: String, record: BookRecord?, state: ReadingState?, bookmarks: [ReaderBookmark], data: Data) {
+    private func install(_ candidate: PDFReaderEngine, title: String, record: BookRecord?, state: ReadingState?, bookmarks: [ReaderBookmark], data: Data, preferences: ReadingComfortPreferences = ReadingComfortPreferences(), defaults: AmbientReadingSettings = AmbientReadingSettings()) {
         stopWork()
         awake.release(); keepAwake = false
         subscriptions.removeAll(); saving?.cancel()
         mounted = false; pendingState = state
         self.record = record; self.title = title; self.bookmarks = bookmarks
+        comfort = preferences; ambientDefaults = defaults; appliedAmbientPhase = nil; readingTimer = ReadingSessionTimer()
+        #if DEBUG || FOUNDATION_BENCHMARK
+        if ProcessInfo.processInfo.arguments.contains("-comfortScheduleProbe") {
+            let parts = Calendar.current.dateComponents([.hour, .minute], from: Date())
+            let minute = (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
+            var schedule = AmbientReadingSettings(); schedule.strategy = .schedule
+            schedule.dayMinute = (minute + 1439) % 1440; schedule.nightMinute = (minute + 2) % 1440
+            comfort.ambient = schedule
+        }
+        #endif
         engine = candidate; commands = ReaderCommands(engine: candidate)
+        candidate.onInternalNavigation = { [weak self] anchor in self?.navigate(to: anchor) }
+        candidate.onManualInteraction = { [weak self] in self?.setAutoScroll(false) }
+        candidate.onSpotlightStep = { [weak self] direction in self?.stepSpotlight(direction) }
         checkingText = true
         // An independent PDFDocument stays confined to this worker; no PDFKit objects cross actors.
         textTask = Task { [weak self, weak candidate] in
@@ -195,12 +239,13 @@ final class ReaderSession {
                 MainActor.assumeIsolated { self?.positionChanged() }
             }.store(in: &subscriptions)
         }
-        positionChanged()
+        positionChanged(); applyAmbient(at: Date()); updateActivityDriver()
     }
 
     private func positionChanged() {
         guard mounted, let engine else { return }
         scale = engine.view.scaleFactor
+        engine.updateSpotlightLayout()
         if let anchor = try? engine.currentAnchor(), case .pdf(let point) = anchor.position {
             pageNumber = point.pageIndex + 1
         }
@@ -222,10 +267,25 @@ final class ReaderSession {
         do { try commands?.perform(.navigate(anchor)); positionChanged() } catch { report(error) }
     }
     func setPalette(_ palette: PagePalette) {
+        recordManualPaletteChoice(); applyPalette(palette)
+    }
+    private func recordManualPaletteChoice() {
+        systemDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let settings = effectiveAmbient
+        if settings.strategy != .manual {
+            if settings.manualBehavior == .disableAutomation {
+                var manual = settings; manual.strategy = .manual; comfort.ambient = manual
+            } else if settings.strategy == .schedule { comfort.manualOverrideUntil = settings.nextTransition(after: Date()) }
+            else { comfort.manualOverrideSystemDark = systemDark }
+            saveComfortPreferences()
+        }
+    }
+    private func applyPalette(_ palette: PagePalette) {
         do { try commands?.perform(.setPalette(palette)); subscriptions.removeAll(); mounted = false; mount() }
         catch { report(error) }
     }
     func undoPalette() {
+        recordManualPaletteChoice()
         do { try commands?.undoPalette(); subscriptions.removeAll(); mounted = false; mount() } catch { report(error) }
     }
     func zoom(by factor: Double) {
@@ -291,25 +351,244 @@ final class ReaderSession {
     func closeBook() async {
         guard !busy else { return }
         busy = true; defer { busy = false }
-        awake.release(); keepAwake = false; focusMode = false
+        closeMiniReader(); stopReadingActivity(); awake.release(); keepAwake = false; focusMode = false
         stopWork(); await flush(); saving?.cancel(); subscriptions.removeAll()
         engine = nil; commands = nil; record = nil; mounted = false; bookmarks = []; title = "Adaptive Reader"
         do { try await store.setCurrentBook(nil) } catch { report(error) }
-        await refreshLibrary()
+        await refreshLibrary(); writeComfortDiagnostics(force: true)
     }
     private func stopWork() {
+        checkpointTask?.cancel(); checkpointTask = nil; checkpointToken = UUID()
+        closeMiniReader(); stopReadingActivity()
         searchTask?.cancel(); textTask?.cancel()
         engine?.cancelSearch(); searchQuery = ""; searchMatches = []; searching = false; checkingText = false
     }
     func suspend() {
-        active = false; awake.release(); keepAwake = false; stopWork(); saving?.cancel()
+        active = false; closeMiniReader(revealMain: false); stopReadingActivity(); awake.release(); keepAwake = false; stopWork(); saving?.cancel()
     }
     func flush() async {
-        guard mounted, let engine, let commands, let record else { return }
+        await flushPreferences()
+        guard let engine, let commands, let record else { return }
+        if !mounted {
+            if let pendingState { do { try await store.save(pendingState, for: record) } catch { report(error) } }
+            return
+        }
         do {
             try await store.save(ReadingState(anchor: try engine.currentAnchor(), palette: commands.palette,
                 scale: engine.view.scaleFactor, autoScales: engine.view.autoScales, pdfDisplayMode: engine.view.displayMode.rawValue), for: record)
         } catch { report(error) }
+    }
+    var effectiveAmbient: AmbientReadingSettings { comfort.ambient ?? ambientDefaults }
+    func refreshComfortPreferences() async {
+        guard active, let record else { return }
+        await flushPreferences()
+        do {
+            let value = try await store.comfortPreferences(for: record)
+            let defaults = try await store.ambientDefaults()
+            guard self.record?.id == record.id else { return }
+            comfort = value; ambientDefaults = defaults; applyAmbient(at: Date()); updateActivityDriver()
+        } catch { report(error) }
+    }
+    func saveComfortPreferences() {
+        guard let record else { return }
+        do { try comfort.validate() } catch { report(error); return }
+        pendingComfort = (UUID(), record, comfort)
+        schedulePreferencesWrite(); applyAmbient(at: Date()); updateActivityDriver()
+    }
+    func updateAmbientSettings(_ value: AmbientReadingSettings, global: Bool) {
+        do { try value.validate() } catch { report(error); return }
+        if global { saveAmbientDefaults(value) }
+        else {
+            comfort.ambient = value; comfort.manualOverrideUntil = nil; comfort.manualOverrideSystemDark = nil
+            saveComfortPreferences()
+        }
+    }
+    func saveAmbientDefaults(_ value: AmbientReadingSettings) {
+        do { try value.validate() } catch { report(error); return }
+        ambientDefaults = value; appliedAmbientPhase = nil; pendingAmbient = (UUID(), value)
+        schedulePreferencesWrite(); applyAmbient(at: Date()); updateActivityDriver()
+    }
+    private func schedulePreferencesWrite() {
+        preferencesSaveTask?.cancel()
+        preferencesSaveTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(150))
+            guard !Task.isCancelled else { return }
+            await self?.flushPreferences()
+        }
+    }
+    private func flushPreferences() async {
+        let changed = pendingAmbient != nil || pendingComfort != nil
+        do {
+            if let pending = pendingAmbient {
+                try await store.saveAmbientDefaults(pending.value)
+                if pendingAmbient?.id == pending.id { pendingAmbient = nil }
+            }
+            if let pending = pendingComfort {
+                try await store.saveComfort(pending.value, for: pending.record)
+                if pendingComfort?.id == pending.id { pendingComfort = nil }
+            }
+        } catch { report(error) }
+        if changed { SessionRegistry.shared.refreshComfort(except: self) }
+    }
+    func sharesLibrary(with other: ReaderSession) -> Bool { storageRoot == other.storageRoot }
+    func appearanceChanged(isDark: Bool) { systemDark = isDark; applyAmbient(at: Date()) }
+    private func applyAmbient(at date: Date) {
+        guard mounted, engine != nil else { return }
+        systemDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let settings = effectiveAmbient
+        guard let palette = settings.palette(at: date, systemDark: systemDark),
+              !comfort.overridesAutomation(at: date, systemDark: systemDark, strategy: settings.strategy) else { return }
+        let phase = settings.isNight(at: date, systemDark: systemDark)
+        if appliedAmbientPhase != phase || commands?.palette != palette {
+            appliedAmbientPhase = phase; applyPalette(palette)
+        }
+    }
+    @discardableResult func performReadingCommand(_ command: WorkspaceCommand) -> Bool {
+        guard command.isEnabled(in: self) else { return true }
+        switch command {
+        case .nextPassage: stepPassage(1)
+        case .previousPassage: stepPassage(-1)
+        case .back: smartBack()
+        case .forward: smartForward()
+        case .toggleSpotlight: toggleSpotlight()
+        case .spotlightNext: stepSpotlight(1)
+        case .spotlightPrevious: stepSpotlight(-1)
+        case .toggleAutoScroll: setAutoScroll(!autoScrolling)
+        case .toggleSession:
+            switch readingTimer.status {
+            case .running: pauseReadingSession()
+            case .paused: resumeReadingSession()
+            default: startReadingSession(minutes: 25)
+            }
+        case .stopSession: stopReadingSession()
+        case .miniReader: showMiniReader()
+        case .returnToReader: closeMiniReader()
+        case .toggleFocus: focusMode.toggle()
+        case .toggleAwake: setKeepAwake(!keepAwake)
+        case .toggleBookmark: Task { await toggleBookmark() }
+        case .zoomIn: zoom(by: 1.1)
+        case .zoomOut: zoom(by: 1 / 1.1)
+        case .closeBook: Task { await closeBook() }
+        default: return false
+        }
+        return true
+    }
+    func stepPassage(_ direction: Int) {
+        setAutoScroll(false)
+        do { try commands?.perform(.advancePassage(direction)); positionChanged() } catch { report(error) }
+    }
+    func smartBack() { do { try commands?.perform(.back); positionChanged() } catch { report(error) } }
+    func smartForward() { do { try commands?.perform(.forward); positionChanged() } catch { report(error) } }
+    func toggleSpotlight() {
+        do { try commands?.perform(.setSpotlight(!(engine?.spotlightEnabled ?? false))) } catch { report(error) }
+    }
+    func stepSpotlight(_ direction: Int) { do { try commands?.perform(.stepSpotlight(direction)); positionChanged() } catch { report(error) } }
+    func setAutoScroll(_ enabled: Bool) {
+        autoScrolling = enabled && engine?.capabilities.contains(.continuousScroll) == true
+        updateActivityDriver()
+    }
+    func startReadingSession(minutes: Int?) {
+        guard let engine else { return }
+        do { try readingTimer.start(duration: minutes.map { Double($0) * 60 }, now: ProcessInfo.processInfo.systemUptime, anchor: try engine.currentAnchor()); updateActivityDriver() }
+        catch { report(error) }
+    }
+    func pauseReadingSession() {
+        readingTimer.pause(now: ProcessInfo.processInfo.systemUptime, anchor: try? engine?.currentAnchor())
+        setAutoScroll(false)
+    }
+    func resumeReadingSession() { guard engine != nil else { return }; readingTimer.resume(now: ProcessInfo.processInfo.systemUptime); updateActivityDriver() }
+    func stopReadingSession() {
+        readingTimer.stop(now: ProcessInfo.processInfo.systemUptime, anchor: try? engine?.currentAnchor()); setAutoScroll(false)
+    }
+    func stopReadingActivity() { stopReadingSession(); activity.update(interval: nil); writeComfortDiagnostics(force: true) }
+    private func updateActivityDriver() {
+        let needed = active && engine != nil && (autoScrolling || readingTimer.status == .running || effectiveAmbient.strategy != .manual)
+        let previous = activity.isRunning
+        activity.update(interval: needed ? (autoScrolling ? 1.0 / 60 : 1) : nil)
+        writeComfortDiagnostics(force: previous != activity.isRunning)
+    }
+    private func readingTick(now: TimeInterval, delta: TimeInterval, date: Date) {
+        systemDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        if now >= nextSessionTick {
+            nextSessionTick = now + 1
+            let wasRunning = readingTimer.status == .running
+            readingTimer.tick(now: now, anchor: try? engine?.currentAnchor())
+            if wasRunning && readingTimer.status == .completed { autoScrolling = false }
+        }
+        if autoScrolling && now >= nextCheckpoint && checkpointTask == nil {
+            nextCheckpoint = now + 5
+            let token = UUID(); checkpointToken = token
+            checkpointTask = Task { [weak self] in
+                guard !Task.isCancelled, let self else { return }
+                await self.flush()
+                if self.checkpointToken == token { self.checkpointTask = nil }
+            }
+        }
+        if autoScrolling {
+            do {
+                if try engine?.scroll(by: comfort.autoScrollSpeed * delta) != true { autoScrolling = false }
+            } catch { autoScrolling = false; report(error) }
+        }
+        if now >= nextAmbientTick { nextAmbientTick = now + 1; applyAmbient(at: date) }
+        updateActivityDriver()
+    }
+    func showMiniReader() {
+        guard engine != nil, !miniReaderActive else { return }
+        setAutoScroll(false)
+        let controller = MiniReaderController(session: self)
+        miniReader = controller; miniReaderActive = true
+        controller.present()
+    }
+    func closeMiniReader(revealMain: Bool = true) {
+        guard let controller = miniReader else { return }
+        miniReader = nil; miniReaderActive = false
+        controller.finish(revealMain: revealMain)
+        writeComfortDiagnostics(force: true)
+    }
+    func prepareViewportTransfer() -> ReadingState? {
+        guard let engine else { return nil }
+        setAutoScroll(false)
+        let value = ReadingState(anchor: try? engine.currentAnchor(), palette: engine.palette, scale: engine.view.scaleFactor,
+            autoScales: engine.view.autoScales, pdfDisplayMode: engine.view.displayMode.rawValue)
+        subscriptions.removeAll(); mounted = false; pendingState = value
+        return value
+    }
+
+    func writeComfortDiagnostics(force: Bool) {
+        #if DEBUG || FOUNDATION_BENCHMARK
+        guard ProcessInfo.processInfo.arguments.contains("-comfortDiagnostics") else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        guard force || now - diagnosticsTime >= 1 else { return }; diagnosticsTime = now
+        var usage = rusage(); getrusage(RUSAGE_SELF, &usage)
+        var memory = mach_task_basic_info()
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size / MemoryLayout<integer_t>.size)
+        let memoryStatus = withUnsafeMutablePointer(to: &memory) { pointer in
+            pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { words in
+                task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), words, &count)
+            }
+        }
+        let cpu = Double(usage.ru_utime.tv_sec + usage.ru_stime.tv_sec) + Double(usage.ru_utime.tv_usec + usage.ru_stime.tv_usec) / 1_000_000
+        let value: [String: Any] = ["rssBytes": memoryStatus == KERN_SUCCESS ? Double(memory.resident_size) : -1, "peakRSSBytes": usage.ru_maxrss, "cpuSeconds": cpu, "driverActive": activity.isRunning, "autoScrolling": autoScrolling,
+            "timerStatus": readingTimer.status.rawValue, "miniOpen": miniReaderActive,
+            "documentOpen": engine != nil, "sessionActive": active, "page": pageNumber, "uptime": now,
+            "elapsed": readingTimer.elapsed, "miniLevel": miniReader?.windowLevel ?? 0,
+            "palette": engine?.palette.rawValue ?? "none", "ambientStrategy": effectiveAmbient.strategy.rawValue]
+        if let data = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]) {
+            try? data.write(to: storageRoot.appendingPathComponent("ComfortDiagnostics.json"), options: .atomic)
+        }
+        if ProcessInfo.processInfo.arguments.contains("-comfortSoak"), force || now - lastSoakSample >= 30 {
+            lastSoakSample = now; soakSamples.append(value)
+            if let data = try? JSONSerialization.data(withJSONObject: soakSamples, options: [.prettyPrinted, .sortedKeys]) {
+                try? data.write(to: storageRoot.appendingPathComponent("ComfortSoakProgress.json"), options: .atomic)
+            }
+        }
+        #endif
+    }
+
+    func prepareForTermination() {
+        active = false; setKeepAwake(false); stopReadingActivity()
+        searchTask?.cancel(); textTask?.cancel(); checkpointTask?.cancel(); saving?.cancel()
+        engine?.cancelSearch()
     }
     func report(_ error: Error) { errorMessage = NSLocalizedString(error.localizedDescription, comment: "Reader error") }
 }
@@ -330,7 +609,16 @@ final class SessionRegistry {
     private struct Entry { weak var session: ReaderSession? }
     private var entries: [Entry] = []
     func add(_ session: ReaderSession) { entries.removeAll { $0.session == nil }; entries.append(Entry(session: session)) }
-    func flush() async { for entry in entries { entry.session?.setKeepAwake(false); await entry.session?.flush() } }
+    func refreshComfort(except origin: ReaderSession) {
+        for entry in entries {
+            guard let session = entry.session, session !== origin, session.sharesLibrary(with: origin) else { continue }
+            Task { await session.refreshComfortPreferences() }
+        }
+    }
+    func flush() async {
+        for entry in entries { entry.session?.prepareForTermination() }
+        for entry in entries { await entry.session?.flush() }
+    }
 }
 
 @MainActor
