@@ -6,14 +6,16 @@ import Testing
 /// Test-only transport. All shared state is protected; no network connection is made.
 private final class CompanionFixtureProtocol: URLProtocol, @unchecked Sendable {
     struct Plan: Sendable { let lines: [String]; var delay: Int = 0; var status: Int = 200 }
-    struct State { var plans: [URL: Plan] = [:]; var stopped = Set<URL>(); var bodies: [URL: Data] = [:] }
+    struct State { var plans: [URL: Plan] = [:]; var started = Set<URL>(); var stopped = Set<URL>(); var bodies: [URL: Data] = [:] }
     static let state = Mutex(State())
     private let worker = Mutex<Task<Void, Never>?>(nil)
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         guard let url = request.url else { return }
-        let plan = Self.state.withLock { value in value.bodies[url] = request.httpBody; return value.plans[url] }
+        let plan = Self.state.withLock { value in
+            value.started.insert(url); value.bodies[url] = request.httpBody; return value.plans[url]
+        }
         guard let plan else { client?.urlProtocol(self, didFailWithError: CompanionError.configuration); return }
         let task = Task { @Sendable [self] in
             client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: plan.status, httpVersion: "HTTP/1.1", headerFields: nil)!, cacheStoragePolicy: .notAllowed)
@@ -65,9 +67,15 @@ private let request = CompanionRequest(question: "Explain", title: "Fixture", pa
 @Test func cancellationStopsUnderlyingUrlLoading() async throws {
     let (provider, url) = transport(.init(lines: [#"{"message":{"content":"wait"},"done":false}"#], delay: 10000))
     let task = Task { for try await _ in provider.response(to: request) {} }
-    try await Task.sleep(for: .milliseconds(80)); task.cancel()
+    var started = false
+    for _ in 0..<250 {
+        if CompanionFixtureProtocol.state.withLock({ $0.started.contains(url) }) { started = true; break }
+        try await Task.sleep(for: .milliseconds(20))
+    }
+    #expect(started, "The fixture must start loading before testing cancellation")
+    task.cancel()
     _ = try? await task.value
-    for _ in 0..<30 {
+    for _ in 0..<250 {
         if CompanionFixtureProtocol.state.withLock({ $0.stopped.contains(url) }) { return }
         try await Task.sleep(for: .milliseconds(20))
     }
