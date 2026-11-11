@@ -13,13 +13,14 @@ final class LaunchTests: XCTestCase {
         continueAfterFailure = false
     }
     @MainActor
-    private func launch(width: Int = 1440, theme: String = "light", language: String = "en", reader: Bool = false, library: Bool = false) -> XCUIApplication {
+    private func launch(width: Int = 1440, theme: String = "light", language: String = "en", reader: Bool = false, library: Bool = false, storedReader: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-designReview", "YES", "-designWidth", String(width),
                                "-reviewAppearance", theme,
                                "-AppleLanguages", "(\(language))", "-AppleLocale", language]
         if reader { app.launchArguments += ["-designReader", "YES"] }
         if library { app.launchArguments += ["-libraryReview", "YES"] }
+        if storedReader { app.launchArguments += ["-phase0Import", "YES"] }
         app.launch()
         app.activate()
         if !app.windows.firstMatch.waitForExistence(timeout: 2) {
@@ -212,6 +213,39 @@ final class LaunchTests: XCTestCase {
                     XCTAssertTrue(cards.firstMatch.waitForExistence(timeout: 10))
                     XCTAssertEqual(cards.count, 4)
                     capture(app, name: "v01-Library-\(language)-\(width)-\(theme)")
+                    app.terminate()
+                }
+            }
+        }
+    }
+
+    @MainActor
+    func testDailyReadingVisualMatrix() {
+        for language in ["en", "ru"] {
+            for width in [800, 1440] {
+                for theme in ["light", "dark"] {
+                    let app = launch(width: width, theme: theme, language: language, storedReader: true)
+                    XCTAssertTrue(app.windows["Phase 0 reader"].waitForExistence(timeout: 10))
+                    let name = "\(language)-\(width)-\(theme)"
+                    func command(_ english: String, _ russian: String) {
+                        app.menuBars.menuBarItems[language == "ru" ? "Вид" : "View"].click()
+                        app.menuItems[language == "ru" ? russian : english].firstMatch.click()
+                    }
+                    command("Command Center", "Центр команд")
+                    XCTAssertTrue(app.textFields["command.query"].firstMatch.waitForExistence(timeout: 5))
+                    capture(app, name: "v02-Commands-\(name)")
+                    app.typeKey(.escape, modifierFlags: [])
+                    command("Reading tools", "Инструменты чтения")
+                    XCTAssertTrue(app.buttons["comfort.start"].waitForExistence(timeout: 5))
+                    app.checkBoxes["comfort.spotlight"].firstMatch.click()
+                    capture(app, name: "v02-Tools-\(name)")
+                    app.typeKey(.escape, modifierFlags: [])
+                    capture(app, name: "v02-Spotlight-\(name)")
+                    command("Mini Reader", "Мини-читалка")
+                    let mini = app.windows["reader.mini"].firstMatch
+                    XCTAssertTrue(mini.waitForExistence(timeout: 5))
+                    let image = XCTAttachment(screenshot: mini.screenshot())
+                    image.name = "v02-Mini-\(name)"; image.lifetime = .keepAlways; add(image)
                     app.terminate()
                 }
             }

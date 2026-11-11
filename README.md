@@ -20,6 +20,8 @@ Import a PDF as a managed copy, or choose **Open linked PDF** to retain a read-o
 
 Search text, jump to a result, bookmark the current page, or enter Focus to hide surrounding panels. Keep Awake prevents idle display sleep only while enabled in an open reading session; closing the book, window or app releases it. Quit and reopen restores the document, fragment, zoom and palette. Books, positions and bookmarks stay on disk.
 
+Smart Back/Forward returns to the source after a footnote, search result or command jump. Open the offline Command Center with ⌘K. Reading tools provide line/area Spotlight, timed or free sessions, adjustable auto-scroll and a separate Mini Reader. Manual reading input stops automatic scrolling; closing the book or window ends active reading work. Mini Reader stays above other windows only when explicitly enabled. Ambient Reading follows System, a day/night schedule or manual palettes, with library defaults and per-book overrides.
+
 | Shortcut | Action |
 |---|---|
 | ⌘O / ⇧⌘O | Import copy / linked PDF |
@@ -28,8 +30,12 @@ Search text, jump to a result, bookmark the current page, or enter Focus to hide
 | ⌘D | Toggle page bookmark |
 | ⇧⌘F / Escape | Enter / leave Focus |
 | ⇧⌘K | Toggle Keep Awake |
+| ⌘K | Command Center |
+| ⌘[ / ⌘] | Smart Back / Forward |
+| ⌘⌥↑ / ⌘⌥↓ | Previous / next text block |
+| ⌥↑ / ⌥↓ | Move enabled Spotlight in the document |
 
-The appearance popover changes the shell between System, Light and Dark independently of the page palette. Compact windows retain commands in More. The app includes English and Russian translations. The [Adaptive design system](docs/adaptive-design-system.md) documents the shared components; [v0.1 acceptance](docs/v0.1.md) records current verification.
+The appearance popover changes the shell between System, Light and Dark independently of the page palette. Compact windows retain commands in More. The app includes English and Russian translations. The [Adaptive design system](docs/adaptive-design-system.md) documents the shared components; [v0.1 acceptance](docs/v0.1.md) freezes the offline baseline; [v0.2 acceptance](docs/v0.2.md) tracks the daily reading additions.
 
 Versioned PDF/EPUB source anchors, typed navigation/search commands and atomic records preserve the shared architecture for future EPUB and AI features. PDFKit retains native selection, links and document geometry. Eligible text/vector pages use the bounded selective Color Engine; complex pages preserve Original with a fallback explanation. [Color Engine evidence](Research/README.md) and [reader contracts](docs/reader-architecture.md) describe the boundaries and limitations. EPUB, OCR and AI are later milestones.
 
