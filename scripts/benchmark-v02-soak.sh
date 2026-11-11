@@ -7,5 +7,5 @@ caffeinate -di xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveRead
   -resultBundlePath "${1:-/private/tmp/adaptive-v02-soak.xcresult}" \
   ADAPTIVE_TEST_BUNDLE_SUFFIX=.UITesting \
   'SWIFT_ACTIVE_COMPILATION_CONDITIONS=FOUNDATION_BENCHMARK COMFORT_SOAK' \
-  -test-timeouts-enabled YES -maximum-test-execution-time-allowance 1800 \
+  -test-timeouts-enabled YES -default-test-execution-time-allowance 1800 -maximum-test-execution-time-allowance 1800 \
   -only-testing:AdaptiveReaderUITests/OfflineReaderTests/testComfortTwentyFiveMinuteReleaseSession test

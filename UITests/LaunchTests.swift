@@ -621,6 +621,7 @@ final class OfflineReaderTests: XCTestCase {
         #if !COMFORT_SOAK
         throw XCTSkip("Opt-in real 25-minute Release Mini Reader/auto-scroll session on the control Mac")
         #else
+        executionTimeAllowance = 1800
         let id = UUID().uuidString, app = launch(id, specimen: false, diagnostics: true, additionalArguments: ["-comfortSoak", "YES"])
         menu(app, "File", "Open PDF")
         choosePDF(app, relativePath: "Research/Large/large-text.pdf")
