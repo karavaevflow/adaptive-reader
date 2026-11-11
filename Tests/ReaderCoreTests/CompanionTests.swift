@@ -34,7 +34,7 @@ private func fixture(_ name: String) throws -> Data {
         EvidencePassage(id: String(repeating: String(index + 1), count: 24),
             anchor: .init(bookID: id, sourceRevision: revision, position: .pdf(.init(pageIndex: index, x: 0, y: 600))), text: text)
     }
-    let index = PDFEvidenceIndex(schemaVersion: 1, bookID: id, revision: revision, pageCount: 3, passages: passages, truncated: false)
+    let index = PDFEvidenceIndex(schemaVersion: 2, bookID: id, revision: revision, pageCount: 3, passages: passages, truncated: false)
     #expect(try index.retrieve("please explain rareterm reading", visiblePage: 0).first?.id == passages[1].id)
 }
 
@@ -91,6 +91,12 @@ private func fixture(_ name: String) throws -> Data {
     let reopened = LibraryStore(root: root)
     #expect(try await reopened.cachedEvidence(bookID: id, revision: revision)?.passages == index.passages)
     let cache = root.appendingPathComponent("Cache/AI/\(id.uuidString)-\(revision).json")
+    var oldCache = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(index)) as? [String: Any])
+    oldCache["schemaVersion"] = 1
+    try JSONSerialization.data(withJSONObject: oldCache).write(to: cache)
+    #expect(try await reopened.cachedEvidence(bookID: id, revision: revision) == nil)
+    try await reopened.cacheEvidence(index)
+    #expect(try await reopened.cachedEvidence(bookID: id, revision: revision)?.schemaVersion == 2)
     try Data("corrupted cache".utf8).write(to: cache)
     #expect(try await reopened.cachedEvidence(bookID: id, revision: revision) == nil)
     try await reopened.clearEvidence(bookID: id, revision: revision)
@@ -142,4 +148,15 @@ private func fixture(_ name: String) throws -> Data {
     try await first.saveCompanionSettings(revoked)
     await #expect(throws: CompanionError.consentRequired) { try await second.authorizeCompanion(value) }
     await #expect(throws: CompanionError.configuration) { try await second.authorizeCompanion(revoked) }
+}
+
+@Test func columnCitationsRetainTheirHorizontalSourceCoordinate() async throws {
+    let data = try fixture("columns-table"), revision = PDFReaderEngine.revision(data)
+    let index = try await PDFEvidenceIndex.build(data: data, bookID: UUID(), revision: revision)
+    try index.validate(bookID: index.bookID, revision: revision)
+    let positions = index.passages.compactMap { source -> PDFPosition? in
+        if case .pdf(let point) = source.anchor.position { return point }; return nil
+    }
+    #expect(positions.contains { $0.x > 300 })
+    #expect(positions.contains { $0.x < 200 })
 }

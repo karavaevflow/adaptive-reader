@@ -31,7 +31,8 @@ public struct PDFEvidenceIndex: Codable, Sendable {
                     guard !text.isEmpty, passages.count < 32000, bytes < 24 * 1024 * 1024 else { return }
                     let key = "\(revision):\(pageIndex):\(ordinal):\(text)"
                     let id = SHA256.hash(data: Data(key.utf8)).prefix(12).map { String(format: "%02x", $0) }.joined()
-                    let anchor = SourceAnchor(bookID: bookID, sourceRevision: revision, position: .pdf(.init(pageIndex: pageIndex, x: box.minX, y: min(box.maxY, region.maxY + 10))))
+                    let anchor = SourceAnchor(bookID: bookID, sourceRevision: revision, position: .pdf(.init(pageIndex: pageIndex,
+                        x: min(box.maxX, max(box.minX, region.minX)), y: min(box.maxY, region.maxY + 10))))
                     passages.append(EvidencePassage(id: id, anchor: anchor, text: text)); bytes += text.utf8.count
                     text = ""; region = .null; ordinal += 1
                 }
@@ -52,10 +53,10 @@ public struct PDFEvidenceIndex: Codable, Sendable {
         try Task.checkCancellation()
         guard !passages.isEmpty else { throw CompanionError.noText }
         await progress(pdf.pageCount, pdf.pageCount)
-        return Self(schemaVersion: 1, bookID: bookID, revision: revision, pageCount: pdf.pageCount, passages: passages, truncated: truncated)
+        return Self(schemaVersion: 2, bookID: bookID, revision: revision, pageCount: pdf.pageCount, passages: passages, truncated: truncated)
     }
     public func validate(bookID: UUID, revision: String) throws {
-        guard schemaVersion == 1, self.bookID == bookID, self.revision == revision,
+        guard schemaVersion == 2, self.bookID == bookID, self.revision == revision,
               passages.count <= 32000, pageCount > 0,
               Set(passages.map(\.id)).count == passages.count,
               passages.reduce(0, { $0 + $1.text.utf8.count }) <= 25 * 1024 * 1024 else { throw CompanionError.invalidEvidence }

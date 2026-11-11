@@ -29,7 +29,8 @@ struct CompanionView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Selected source").font(.caption.weight(.medium)).foregroundStyle(.secondary)
                             Text(String(selected.text.prefix(240))).font(.callout).lineLimit(5)
-                            Button("Use visible page instead") { model.selection = nil }
+                            Text("Selection context uses an excerpt from the first selected page.").font(.caption).foregroundStyle(.secondary)
+                            Button("Use book context instead") { model.selection = nil }
                         }.padding(12).background(Adaptive.background, in: RoundedRectangle(cornerRadius: 10))
                     }
                     if model.busy {
@@ -180,7 +181,10 @@ struct MagicSelectionBar: View {
                 Image(systemName: "text.cursor").foregroundStyle(.secondary)
                 Text("Selected text").font(.caption).lineLimit(1)
                 Spacer(minLength: 0)
-                Button("Copy") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(selection.text, forType: .string) }
+                Button("Copy") {
+                    let text = session.engine?.view.currentSelection?.string ?? selection.text
+                    NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string)
+                }.accessibilityIdentifier("ai.copySelection")
                 Button("Explain") { session.askCompanion(String(localized: "Explain the selected source.")) }.accessibilityIdentifier("ai.explainSelection")
                 Menu("More") {
                     Button("Translate") { session.askCompanion(String(localized: "Translate the selected source into my question language.")) }

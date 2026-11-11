@@ -33,7 +33,7 @@ extension ReaderSession {
         guard !value.isEmpty else { companion.selection = nil; return }
         let rect = selection.bounds(for: page), box = page.bounds(for: .cropBox)
         let anchor = SourceAnchor(bookID: engine.bookID, sourceRevision: engine.sourceRevision,
-            position: .pdf(.init(pageIndex: engine.document.index(for: page), x: box.minX, y: min(box.maxY, rect.maxY + 10))))
+            position: .pdf(.init(pageIndex: engine.document.index(for: page), x: min(box.maxX, max(box.minX, rect.minX)), y: min(box.maxY, rect.maxY + 10))))
         let id = SHA256.hash(data: Data("\(engine.sourceRevision):\(engine.document.index(for: page)):\(rect):\(value)".utf8)).prefix(12).map { String(format: "%02x", $0) }.joined()
         companion.selection = EvidencePassage(id: id, anchor: anchor, text: value)
         companion.selectionLabel = String(value.prefix(80))

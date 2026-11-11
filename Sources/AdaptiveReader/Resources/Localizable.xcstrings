@@ -3530,6 +3530,38 @@
           }
         }
       }
+    },
+    "Use book context instead": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use book context instead"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Использовать контекст книги"
+          }
+        }
+      }
+    },
+    "Selection context uses an excerpt from the first selected page.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selection context uses an excerpt from the first selected page."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для контекста используется фрагмент с первой выделенной страницы."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
