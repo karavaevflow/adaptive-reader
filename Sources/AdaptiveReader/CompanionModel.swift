@@ -75,6 +75,7 @@ final class CompanionModel {
     @ObservationIgnored private var setupTask: Task<Void, Never>?
     @ObservationIgnored private var generation = UUID()
     @ObservationIgnored private var lastRequest: CompanionRequest?
+    @ObservationIgnored var onSettingsChanged: (@MainActor () -> Void)?
     var fixtureMode: Bool {
         #if DEBUG || FOUNDATION_BENCHMARK
         ProcessInfo.processInfo.arguments.contains("-companionFixture")
@@ -107,8 +108,16 @@ final class CompanionModel {
         do {
             if value.mode != .off { _ = try value.validatedURL() }
             if value.mode == .cloud && !key.isEmpty { try await CompanionKeyVault.shared.save(key, destination: value.destination) }
-            try await store?.saveCompanionSettings(value); settings = value; settingsVisible = false
+            try await store?.saveCompanionSettings(value); settings = value; settingsVisible = false; onSettingsChanged?()
         } catch { errorMessage = error.localizedDescription }
+    }
+    func refreshSettings() async {
+        guard let bookID, let store else { return }
+        do {
+            let value = try await store.companionSettings()
+            guard self.bookID == bookID, !Task.isCancelled else { return }
+            if settings != value { cancel(); settings = value }
+        } catch { if !Task.isCancelled { errorMessage = error.localizedDescription } }
     }
     func clearIndex() async {
         cancel(); index = nil
@@ -119,12 +128,15 @@ final class CompanionModel {
         let question = refinement != nil ? (lastRequest?.question ?? "") : (question ?? query.trimmingCharacters(in: .whitespacesAndNewlines))
         guard !question.isEmpty, let data, let bookID, let store else { return }
         cancel(); answer = nil; errorMessage = nil; receivedCharacters = 0; busy = true
-        let token = generation, revision = revision, title = title, settings = settings
+        let token = generation, revision = revision, title = title
         let selected = selection, previous = lastRequest, isFixture = fixtureMode, pageCount = pageCount
         task = Task { [weak self] in
             do {
-                if !isFixture { _ = try settings.validatedURL() }
                 guard let self else { return }
+                let settings = try await store.companionSettings()
+                try Task.checkCancellation(); guard self.generation == token else { return }
+                self.settings = settings
+                if !isFixture { _ = try settings.validatedURL() }
                 let sources: [EvidencePassage]
                 let finalQuestion: String
                 if let refinement, let previous {
@@ -160,10 +172,12 @@ final class CompanionModel {
                     chapter: refinement == nil ? chapter : previous?.chapter)
                 self.lastRequest = request
                 let provider: any CompanionProvider
+                if !isFixture { try await store.authorizeCompanion(settings) }
                 let apiKey: String
                 if !isFixture && settings.mode == .cloud { apiKey = try await CompanionKeyVault.shared.read(settings.destination) }
                 else { apiKey = "" }
                 try Task.checkCancellation()
+                if !isFixture { try await store.authorizeCompanion(settings) }
                 #if DEBUG || FOUNDATION_BENCHMARK
                 if isFixture { provider = FixtureCompanionProvider(delayMilliseconds: ProcessInfo.processInfo.arguments.contains("-companionSlowFixture") ? 10000 : 300) }
                 else { provider = CompanionHTTPProvider(settings: settings, apiKey: apiKey) }

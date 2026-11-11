@@ -12,8 +12,12 @@ public struct PDFEvidenceIndex: Codable, Sendable {
     public let truncated: Bool
     public static func build(data: Data, bookID: UUID, revision: String,
                              progress: @Sendable (Int, Int) async -> Void = { _, _ in }) async throws -> Self {
+        try Task.checkCancellation()
         guard PDFReaderEngine.revision(data) == revision else { throw ReaderError.sourceChanged }
-        guard let pdf = PDFDocument(data: data), !pdf.isLocked, pdf.allowsCopying else { throw CompanionError.noText }
+        try Task.checkCancellation()
+        guard let pdf = PDFDocument(data: data) else { throw ReaderError.unavailableSource }
+        guard !pdf.isLocked else { throw ReaderError.lockedDocument }
+        guard pdf.allowsCopying else { throw CompanionError.restrictedSource }
         var passages: [EvidencePassage] = [], bytes = 0, truncated = false
         for pageIndex in 0..<pdf.pageCount {
             try Task.checkCancellation()

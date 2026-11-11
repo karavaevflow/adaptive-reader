@@ -1,12 +1,13 @@
 import Foundation
 
 public enum CompanionError: Error, Equatable, LocalizedError {
-    case configuration, consentRequired, noText, invalidEvidence, invalidResponse, limitExceeded, http(Int)
+    case configuration, consentRequired, noText, restrictedSource, invalidEvidence, invalidResponse, limitExceeded, http(Int)
     public var errorDescription: String? {
         switch self {
         case .configuration: "Configure an AI provider and model first."
         case .consentRequired: "Enable cloud sending for this endpoint before asking a question."
         case .noText: "This source has no accessible text. OCR is required for scanned pages."
+        case .restrictedSource: "This PDF does not permit text extraction."
         case .invalidEvidence: "The answer refers to an unavailable source."
         case .invalidResponse: "The provider returned an unsupported or incomplete answer."
         case .limitExceeded: "The AI context or response exceeded the configured limit."

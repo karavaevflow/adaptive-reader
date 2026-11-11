@@ -78,6 +78,9 @@ final class ReaderSession {
         storageRoot = root
         store = ReaderStores.store(at: root)
         SessionRegistry.shared.add(self)
+        companion.onSettingsChanged = { [weak self] in
+            if let self { SessionRegistry.shared.refreshCompanion(except: self) }
+        }
         activity.onTick = { [weak self] now, delta, date in self?.readingTick(now: now, delta: delta, date: date) }
     }
 
@@ -631,6 +634,13 @@ final class SessionRegistry {
         for entry in entries {
             guard let session = entry.session, session !== origin, session.sharesLibrary(with: origin) else { continue }
             Task { await session.refreshComfortPreferences() }
+        }
+    }
+    func refreshCompanion(except origin: ReaderSession) {
+        for entry in entries {
+            guard let session = entry.session, session !== origin, session.sharesLibrary(with: origin) else { continue }
+            session.companion.cancel()
+            Task { await session.companion.refreshSettings() }
         }
     }
     func flush() async {

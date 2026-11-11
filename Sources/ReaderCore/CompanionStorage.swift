@@ -13,6 +13,12 @@ extension LibraryStore {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         try JSONEncoder().encode(value).write(to: root.appendingPathComponent("AISettings.json"), options: .atomic)
     }
+    public func authorizeCompanion(_ expected: CompanionSettings) throws {
+        guard try companionSettings() == expected else {
+            throw expected.mode == .cloud ? CompanionError.consentRequired : CompanionError.configuration
+        }
+        _ = try expected.validatedURL()
+    }
     private func evidenceURL(bookID: UUID, revision: String) throws -> URL {
         guard revision.count == 64, revision.allSatisfy({ $0.isHexDigit }) else { throw CompanionError.invalidEvidence }
         return root.appendingPathComponent("Cache/AI/\(bookID.uuidString)-\(revision).json")

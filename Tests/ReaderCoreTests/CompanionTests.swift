@@ -75,3 +75,71 @@ private func fixture(_ name: String) throws -> Data {
     #expect(try await store.notes(for: record).isEmpty)
     #expect(try await store.openBook(id).1 == data)
 }
+
+@Test func companionCacheIsDisposableWhileSettingsAndNotesPersist() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let store = LibraryStore(root: root), data = try fixture("text"), id = UUID(), revision = PDFReaderEngine.revision(data)
+    let record = try await store.importBook(data: data, id: id, title: "Cache", revision: revision)
+    let index = try await PDFEvidenceIndex.build(data: data, bookID: id, revision: revision)
+    try await store.cacheEvidence(index)
+    var settings = CompanionSettings(); settings.mode = .cloud; settings.endpoint = "https://fixture.example/v1/chat/completions"
+    settings.model = "fixture"; settings.consentDestination = settings.destination
+    try await store.saveCompanionSettings(settings)
+    let note = ReaderNote(anchor: index.passages[0].anchor, text: "Reader data", quotation: index.passages[0].text)
+    try await store.saveNote(note, for: record)
+    let reopened = LibraryStore(root: root)
+    #expect(try await reopened.cachedEvidence(bookID: id, revision: revision)?.passages == index.passages)
+    let cache = root.appendingPathComponent("Cache/AI/\(id.uuidString)-\(revision).json")
+    try Data("corrupted cache".utf8).write(to: cache)
+    #expect(try await reopened.cachedEvidence(bookID: id, revision: revision) == nil)
+    try await reopened.clearEvidence(bookID: id, revision: revision)
+    #expect(try await reopened.companionSettings() == settings)
+    #expect(try await reopened.notes(for: record) == [note])
+    #expect(try await reopened.openBook(id).1 == data)
+}
+
+@Test func companionRequestRetainsEpubLocatorWithoutInventingPageNumbers() throws {
+    let anchor = SourceAnchor(bookID: UUID(), sourceRevision: "revision", position: .epub(resource: "chapter.xhtml", locator: "text=stable"))
+    let source = EvidencePassage(id: "epub-evidence", anchor: anchor, text: "A reflowed passage")
+    let request = CompanionRequest(question: "Explain", title: "EPUB", page: nil, sources: [source], chapter: "Chapter")
+    let content = try #require(try request.messages.last?["content"])
+    #expect(content.contains("Format: EPUB"))
+    #expect(content.contains("Visible page: reflowed source"))
+    try CompanionAnswer(kind: .book, answer: "Evidence", sourceIDs: [source.id], actions: [.init(kind: .navigateToPassage, sourceID: source.id)]).validate(sources: [source], pageCount: 0)
+    #expect(throws: ReaderError.invalidAnchor) { try CompanionAction(kind: .goToPage, page: 1).validate(pageCount: 0, sources: [source]) }
+}
+
+@Test func protectedEvidenceRequiresUnlockRatherThanClaimingMissingOcr() async throws {
+    let data = try fixture("protected")
+    await #expect(throws: ReaderError.lockedDocument) {
+        try await PDFEvidenceIndex.build(data: data, bookID: UUID(), revision: PDFReaderEngine.revision(data))
+    }
+}
+
+@Test func cancellingAnActiveIndexDoesNotReturnPartialEvidence() async throws {
+    let data = try fixture("../Large/large-text"), revision = PDFReaderEngine.revision(data)
+    let gate = AsyncStream<Int>.makeStream()
+    let worker = Task {
+        defer { gate.continuation.finish() }
+        return try await PDFEvidenceIndex.build(data: data, bookID: UUID(), revision: revision) { count, _ in
+            if count == 1 { gate.continuation.yield(count) }
+        }
+    }
+    for await _ in gate.stream { worker.cancel(); break }
+    await #expect(throws: CancellationError.self) { try await worker.value }
+}
+
+@Test func revokedCloudConsentCannotAuthorizeAnOlderWindowSnapshot() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let first = LibraryStore(root: root), second = LibraryStore(root: root)
+    var value = CompanionSettings(); value.mode = .cloud; value.endpoint = "https://fixture.example/v1/chat/completions"
+    value.model = "fixture"; value.consentDestination = value.destination
+    try await first.saveCompanionSettings(value)
+    try await second.authorizeCompanion(value)
+    var revoked = value; revoked.mode = .off; revoked.consentDestination = nil
+    try await first.saveCompanionSettings(revoked)
+    await #expect(throws: CompanionError.consentRequired) { try await second.authorizeCompanion(value) }
+    await #expect(throws: CompanionError.configuration) { try await second.authorizeCompanion(revoked) }
+}

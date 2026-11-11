@@ -78,7 +78,7 @@ struct WorkspaceView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
             if let window = notification.object as? NSWindow, window == session.engine?.view.window {
-                Task { await session.refreshBookmarks(); await session.refreshComfortPreferences() }
+                Task { await session.refreshBookmarks(); await session.refreshComfortPreferences(); await session.companion.refreshSettings() }
             } else if document == nil { Task { await session.refreshLibrary() } }
         }
         .overlay { if session.busy { ProgressView("Opening document").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) } }

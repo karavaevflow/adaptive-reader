@@ -3514,6 +3514,22 @@
           }
         }
       }
+    },
+    "This PDF does not permit text extraction.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This PDF does not permit text extraction."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этот PDF запрещает извлечение текста."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
