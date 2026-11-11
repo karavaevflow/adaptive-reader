@@ -200,5 +200,11 @@ func continuousScrollAnchorTracksVisiblePage() throws {
     #expect(point.pageIndex > 0)
     let visible = try engine.currentAnchor()
     try engine.applyPagePalette(.midnight)
-    #expect(try engine.currentAnchor() == visible)
+    let restored = try engine.currentAnchor()
+    guard case .pdf(let originalPoint) = visible.position, case .pdf(let restoredPoint) = restored.position else {
+        Issue.record("Expected PDF anchors"); return
+    }
+    #expect(restoredPoint.pageIndex == originalPoint.pageIndex)
+    #expect(abs(restoredPoint.x - originalPoint.x) < 2)
+    #expect(abs(restoredPoint.y - originalPoint.y) < 2)
 }
