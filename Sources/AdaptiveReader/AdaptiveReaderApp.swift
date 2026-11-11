@@ -199,7 +199,7 @@ struct WindowIntegration: NSViewRepresentable {
                   let width = Double(arguments[index + 1]), [800.0, 1440.0].contains(width),
                   let window else { return }
             DispatchQueue.main.async {
-                window.setFrame(NSRect(x: 0, y: 40, width: width, height: 780), display: true)
+                window.setFrame(NSRect(x: 0, y: 100, width: width, height: 780), display: true)
             }
             #endif
         }

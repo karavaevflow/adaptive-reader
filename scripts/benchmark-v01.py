@@ -8,7 +8,7 @@ p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('foundation',type=Path);p.add_argument('current',type=Path)
 a=p.parse_args(); root=Path(__file__).resolve().parent.parent; out=root/'Research/v0.1';out.mkdir(parents=True,exist_ok=True)
 rows=[]
-for fixture in ['dark.pdf','nasa-apollo-earth.pdf','text.pdf']:
+for fixture in ['chart.pdf','columns-table.pdf','dark.pdf','nasa-apollo-earth.pdf','photo-caption.pdf','text.pdf','usgs-earth-as-home.pdf']:
     for mode in ['original','selected']:
         for run in range(1,6):
             for label,binary in [('foundation',a.foundation),('v01',a.current)]:

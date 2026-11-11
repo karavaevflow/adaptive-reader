@@ -187,3 +187,18 @@ func largeSearchStopsAtLimitAndAllowsANewQuery() async throws {
     #expect(engine.view.currentSelection?.string?.localizedCaseInsensitiveContains("Chapter") == true)
     if case .pdf(let position) = last.anchor.position { #expect(position.pageIndex == 599) }
 }
+
+@Test @MainActor
+func continuousScrollAnchorTracksVisiblePage() throws {
+    let source = fixtures.deletingLastPathComponent().appendingPathComponent("Large/large-text.pdf")
+    let engine = try PDFReaderEngine(data: Data(contentsOf: source), bookID: UUID())
+    let host = window(for: engine); defer { host.close() }
+    let clip = try #require(engine.view.documentView?.enclosingScrollView?.contentView)
+    clip.scroll(to: NSPoint(x: clip.bounds.minX, y: 5000))
+    clip.enclosingScrollView?.reflectScrolledClipView(clip)
+    guard case .pdf(let point) = try engine.currentAnchor().position else { Issue.record("Expected PDF position"); return }
+    #expect(point.pageIndex > 0)
+    let visible = try engine.currentAnchor()
+    try engine.applyPagePalette(.midnight)
+    #expect(try engine.currentAnchor() == visible)
+}

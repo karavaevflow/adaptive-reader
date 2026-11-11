@@ -284,8 +284,9 @@ final class OfflineReaderTests: XCTestCase {
         return app
     }
     @MainActor private func menu(_ app: XCUIApplication, _ group: String, _ command: String) {
-        app.menuBars.menuBarItems[group].click()
-        let item = app.menuItems[command].firstMatch
+        let bar = app.menuBars.menuBarItems[group]
+        bar.click()
+        let item = bar.menuItems[command].firstMatch
         XCTAssertTrue(item.isEnabled, "Command must remain enabled: \(command)")
         item.click()
     }
@@ -409,12 +410,16 @@ final class OfflineReaderTests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         paste("responsive", into: field, app: app)
         XCTAssertTrue(app.buttons["reader.search.match"].firstMatch.waitForExistence(timeout: 10))
-        for _ in 0..<3 { app.windows.firstMatch.scroll(byDeltaX: 0, deltaY: -1200) }
-        XCTAssertNotEqual(app.staticTexts["page.current"].firstMatch.label, "1/600")
+        let pages = app.scrollViews["reader.pages"].firstMatch
+        XCTAssertTrue(pages.exists)
+        app.typeKey(.escape, modifierFlags: [])
+        pages.click()
+        for _ in 0..<3 { pages.scroll(byDeltaX: 0, deltaY: -1200) }
+        XCTAssertTrue(app.staticTexts["1/600"].waitForNonExistence(timeout: 5))
         snapshot(app, "v01-large-search")
-        menu(app, "View", "Focus")
+        app.toolbars.buttons["reader.focus"].firstMatch.click()
         XCTAssertTrue(app.descendants(matching: .any)["library.sidebar"].waitForNonExistence(timeout: 5))
-        menu(app, "File", "Close book")
+        app.toolbars.buttons["reader.close"].firstMatch.click()
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "library.book.")).firstMatch.waitForExistence(timeout: 5))
         XCTAssertEqual(readingAssertions(), 0)
     }

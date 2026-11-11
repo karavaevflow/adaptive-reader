@@ -121,7 +121,7 @@ public final class PDFReaderEngine: ReaderEngine {
     }
 
     public var colorSupport: PDFColorSupport {
-        (view.currentPage as? AdaptivePDFPage)?.colorSupport ?? .missingText
+        ((view.currentDestination?.page ?? view.currentPage) as? AdaptivePDFPage)?.colorSupport ?? .missingText
     }
 
     public func currentAnchor() throws -> SourceAnchor {
@@ -151,7 +151,7 @@ public final class PDFReaderEngine: ReaderEngine {
     }
 
     public func applyPagePalette(_ palette: PagePalette) throws {
-        if palette != .original, let page = view.currentPage, let ref = page.pageRef,
+        if palette != .original, let page = view.currentDestination?.page ?? view.currentPage, let ref = page.pageRef,
            (page as? AdaptivePDFPage)?.colorSupport == .available,
            PDFColorRenderer.shared.cached(page: ref, id: "preflight-\(sourceRevision)-\(document.index(for: page))", palette: palette) == nil {
             throw ReaderError.unavailableSource

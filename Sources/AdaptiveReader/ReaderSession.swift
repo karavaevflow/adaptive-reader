@@ -201,7 +201,9 @@ final class ReaderSession {
     private func positionChanged() {
         guard mounted, let engine else { return }
         scale = engine.view.scaleFactor
-        if let page = engine.view.currentPage { pageNumber = engine.document.index(for: page) + 1 }
+        if let anchor = try? engine.currentAnchor(), case .pdf(let point) = anchor.position {
+            pageNumber = point.pageIndex + 1
+        }
         saving?.cancel()
         saving = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(200))

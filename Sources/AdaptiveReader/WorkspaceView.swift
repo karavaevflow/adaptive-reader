@@ -214,6 +214,7 @@ struct WorkspaceView: View {
                                             .frame(width: 56, height: 80).background(Adaptive.background, in: RoundedRectangle(cornerRadius: 6)).accessibilityHidden(true)
                                         VStack(alignment: .leading, spacing: 8) {
                                             Text(book.title).font(.headline).lineLimit(2).multilineTextAlignment(.leading)
+                                                .fixedSize(horizontal: false, vertical: true).help(book.title)
                                             Text(LocalizedStringKey(book.isReference ? "Linked PDF" : "Managed PDF")).font(.caption).foregroundStyle(Adaptive.secondary)
                                             if case .pdf(let point) = session.states[book.id]?.anchor?.position {
                                                 Text("Page \(point.pageIndex + 1)").font(.caption).foregroundStyle(Adaptive.secondary)
