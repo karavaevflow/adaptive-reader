@@ -109,7 +109,7 @@ struct WorkspaceCommands: Commands {
                 .keyboardShortcut("w", modifiers: [.command, .shift]).disabled(actions?.hasBook != true)
         }
         CommandGroup(after: .textEditing) {
-            Button("Find in book") { actions?.perform(.search) }.keyboardShortcut("f").disabled(actions?.canSearch != true)
+            Button(LocalizedStringKey(actions?.hasBook == true ? "Find in book" : "Search books")) { actions?.perform(.search) }.keyboardShortcut("f").disabled(actions?.canSearch != true)
             Button("Bookmark page") { actions?.perform(.toggleBookmark) }.keyboardShortcut("d").disabled(actions?.hasBook != true)
         }
         CommandGroup(after: .sidebar) {

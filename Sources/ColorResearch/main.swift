@@ -76,7 +76,14 @@ func generate(_ directory: URL) throws {
 }
 
 let args = CommandLine.arguments
-if args.count > 1 && args[1] == "large" {
+if args.count > 1 && args[1] == "palette" {
+    let document = CGPDFDocument(URL(fileURLWithPath: args[2]) as CFURL)!
+    let page = document.page(at: 1)!, renderer = PDFColorRenderer()
+    let palette = PagePalette(rawValue: args[3])!
+    let image = palette == .original || renderer.support(for: page) != .available
+        ? renderer.original(page: page)! : renderer.render(page: page, palette: palette)!
+    png(image, at: URL(fileURLWithPath: args[4]))
+} else if args.count > 1 && args[1] == "large" {
     let url = URL(fileURLWithPath: args[2])
     try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
     makePDF(url, pages: 600) { context, page in
@@ -101,6 +108,10 @@ if args.count > 1 && args[1] == "large" {
     window.displayIfNeeded()
     let openMS = (CFAbsoluteTimeGetCurrent() - start) * 1000
     let clip = engine.view.documentView!.enclosingScrollView!.contentView
+    var searchCount = 0
+    let searching: Task<Void, Never>? = args.contains("search") ? Task { @MainActor in
+        do { for try await _ in try engine.search("responsive") { searchCount += 1 } } catch {}
+    } : nil
     var frames = [Double](), intervals = [Double](), last = CFAbsoluteTimeGetCurrent()
     let timer = Timer(timeInterval: 1.0 / 60, repeats: true) { _ in
         MainActor.assumeIsolated {
@@ -118,9 +129,10 @@ if args.count > 1 && args[1] == "large" {
     RunLoop.main.add(timer, forMode: .common)
     while frames.count < 120 { RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01)) }
     timer.invalidate()
+    searching?.cancel(); engine.cancelSearch()
     var usage = rusage(); getrusage(RUSAGE_SELF, &usage)
     let result: [String: Any] = ["fixture": url.lastPathComponent, "mode": args[3],
-        "openMS": openMS, "cpuFrameMS": frames, "frameIntervalMS": intervals,
+        "searchMatches": searchCount, "openMS": openMS, "cpuFrameMS": frames, "frameIntervalMS": intervals,
         "peakRSSBytes": usage.ru_maxrss]
     print(String(data: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), encoding: .utf8)!)
     window.close()

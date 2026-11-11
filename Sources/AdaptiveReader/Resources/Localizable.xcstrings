@@ -1386,6 +1386,22 @@
           }
         }
       }
+    },
+    "Locate linked PDF": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Locate linked PDF"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Указать связанный PDF"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

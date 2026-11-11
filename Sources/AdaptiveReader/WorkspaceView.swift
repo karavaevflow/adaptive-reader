@@ -42,9 +42,11 @@ struct WorkspaceView: View {
     private var title: String { session.title }
     @State private var importing = false
     @State private var importReference = false
+    @State private var repairBook: BookRecord?
     @State private var searchVisible = false
     @State private var libraryQuery = ""
     @FocusState private var searchFieldFocused: Bool
+    @FocusState private var librarySearchFocused: Bool
     @State private var appearanceVisible = false
     @State private var catalogVisible = false
     @State private var compactSidebarVisible = false
@@ -58,7 +60,7 @@ struct WorkspaceView: View {
         GeometryReader { geometry in
             workspace(width: geometry.size.width)
                 .toolbar { toolbar(width: geometry.size.width) }
-                .focusedSceneValue(\.workspaceActions, WorkspaceActions(hasBook: document != nil, canSearch: session.engine?.capabilities.contains(.search) == true, perform: { command in
+                .focusedSceneValue(\.workspaceActions, WorkspaceActions(hasBook: document != nil, canSearch: session.engine?.capabilities.contains(.search) == true || (document == nil && !session.books.isEmpty), perform: { command in
                     perform(command, width: geometry.size.width)
                 }))
         }
@@ -76,8 +78,12 @@ struct WorkspaceView: View {
         .overlay { if session.busy { ProgressView("Opening document").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) } }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf]) { result in
             switch result {
-            case .success(let url): Task { await session.importURL(url, asReference: importReference) }
-            case .failure(let error): session.report(error)
+            case .success(let url):
+                let repair = repairBook; repairBook = nil
+                Task { if let repair { await session.relinkURL(url, book: repair) } else { await session.importURL(url, asReference: importReference) } }
+            case .failure(let error):
+                repairBook = nil
+                if (error as NSError).code != NSUserCancelledError { session.report(error) }
             }
         }
         .sheet(isPresented: $catalogVisible) {
@@ -107,7 +113,7 @@ struct WorkspaceView: View {
     private func startSession() async {
         #if DEBUG || FOUNDATION_BENCHMARK
         let arguments = ProcessInfo.processInfo.arguments
-        guard arguments.contains("-designReader") || arguments.contains("-phase0Import") else {
+        guard arguments.contains("-designReader") || arguments.contains("-phase0Import") || arguments.contains("-libraryReview") else {
             if !arguments.contains("-designReview") { await session.restore() }
             return
         }
@@ -130,7 +136,13 @@ struct WorkspaceView: View {
         }
         context.closePDF()
         do {
-            if arguments.contains("-phase0Import") { try await session.importData(data as Data, title: "Phase 0 reader") }
+            if arguments.contains("-libraryReview") {
+                for name in ["Designing for attention", "Глубокое чтение", "A field guide to the night sky", "Patterns of thought"] {
+                    try await session.importData(data as Data, title: name)
+                }
+                await session.closeBook()
+                if let book = session.books.first { await session.toggleFavorite(book) }
+            } else if arguments.contains("-phase0Import") { try await session.importData(data as Data, title: "Phase 0 reader") }
             else { try session.openReview(data as Data) }
         } catch { session.report(error) }
         #else
@@ -185,7 +197,7 @@ struct WorkspaceView: View {
                 HStack {
                     Text(section.title).font(Adaptive.TypeStyle.title)
                     Spacer()
-                    TextField("Search books", text: $libraryQuery).textFieldStyle(.roundedBorder).frame(maxWidth: 240)
+                    TextField("Search books", text: $libraryQuery).textFieldStyle(.roundedBorder).focused($librarySearchFocused).frame(maxWidth: 240)
                     Menu("Import PDF", systemImage: "plus") {
                         Button("Import a copy") { importReference = false; importing = true }
                         Button("Import linked PDF") { importReference = true; importing = true }
@@ -222,6 +234,13 @@ struct WorkspaceView: View {
                                         .accessibilityIdentifier("library.favorite.\(book.id)")
                                 }
                             }.padding(16).background(Adaptive.surface, in: RoundedRectangle(cornerRadius: Adaptive.corner))
+                            .contextMenu {
+                                Button("Open PDF") { Task { await session.openBook(book) } }
+                                Button("Favorite") { Task { await session.toggleFavorite(book) } }
+                                if book.isReference {
+                                    Button("Locate linked PDF") { repairBook = book; importing = true }
+                                }
+                            }
                         }
                     }
                 }
@@ -338,7 +357,9 @@ struct WorkspaceView: View {
         case .openDocument: if !session.busy { importReference = false; importing = true }
         case .importReference: if !session.busy { importReference = true; importing = true }
         case .closeBook: searchVisible = false; Task { await session.closeBook() }
-        case .search: session.focusMode = false; searchVisible = true; searchFieldFocused = true
+        case .search:
+            if document == nil { librarySearchFocused = true }
+            else { session.focusMode = false; searchVisible = true; searchFieldFocused = true }
         case .toggleBookmark: Task { await session.toggleBookmark() }
         case .toggleFocus: session.focusMode.toggle()
         case .toggleAwake: session.setKeepAwake(!session.keepAwake)
@@ -458,7 +479,7 @@ struct NativePDFView: NSViewRepresentable {
     }
     func makeCoordinator() -> Coordinator { Coordinator(session) }
     func makeNSView(context: Context) -> PDFView {
-        DispatchQueue.main.async { session.mount() }
+        DispatchQueue.main.async { if session.engine === engine { session.mount() } }
         return engine.view
     }
     func updateNSView(_ view: PDFView, context: Context) {}

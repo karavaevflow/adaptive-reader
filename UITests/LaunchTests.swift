@@ -9,12 +9,13 @@ final class LaunchTests: XCTestCase {
         continueAfterFailure = false
     }
     @MainActor
-    private func launch(width: Int = 1440, theme: String = "light", language: String = "en", reader: Bool = false) -> XCUIApplication {
+    private func launch(width: Int = 1440, theme: String = "light", language: String = "en", reader: Bool = false, library: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-designReview", "YES", "-designWidth", String(width),
                                "-reviewAppearance", theme,
                                "-AppleLanguages", "(\(language))", "-AppleLocale", language]
         if reader { app.launchArguments += ["-designReader", "YES"] }
+        if library { app.launchArguments += ["-libraryReview", "YES"] }
         app.launch()
         app.activate()
         if !app.windows.firstMatch.waitForExistence(timeout: 2) {
@@ -198,6 +199,22 @@ final class LaunchTests: XCTestCase {
     }
 
     @MainActor
+    func testOfflineLibraryVisualMatrix() {
+        for language in ["en", "ru"] {
+            for width in [800, 1440] {
+                for theme in ["light", "dark"] {
+                    let app = launch(width: width, theme: theme, language: language, library: true)
+                    let cards = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "library.book."))
+                    XCTAssertTrue(cards.firstMatch.waitForExistence(timeout: 10))
+                    XCTAssertEqual(cards.count, 4)
+                    capture(app, name: "v01-Library-\(language)-\(width)-\(theme)")
+                    app.terminate()
+                }
+            }
+        }
+    }
+
+    @MainActor
     func testComponentCatalog() {
         for language in ["en", "ru"] {
             for theme in ["light", "dark"] {
@@ -347,18 +364,24 @@ final class OfflineReaderTests: XCTestCase {
         reopened.terminate()
     }
 
+    @MainActor @discardableResult private func choosePDF(_ app: XCUIApplication, relativePath: String) -> Double {
+        let panel = app.sheets["open-panel"].firstMatch
+        XCTAssertTrue(panel.waitForExistence(timeout: 5))
+        panel.typeKey(goToFolderKey(), modifierFlags: [.command, .shift])
+        let path = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent(relativePath).path
+        let location = app.textFields["PathTextField"].firstMatch
+        XCTAssertTrue(location.waitForExistence(timeout: 5))
+        paste(path, into: location, app: app); location.typeKey(.return, modifierFlags: [])
+        let start = ProcessInfo.processInfo.systemUptime
+        panel.buttons["Open"].firstMatch.click()
+        return start
+    }
+
     @MainActor func testLinkedImportSurvivesQuit() {
         let id = UUID().uuidString
         let app = launch(id, specimen: false)
         menu(app, "File", "Import linked PDF")
-        let panel = app.sheets["open-panel"].firstMatch
-        XCTAssertTrue(panel.waitForExistence(timeout: 5))
-        panel.typeKey(goToFolderKey(), modifierFlags: [.command, .shift])
-        let path = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Research/Fixtures/text.pdf").path
-        let location = app.textFields["PathTextField"].firstMatch
-        XCTAssertTrue(location.waitForExistence(timeout: 5))
-        paste(path, into: location, app: app); location.typeKey(.return, modifierFlags: [])
-        panel.buttons["Open"].firstMatch.click()
+        choosePDF(app, relativePath: "Research/Fixtures/text.pdf")
         XCTAssertTrue(app.windows["text"].waitForExistence(timeout: 10))
         app.buttons["page.next"].firstMatch.click()
         app.menuBars.menuBarItems.element(boundBy: 1).click()
@@ -372,4 +395,49 @@ final class OfflineReaderTests: XCTestCase {
         snapshot(restored, "v01-linked-library")
         restored.terminate()
     }
+    @MainActor func testLargeDocumentCommandsDuringSearch() {
+        let app = launch(UUID().uuidString, specimen: false)
+        menu(app, "File", "Open PDF")
+        choosePDF(app, relativePath: "Research/Large/large-text.pdf")
+        XCTAssertTrue(app.windows["large-text"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["1/600"].waitForExistence(timeout: 5))
+        menu(app, "Edit", "Find in book")
+        let field = app.textFields["reader.search.query"].firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        paste("responsive", into: field, app: app)
+        XCTAssertTrue(app.buttons["reader.search.match"].firstMatch.waitForExistence(timeout: 10))
+        for _ in 0..<3 { app.windows.firstMatch.scroll(byDeltaX: 0, deltaY: -1200) }
+        XCTAssertNotEqual(app.staticTexts["page.current"].firstMatch.label, "1/600")
+        snapshot(app, "v01-large-search")
+        menu(app, "View", "Focus")
+        XCTAssertFalse(app.descendants(matching: .any)["library.sidebar"].exists)
+        menu(app, "File", "Close book")
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "library.book.")).firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(readingAssertions(), 0)
+    }
+
+    @MainActor func testLargeDocumentReleaseMeasurements() throws {
+        #if !FOUNDATION_BENCHMARK
+        throw XCTSkip("Opt-in Release measurement on the control Mac")
+        #else
+        var rows = [[String: Double]]()
+        for index in 0..<5 {
+            let app = launch(UUID().uuidString, specimen: false)
+            menu(app, "File", "Open PDF")
+            let start = choosePDF(app, relativePath: "Research/Large/large-text.pdf")
+            XCTAssertTrue(app.windows["large-text"].waitForExistence(timeout: 15))
+            XCTAssertTrue(app.staticTexts["1/600"].waitForExistence(timeout: 5))
+            let image = app.windows.firstMatch.screenshot()
+            rows.append(["openClickToCapturedWindowMS": (ProcessInfo.processInfo.systemUptime - start) * 1000])
+            if index == 0 {
+                let attachment = XCTAttachment(screenshot: image)
+                attachment.name = "v01-large-release"; attachment.lifetime = .keepAlways; add(attachment)
+            }
+            app.terminate()
+        }
+        let attachment = XCTAttachment(data: try JSONSerialization.data(withJSONObject: rows, options: [.prettyPrinted, .sortedKeys]), uniformTypeIdentifier: "public.json")
+        attachment.name = "v01-large-ui-measurements"; attachment.lifetime = .keepAlways; add(attachment)
+        #endif
+    }
+
 }

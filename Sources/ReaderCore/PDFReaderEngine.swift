@@ -108,6 +108,7 @@ public final class PDFReaderEngine: ReaderEngine {
     public func cancelSearch() {
         searchToken = UUID()
         searchObservers.removeAll()
+        searchSelections.removeAll()
         document.cancelFindString()
         searchContinuation?.finish(); searchContinuation = nil
     }

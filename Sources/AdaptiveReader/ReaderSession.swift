@@ -110,6 +110,25 @@ final class ReaderSession {
         } catch { report(error) }
     }
 
+    func relinkURL(_ url: URL, book: BookRecord) async {
+        guard !busy else { return }
+        busy = true; defer { busy = false }
+        do {
+            let (data, bookmark) = try await Task.detached(priority: .userInitiated) {
+                let grant = url.startAccessingSecurityScopedResource()
+                defer { if grant { url.stopAccessingSecurityScopedResource() } }
+                return (try Data(contentsOf: url), try url.bookmarkData(options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess], includingResourceValuesForKeys: nil, relativeTo: nil))
+            }.value
+            guard active, !Task.isCancelled else { return }
+            let updated = try await store.relink(book.id, data: data, bookmark: bookmark)
+            await flush()
+            let state = try await store.readingState(for: updated)
+            try await load(record: updated, data: data, state: state)
+            try await store.setCurrentBook(updated.id)
+            await refreshLibrary()
+        } catch { report(error) }
+    }
+
     func importData(_ data: Data, title: String, reference: Data? = nil) async throws {
         let prepared = await Task.detached(priority: .userInitiated) { PreparedPDFSource(data: data) }.value
         guard active, !Task.isCancelled else { return }
@@ -262,7 +281,7 @@ final class ReaderSession {
         } catch { report(error) }
     }
     func toggleFavorite(_ book: BookRecord) async {
-        do { try await store.setFavorite(!book.favorite, for: book.id); await refreshLibrary() } catch { report(error) }
+        do { try await store.toggleFavorite(book.id); await refreshLibrary() } catch { report(error) }
     }
     func setKeepAwake(_ enabled: Bool) {
         do { try awake.setEnabled(enabled && engine != nil); keepAwake = awake.isActive } catch { report(error) }

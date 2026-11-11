@@ -155,6 +155,20 @@ public actor LibraryStore {
         else if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }
     }
 
+    public func relink(_ id: UUID, data: Data, bookmark: Data) throws -> BookRecord {
+        let previous = try readRecord(id)
+        guard previous.isReference else { throw ReaderError.unsupportedCommand }
+        guard PDFReaderEngine.revision(data) == previous.revision else { throw ReaderError.sourceChanged }
+        let updated = BookRecord(id: id, title: previous.title, revision: previous.revision,
+            source: .reference(bookmark: bookmark), favorite: previous.favorite, addedAt: previous.addedAt, pageCount: previous.pageCount)
+        try write(updated)
+        return updated
+    }
+
+    public func toggleFavorite(_ id: UUID) throws {
+        var record = try readRecord(id); record.favorite.toggle(); try write(record)
+    }
+
     public func setFavorite(_ favorite: Bool, for id: UUID) throws {
         var record = try readRecord(id); record.favorite = favorite; try write(record)
     }

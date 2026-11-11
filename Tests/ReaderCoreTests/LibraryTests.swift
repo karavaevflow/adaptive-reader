@@ -93,3 +93,24 @@ private var sample: Data {
     await #expect(throws: ReaderError.sourceChanged) { try await store.toggleBookmark(anchor: wrong, title: "Wrong", for: record) }
     #expect(try await store.bookmarks(for: record).isEmpty)
 }
+
+@Test func reauthorizingReferencePreservesIdentityAndAnnotations() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let source = root.appendingPathComponent("source.pdf"), replacement = root.appendingPathComponent("replacement.pdf"), data = try sample
+    try data.write(to: source); try data.write(to: replacement)
+    func permission(_ url: URL) throws -> Data { try url.bookmarkData(options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess], includingResourceValuesForKeys: nil, relativeTo: nil) }
+    let store = LibraryStore(root: root.appendingPathComponent("Library"))
+    let book = try await store.importBook(data: data, id: UUID(), title: "Linked", revision: PDFReaderEngine.revision(data), reference: permission(source))
+    let anchor = SourceAnchor(bookID: book.id, sourceRevision: book.revision, position: .pdf(.init(pageIndex: 1, x: 0, y: 500)))
+    _ = try await store.toggleBookmark(anchor: anchor, title: "Keep", for: book)
+    await #expect(throws: ReaderError.sourceChanged) { try await store.relink(book.id, data: Data("changed".utf8), bookmark: permission(replacement)) }
+    try FileManager.default.removeItem(at: source)
+    let repaired = try await store.relink(book.id, data: data, bookmark: permission(replacement))
+    let (opened, bytes, _) = try await store.openBook(book.id)
+    #expect(opened.id == book.id)
+    #expect(repaired.revision == book.revision)
+    #expect(bytes == data)
+    #expect(try await store.bookmarks(for: repaired).first?.anchor == anchor)
+}
