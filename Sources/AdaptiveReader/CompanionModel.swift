@@ -101,7 +101,7 @@ final class CompanionModel {
     func reset() {
         newTopic(); setupTask?.cancel(); setupTask = nil; selection = nil; selectionLabel = ""; smartMargins = false
         data = nil; index = nil; notes = []; draftSource = nil; draftNote = ""; undoNote = nil; bookID = nil; record = nil
-        reviewStarted = false
+        reviewStarted = false; settingsVisible = false; indexTruncated = false; progress = 0; receivedCharacters = 0
     }
     func saveSettings(_ value: CompanionSettings, key: String) async {
         cancel()
