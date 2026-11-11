@@ -169,3 +169,21 @@ func asynchronousSearchReturnsAnchorsAndRetainsNativeSelection() async throws {
     for try await _ in cancelled { count += 1 }
     #expect(count == 0)
 }
+
+@Test(.timeLimit(.minutes(1))) @MainActor
+func largeSearchStopsAtLimitAndAllowsANewQuery() async throws {
+    let source = fixtures.deletingLastPathComponent().appendingPathComponent("Large/large-text.pdf")
+    let engine = try PDFReaderEngine(data: Data(contentsOf: source), bookID: UUID())
+    let host = window(for: engine); defer { host.close() }
+    let commands = ReaderCommands(engine: engine)
+    var count = 0
+    for try await _ in try commands.search("responsive") { count += 1 }
+    #expect(count == 1000)
+    var chapters = [ReaderSearchMatch]()
+    for try await match in try commands.search("Chapter") { chapters.append(match) }
+    #expect(chapters.count == 600)
+    let last = try #require(chapters.last)
+    try commands.perform(.showSearchMatch(last))
+    #expect(engine.view.currentSelection?.string?.localizedCaseInsensitiveContains("Chapter") == true)
+    if case .pdf(let position) = last.anchor.position { #expect(position.pageIndex == 599) }
+}

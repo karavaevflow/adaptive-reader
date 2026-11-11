@@ -76,7 +76,7 @@ public final class PDFReaderEngine: ReaderEngine {
         let center = NotificationCenter.default
         center.publisher(for: .PDFDocumentDidFindMatch, object: document).receive(on: RunLoop.main).sink { [weak self] notification in
             MainActor.assumeIsolated {
-                guard let self, self.searchToken == token,
+                guard let self, self.searchToken == token, self.searchContinuation != nil, self.searchSelections.count < 1000,
                       let selection = notification.userInfo?[PDFDocumentFoundSelectionKey] as? PDFSelection,
                       let page = selection.pages.first else { return }
                 let box = page.bounds(for: .cropBox), bounds = selection.bounds(for: page)
