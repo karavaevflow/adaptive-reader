@@ -4,18 +4,22 @@ ReaderCore contains domain contracts, the native PDF engine, source identity and
 
 ## Stable boundaries
 
-- `ReaderEngine` exposes source identity, capabilities, current anchor, validated navigation, scale and palette commands. Unsupported operations throw. EPUB can support reflow and reject page palettes without changes to bookmarks, notes or AI tools.
+- `ReaderEngine` exposes source identity, capabilities, current anchor, validated navigation, scale, palette commands and asynchronous text search. Unsupported operations throw. EPUB can support reflow and reject page palettes without changes to bookmarks, notes or AI tools.
 - `SourceAnchor` schema 1 stores book UUID, source SHA-256 and a typed position. PDF positions use zero-based pages and unrotated crop-box coordinates. EPUB positions store a resource and stable textual locator. Unsupported versions, changed sources and invalid locators produce explicit errors. Reflow does not use PDF coordinates.
 - `ReaderCommands` is the typed entry point for menu, toolbar and future AI tools. It commits state/history only after the engine succeeds. Palette undo uses the same validated engine path. New commands must declare capability checks and undo semantics. A future AI adapter will receive this dispatcher, not native views or arbitrary file access.
 - `PDFReaderEngine` uses PDFKit for search, selection, links and currentDestination. `AdaptivePDFPage` alters drawing only after the research eligibility check. Palette redraw rebinds the same PDFDocument through public PDFKit APIs, then restores the anchor and scale. No private tile APIs or PDF rewriting are used.
 
-## Storage schema 1
+Search yields `ReaderSearchMatch` values containing a versioned SourceAnchor and a text snippet. The native PDFSelection stays private to PDFReaderEngine. Selecting a match uses the same typed command dispatcher as navigation. New queries, source changes and session closure cancel pending searches. Results are capped at 1,000 with a visible refine-query message. Text availability is checked on a separate PDFDocument owned by a background worker; no PDFKit object crosses actors. Source hashing also runs off the main actor.
 
-Under Application Support/AdaptiveReader (inside the app sandbox), Assets stores immutable managed copies, Books stores versioned metadata, ReadingState stores user positions/palette/scale, and Cache is disposable. All JSON writes are atomic and serialized by LibraryStore. Source checksums are verified on reopen. A source revision mismatch is surfaced instead of silently reusing an anchor.
+## Storage schema 2
 
-ReaderSession debounces saves during scrolling and flushes them through a normal termination delegate before Quit completes. Native scene restoration and window frame autosave preserve windows; AppStorage preserves panel/theme settings. The Phase 0 import is a managed copy. Reference import, a full library browser and migration UI belong to later releases.
+Under Application Support/AdaptiveReader (inside the app sandbox), Assets stores immutable managed copies, Books stores versioned metadata, ReadingState stores positions/palette/scale, Annotations stores bookmarks, and Cache is disposable. A shared LibraryStore actor per storage root serializes atomic writes, including bookmark/favorite read-modify-write operations across windows.
 
-ReadingState's optional auto-scale/display-mode fields decode the first schema-1 form. No earlier released storage schema exists. At the first schema-version change, retain a fixture of this schema and add a migration test before changing the writer.
+BookRecord schema 2 records a managed asset name or a read-only security-scoped bookmark, plus favorite state, import date and page count. Schema-1 metadata upgrades atomically on read; migration tests preserve the exact asset bytes, source identity and reading position. ReadingState and SourceAnchor remain schema 1. Their existing optional fields remain decodable. Future schema changes require the same previous-version migration test.
+
+Reference imports create no managed asset. Access is scoped only while reading; PDFKit subsequently owns an in-memory source. Reopen checks SHA-256 before applying anchors. Stale bookmarks renew when possible. The library's Locate linked PDF action reauthorizes access only if the selected file has the original checksum, preserving the book UUID, revision and annotations. Missing/changed sources produce explicit errors.
+
+ReaderSession debounces position saves and flushes them through a normal termination delegate before Quit completes. Native scene restoration and window frame autosave preserve windows; AppStorage preserves panel/theme settings. Each window owns its Keep Awake assertion; source switch, book closure, window disappearance and normal Quit release it. The assertion is never persisted.
 
 The research command-line program owns global-inversion experiments and measurements. The app only contains the selected, bounded rendering path. Raster scale/cache policy can evolve within the rendering boundary without changing ReaderEngine or SourceAnchor.
 

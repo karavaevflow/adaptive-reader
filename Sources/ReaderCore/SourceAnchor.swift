@@ -65,12 +65,18 @@ public protocol ReaderEngine: AnyObject {
     var palette: PagePalette { get }
     func currentAnchor() throws -> SourceAnchor
     func navigate(to anchor: SourceAnchor) throws
+    func search(_ query: String) throws -> AsyncThrowingStream<ReaderSearchMatch, Error>
+    func cancelSearch()
+    func showSearchMatch(_ match: ReaderSearchMatch) throws
     func setScale(_ scale: Double) throws
     func applyPagePalette(_ palette: PagePalette) throws
 }
 
 public extension ReaderEngine {
     var palette: PagePalette { .original }
+    func search(_ query: String) throws -> AsyncThrowingStream<ReaderSearchMatch, Error> { throw ReaderError.unsupportedCommand }
+    func cancelSearch() {}
+    func showSearchMatch(_ match: ReaderSearchMatch) throws { try navigate(to: match.anchor) }
     func setScale(_ scale: Double) throws { throw ReaderError.unsupportedCommand }
     func applyPagePalette(_ palette: PagePalette) throws { throw ReaderError.unsupportedCommand }
 }
@@ -83,6 +89,7 @@ public enum ApplicationCommand: Sendable {
     case navigate(SourceAnchor)
     case setPalette(PagePalette)
     case setScale(Double)
+    case showSearchMatch(ReaderSearchMatch)
 }
 
 @MainActor
@@ -100,6 +107,10 @@ public final class ReaderCommands {
             guard engine.capabilities.contains(.pageNavigation) || engine.capabilities.contains(.reflow) else { throw ReaderError.unsupportedCommand }
             try anchor.validate(bookID: engine.bookID, revision: engine.sourceRevision)
             try engine.navigate(to: anchor)
+        case .showSearchMatch(let match):
+            guard engine.capabilities.contains(.pageNavigation) || engine.capabilities.contains(.reflow) else { throw ReaderError.unsupportedCommand }
+            try match.anchor.validate(bookID: engine.bookID, revision: engine.sourceRevision)
+            try engine.showSearchMatch(match)
         case .setScale(let scale):
             guard engine.capabilities.contains(.zoom) else { throw ReaderError.unsupportedCommand }
             try engine.setScale(scale)
@@ -109,6 +120,11 @@ public final class ReaderCommands {
             paletteHistory.append(self.palette)
             self.palette = palette
         }
+    }
+
+    public func search(_ query: String) throws -> AsyncThrowingStream<ReaderSearchMatch, Error> {
+        guard engine.capabilities.contains(.search) else { throw ReaderError.unsupportedCommand }
+        return try engine.search(query)
     }
 
     public var canUndoPalette: Bool { !paletteHistory.isEmpty }

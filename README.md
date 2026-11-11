@@ -1,6 +1,6 @@
 # Adaptive Reader
 
-Native macOS reading workspace, Phase 0 foundation. Requires macOS 15 or later. SwiftUI and AppKit provide the shell, PDFKit displays documents. MIT licensed.
+Native macOS reading workspace with an offline PDF library. Requires macOS 15 or later. SwiftUI and AppKit provide the shell, PDFKit displays documents. MIT licensed.
 
 ## Build
 
@@ -16,12 +16,23 @@ xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination
 
 ## Current behavior
 
-Open a PDF from the toolbar or empty state. The application stores a managed local copy and verifies its SHA-256 on reopen. It restores the last document, page position, zoom and palette after Quit. The appearance popover changes the shell between System, Light and Dark. The More menu opens the component catalogue. Sidebar and inspector visibility preferences persist. Compact windows expose those panels as a popover and sheet. The app bundle includes English and Russian translations.
+Import a PDF as a managed copy, or choose **Open linked PDF** to retain a read-only reference to the original file. The library shows reading progress and favorites. Both modes verify the source SHA-256 on reopen; a changed file produces an explicit error. A linked book can be reauthorized through its library context menu using the same source bytes.
 
-The [Adaptive design system](docs/adaptive-design-system.md) documents tokens, controls and shortcuts. [Reference screenshots](docs/screenshots) cover both languages, appearances and window sizes.
+Search text, jump to a result, bookmark the current page, or enter Focus to hide surrounding panels. Keep Awake prevents idle display sleep only while enabled in an open reading session; closing the book, window or app releases it. Quit and reopen restores the document, fragment, zoom and palette. Books, positions and bookmarks stay on disk.
 
-The foundation includes versioned PDF/EPUB source anchors, validated navigation commands, reversible palette commands and atomic position records. PDFKit retains native selection, search and links. Page palettes use the bounded selective Color Engine for eligible text/vector pages; complex pages preserve Original and display a fallback explanation. [Color Engine evidence and reproduction](Research/README.md) include nine PDFs, paired images and five-run Release measurements. [Reader contracts](docs/reader-architecture.md) describe the boundaries for EPUB and AI. Full library browsing, EPUB and AI belong to later releases.
+| Shortcut | Action |
+|---|---|
+| ⌘O / ⇧⌘O | Import copy / linked PDF |
+| ⇧⌘W | Close book and show library |
+| ⌘F | Search book or library titles |
+| ⌘D | Toggle page bookmark |
+| ⇧⌘F / Escape | Enter / leave Focus |
+| ⇧⌘K | Toggle Keep Awake |
+
+The appearance popover changes the shell between System, Light and Dark independently of the page palette. Compact windows retain commands in More. The app includes English and Russian translations. The [Adaptive design system](docs/adaptive-design-system.md) documents the shared components; [v0.1 acceptance](docs/v0.1.md) records current verification.
+
+Versioned PDF/EPUB source anchors, typed navigation/search commands and atomic records preserve the shared architecture for future EPUB and AI features. PDFKit retains native selection, links and document geometry. Eligible text/vector pages use the bounded selective Color Engine; complex pages preserve Original with a fallback explanation. [Color Engine evidence](Research/README.md) and [reader contracts](docs/reader-architecture.md) describe the boundaries and limitations. EPUB, OCR and AI are later milestones.
 
 Books stay on the device. This build has no AI provider or network feature.
 
-Phase 0 is complete. See [acceptance evidence](docs/phase-0.md) and the [release gates](docs/release-gates.md) for the next milestones. The first UI-test run may require confirming macOS “Enable UI Automation”.
+Phase 0 is complete; the v0.1 offline PDF workflow has passed local acceptance. See [acceptance evidence](docs/phase-0.md) and the [release gates](docs/release-gates.md) for all milestones. The first UI-test run may require confirming macOS “Enable UI Automation”.
