@@ -478,7 +478,9 @@ final class ReaderSession {
         case .stopSession: stopReadingSession()
         case .miniReader: showMiniReader()
         case .returnToReader: closeMiniReader()
-        case .toggleFocus: focusMode.toggle()
+        case .toggleFocus:
+            focusMode.toggle()
+            if focusMode { companionVisible = false; companion.cancel() }
         case .toggleAwake: setKeepAwake(!keepAwake)
         case .toggleBookmark: Task { await toggleBookmark() }
         case .zoomIn: zoom(by: 1.1)

@@ -144,7 +144,7 @@ private struct CompanionSettingsView: View {
             Text("AI settings").font(.title2.weight(.semibold))
             Picker("Provider mode", selection: $draft.mode) {
                 Text("Off").tag(CompanionMode.off); Text("Local Ollama").tag(CompanionMode.local); Text("Cloud API").tag(CompanionMode.cloud)
-            }
+            }.pickerStyle(.menu).accessibilityLabel(Text("Provider mode")).accessibilityIdentifier("ai.providerMode")
             TextField("Endpoint URL", text: $draft.endpoint).textFieldStyle(.roundedBorder).accessibilityIdentifier("ai.endpoint")
             TextField("Model identifier", text: $draft.model).textFieldStyle(.roundedBorder).accessibilityIdentifier("ai.model")
             if draft.mode == .cloud {

@@ -104,7 +104,7 @@ struct WorkspaceView: View {
                 HStack { Spacer(); Button("Done") { readingToolsVisible = false }.keyboardShortcut(.cancelAction) }.padding(16)
             }
         }
-        .sheet(isPresented: Binding(get: { session.companionVisible && (session.engine?.view.window?.contentView?.bounds.width ?? 800) < Adaptive.Layout.inspectorThreshold }, set: {
+        .sheet(isPresented: Binding(get: { session.companionVisible && !session.focusMode && (session.engine?.view.window?.contentView?.bounds.width ?? 800) < Adaptive.Layout.inspectorThreshold }, set: {
             if !$0 { session.companionVisible = false; session.companion.cancel() }
         })) {
             CompanionView(session: session).frame(width: 380, height: 600)
