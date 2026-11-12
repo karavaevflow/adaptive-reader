@@ -38,6 +38,7 @@ final class ReaderSession {
     var miniReaderActive = false
     var commandCenterVisible = false
     let companion = CompanionModel()
+    let study = StudyModel()
     var companionVisible = false
     var companionViewportRevision = 0
     var pendingCompanionQuestion: String?
@@ -115,7 +116,7 @@ final class ReaderSession {
         busy = true
         defer { busy = false }
         do {
-            await flush()
+            study.speech.stop(); await flush()
             let (record, data, state) = try await store.openBook(book.id)
             guard active, !Task.isCancelled else { return }
             try await load(record: record, data: data, state: state)
@@ -210,6 +211,7 @@ final class ReaderSession {
         }
         #endif
         engine = candidate; commands = ReaderCommands(engine: candidate)
+        study.configure(record: record, store: store, session: self)
         companion.configure(data: data, bookID: candidate.bookID, revision: candidate.sourceRevision, title: title,
                             pageCount: (candidate as? PDFReaderEngine)?.document.pageCount ?? 0, record: record, store: store, epub: (candidate as? EPUBReaderEngine)?.publication)
         if let epub = candidate as? EPUBReaderEngine {
@@ -413,6 +415,7 @@ final class ReaderSession {
     }
     private func stopWork() {
         epubEngine?.stop()
+        study.reset()
         companion.reset(); companionVisible = false
         checkpointTask?.cancel(); checkpointTask = nil; checkpointToken = UUID()
         closeMiniReader(); stopReadingActivity()
@@ -423,6 +426,7 @@ final class ReaderSession {
         active = false; closeMiniReader(revealMain: false); stopReadingActivity(); awake.release(); keepAwake = false; stopWork(); saving?.cancel()
     }
     func flush() async {
+        await study.flush()
         await flushPreferences()
         guard let engine, let commands, let record else { return }
         if !mounted {
@@ -502,7 +506,28 @@ final class ReaderSession {
     @discardableResult func performReadingCommand(_ command: WorkspaceCommand) -> Bool {
         guard command.isEnabled(in: self) else { return true }
         switch command {
+        case .study:
+            companionVisible = false; focusMode = false; study.visible.toggle()
+        case .newCard:
+            companionVisible = false; focusMode = false; study.newCard()
+        case .newNote:
+            companionVisible = false; focusMode = false; study.newNote()
+        case .highlightPassage:
+            companionVisible = false; focusMode = false; Task { await study.addHighlight() }
+        case .listenFromHere:
+            companionVisible = false; focusMode = false; study.visible = true; study.tab = "listen"; study.listen(resumeSaved: false)
+        case .resumeListening:
+            companionVisible = false; focusMode = false; study.visible = true; study.tab = "listen"; study.listen(resumeSaved: true)
+        case .toggleListening:
+            switch study.speech.status {
+            case .stopped: study.listen(resumeSaved: false)
+            case .playing: study.speech.pause(); Task { await study.flush() }
+            case .paused: study.speech.resume()
+            }
+        case .stopListening:
+            study.speech.stop(); Task { await study.flush() }
         case .companion:
+            study.visible = false
             closeMiniReader(); focusMode = false
             if let question = pendingCompanionQuestion {
                 pendingCompanionQuestion = nil; companionVisible = true; companion.query = question

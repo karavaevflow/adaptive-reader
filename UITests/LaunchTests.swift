@@ -331,9 +331,9 @@ final class OfflineReaderTests: XCTestCase {
     }
     override func setUp() { super.setUp(); continueAfterFailure = false }
 
-    @MainActor private func launch(_ id: String, specimen: Bool, diagnostics: Bool = false, additionalArguments: [String] = []) -> XCUIApplication {
+    @MainActor private func launch(_ id: String, specimen: Bool, diagnostics: Bool = false, additionalArguments: [String] = [], width: Int = 1440, theme: String = "light", language: String = "en") -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-phase0Store", id, "-designWidth", "1440", "-AppleLanguages", "(en)", "-AppleLocale", "en"]
+        app.launchArguments = ["-phase0Store", id, "-designWidth", String(width), "-AppleLanguages", "(\(language))", "-AppleLocale", language, "-shellAppearance", theme]
         if specimen { app.launchArguments += ["-phase0Import", "YES"] }
         if diagnostics { app.launchArguments += ["-comfortDiagnostics", "YES"] }
         app.launchArguments += additionalArguments
@@ -365,9 +365,10 @@ final class OfflineReaderTests: XCTestCase {
         } ?? []
         defer { board.clearContents(); if !previous.isEmpty { _ = board.writeObjects(previous as [any NSPasteboardWriting]) } }
         field.click()
-        menu(app, "Edit", "Select All")
+        let edit = app.menuBars.menuBarItems.element(boundBy: 3)
+        edit.click(); edit.menuItems["selectAll:"].firstMatch.click()
         board.clearContents(); board.setString(text, forType: .string)
-        menu(app, "Edit", "Paste")
+        edit.click(); edit.menuItems["paste:"].firstMatch.click()
     }
     @MainActor private func goToFolderKey() -> String {
         guard let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue(),
@@ -439,8 +440,186 @@ final class OfflineReaderTests: XCTestCase {
         XCTAssertTrue(location.waitForExistence(timeout: 5))
         paste(path, into: location, app: app); location.typeKey(.return, modifierFlags: [])
         let start = ProcessInfo.processInfo.systemUptime
-        panel.buttons["Open"].firstMatch.click()
+        panel.buttons["OKButton"].firstMatch.click()
         return start
+    }
+
+    @MainActor private func studySection(_ app: XCUIApplication, _ title: String) {
+        let picker = app.popUpButtons["study.section"].firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 5)); picker.click()
+        app.menuItems[title].firstMatch.click()
+    }
+
+    @MainActor func testStudyCardsNotesRecallAndHighlightsSurviveReflowAndRestart() {
+        let id = UUID().uuidString, app = launch(id, specimen: false)
+        menu(app, "File", "Open book"); choosePDF(app, relativePath: "Research/Fixtures/EPUB/reflow.epub")
+        XCTAssertTrue(app.windows["reflow"].waitForExistence(timeout: 10))
+        menu(app, "Edit", "Find in book")
+        paste("Passage 853.", into: app.textFields["reader.search.query"].firstMatch, app: app)
+        let match = app.buttons["reader.search.match"].firstMatch
+        XCTAssertTrue(match.waitForExistence(timeout: 10)); match.click()
+        app.buttons["Close search"].firstMatch.click()
+        menu(app, "Edit", "New note")
+        let note = app.textViews["study.note.editor"].firstMatch
+        XCTAssertTrue(note.waitForExistence(timeout: 5)); paste("A note about passage 853.", into: note, app: app)
+        app.buttons["study.note.save"].firstMatch.click()
+        XCTAssertTrue(app.staticTexts["study.note.text"].firstMatch.waitForExistence(timeout: 5))
+        menu(app, "Edit", "New card")
+        let question = app.descendants(matching: .any)["card.question"].firstMatch
+        XCTAssertTrue(question.waitForExistence(timeout: 5))
+        paste("What strengthens memory?", into: question, app: app)
+        paste("Active recall.", into: app.textViews["card.answer"].firstMatch, app: app)
+        app.buttons["card.save"].firstMatch.click()
+        XCTAssertTrue(app.staticTexts["study.card.question"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["study.card.edit"].firstMatch.click()
+        let answer = app.textViews["card.answer"].firstMatch
+        XCTAssertTrue(answer.waitForExistence(timeout: 5)); paste("Active retrieval practice.", into: answer, app: app)
+        app.buttons["card.save"].firstMatch.click()
+        studySection(app, "Recall")
+        XCTAssertTrue(app.buttons["recall.reveal"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["recall.answer"].firstMatch.exists)
+        app.buttons["recall.reveal"].firstMatch.click()
+        XCTAssertTrue(app.staticTexts["recall.answer"].firstMatch.waitForExistence(timeout: 5))
+        snapshot(app, "v04-recall-flow")
+        app.buttons["recall.remembered"].firstMatch.click()
+        XCTAssertTrue(app.staticTexts["recall.empty"].firstMatch.waitForExistence(timeout: 5))
+        studySection(app, "Cards")
+        app.buttons["study.card.source"].firstMatch.click()
+        XCTAssertTrue(app.staticTexts["2/2"].waitForExistence(timeout: 5))
+        menu(app, "Edit", "Highlight passage")
+        XCTAssertTrue(app.staticTexts["study.highlight.text"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["appearance.toggle"].firstMatch.click()
+        let size = app.sliders["epub.fontSize"].firstMatch
+        XCTAssertTrue(size.waitForExistence(timeout: 5)); size.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.5)).click()
+        app.typeKey(.escape, modifierFlags: [])
+        snapshot(app, "v04-highlight-reflow-flow")
+        app.menuBars.menuBarItems.element(boundBy: 1).click(); app.menuItems["Quit AdaptiveReader"].firstMatch.click()
+        XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
+        let restored = launch(id, specimen: false)
+        XCTAssertTrue(restored.windows["reflow"].waitForExistence(timeout: 10))
+        menu(restored, "View", "Study"); studySection(restored, "Cards")
+        XCTAssertTrue(restored.staticTexts["study.card.question"].firstMatch.waitForExistence(timeout: 5))
+        let savedAnswer = restored.staticTexts["study.card.answer"].firstMatch
+        XCTAssertTrue(((savedAnswer.value as? String) ?? savedAnswer.label).contains("Active retrieval practice."))
+        restored.buttons["study.card.source"].firstMatch.click()
+        XCTAssertTrue(restored.staticTexts["2/2"].waitForExistence(timeout: 5))
+        menu(restored, "View", "Study")
+        studySection(restored, "Notes")
+        XCTAssertTrue(restored.staticTexts["study.note.text"].firstMatch.waitForExistence(timeout: 5))
+        restored.buttons["study.note.edit"].firstMatch.click()
+        let editor = restored.textViews["study.note.editor"].firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 5)); paste("Edited note survives.", into: editor, app: restored)
+        restored.buttons["study.note.save"].firstMatch.click()
+        studySection(restored, "Highlights")
+        XCTAssertTrue(restored.staticTexts["study.highlight.text"].firstMatch.waitForExistence(timeout: 5))
+        snapshot(restored, "v04-study-restored-flow")
+        restored.buttons["study.highlight.source"].firstMatch.click()
+        let passageText = "Passage 853. Retrieval practice strengthens memory through active recall. Reflow changes presentation while keeping the original text and its source locator stable. Images preserve their colors."
+        let passage = restored.webViews.staticTexts.matching(NSPredicate(format: "value == %@", passageText)).firstMatch
+        XCTAssertTrue(passage.waitForExistence(timeout: 10)); XCTAssertTrue(passage.isHittable)
+        restored.terminate()
+    }
+
+    @MainActor func testStudyVisualMatrix() {
+        let short = ProcessInfo.processInfo.environment["ADAPTIVE_V04_MATRIX_SHORT"] == "1"
+        for language in ["en", "ru"] { for width in [800, 1440] { for theme in ["light", "dark"] {
+            if short && !((language == "ru" && width == 800 && theme == "dark") || (language == "en" && width == 1440 && theme == "light")) { continue }
+            let app = launch(UUID().uuidString, specimen: false, width: width, theme: theme, language: language)
+            app.buttons["reader.open"].firstMatch.click()
+            choosePDF(app, relativePath: "Research/Fixtures/EPUB/reflow.epub")
+            XCTAssertTrue(app.windows["reflow"].waitForExistence(timeout: 10))
+            if app.buttons["study.toggle"].firstMatch.exists { app.buttons["study.toggle"].firstMatch.click() }
+            else {
+                app.popUpButtons["workspace.more"].firstMatch.click()
+                app.menuItems[language == "en" ? "Study" : "Обучение"].firstMatch.click()
+            }
+            let suffix = "\(language)-\(width)-\(theme)"
+            XCTAssertTrue(app.buttons["study.newNote"].firstMatch.waitForExistence(timeout: 5))
+            snapshot(app, "v04-Notes-" + suffix)
+            app.buttons["study.newNote"].firstMatch.click()
+            XCTAssertTrue(app.textViews["study.note.editor"].firstMatch.waitForExistence(timeout: 5))
+            snapshot(app, "v04-NoteEditor-" + suffix)
+            app.buttons["study.note.cancel"].firstMatch.click()
+            studySection(app, language == "en" ? "Cards" : "Карточки")
+            snapshot(app, "v04-Cards-" + suffix)
+            app.buttons["study.newCard"].firstMatch.click()
+            XCTAssertTrue(app.descendants(matching: .any)["card.question"].firstMatch.waitForExistence(timeout: 5))
+            snapshot(app, "v04-CardEditor-" + suffix)
+            app.buttons["card.cancel"].firstMatch.click()
+            studySection(app, language == "en" ? "Recall" : "Самопроверка")
+            snapshot(app, "v04-Recall-" + suffix)
+            studySection(app, language == "en" ? "Highlights" : "Выделения")
+            app.buttons["study.highlight"].firstMatch.click()
+            XCTAssertTrue(app.staticTexts["study.highlight.text"].firstMatch.waitForExistence(timeout: 5))
+            snapshot(app, "v04-Highlights-" + suffix)
+            studySection(app, language == "en" ? "Listen" : "Озвучивание")
+            XCTAssertTrue(app.buttons["listen.start"].firstMatch.waitForExistence(timeout: 5))
+            snapshot(app, "v04-Listen-" + suffix)
+            app.buttons["study.close"].firstMatch.click()
+            snapshot(app, "v04-Reader-" + suffix)
+            app.terminate()
+        } } }
+    }
+
+    @MainActor func testStudyMarkdownExportThroughNativeSavePanel() throws {
+        let app = launch(UUID().uuidString, specimen: true)
+        menu(app, "Edit", "New card")
+        let question = app.descendants(matching: .any)["card.question"].firstMatch
+        XCTAssertTrue(question.waitForExistence(timeout: 5)); paste("Exported question?", into: question, app: app)
+        paste("Exported answer.", into: app.textViews["card.answer"].firstMatch, app: app)
+        app.buttons["card.save"].firstMatch.click()
+        XCTAssertTrue(app.staticTexts["study.card.question"].firstMatch.waitForExistence(timeout: 5))
+        app.descendants(matching: .any)["study.actions"].firstMatch.click()
+        app.menuItems["Export Markdown"].firstMatch.click()
+        let panel = app.sheets["save-panel"].firstMatch
+        XCTAssertTrue(panel.waitForExistence(timeout: 5))
+        let destination = FileManager.default.temporaryDirectory.appendingPathComponent("AdaptiveReader-Export-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: destination) }
+        panel.typeKey(goToFolderKey(), modifierFlags: [.command, .shift])
+        let path = app.textFields["PathTextField"].firstMatch
+        XCTAssertTrue(path.waitForExistence(timeout: 5)); paste(destination.path, into: path, app: app); path.typeKey(.return, modifierFlags: [])
+        panel.buttons["OKButton"].firstMatch.click()
+        let exists = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            ((try? FileManager.default.contentsOfDirectory(at: destination, includingPropertiesForKeys: nil)) ?? []).contains { $0.pathExtension == "md" }
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [exists], timeout: 10), .completed)
+        let url = try XCTUnwrap(try FileManager.default.contentsOfDirectory(at: destination, includingPropertiesForKeys: nil).first { $0.pathExtension == "md" })
+        let text = try String(contentsOf: url, encoding: .utf8)
+        XCTAssertTrue(text.contains("Exported question?") && text.contains("Exported answer.") && text.contains("SourceAnchor:"))
+        snapshot(app, "v04-markdown-export-flow")
+        app.terminate()
+    }
+
+    @MainActor func testNativeListenPauseResumeRestartAndClose() {
+        let id = UUID().uuidString, app = launch(id, specimen: false, additionalArguments: ["-silentSpeechTest"])
+        menu(app, "File", "Open book"); choosePDF(app, relativePath: "Research/Fixtures/EPUB/reflow.epub")
+        XCTAssertTrue(app.windows["reflow"].waitForExistence(timeout: 10))
+        menu(app, "View", "Listen from here")
+        let pause = app.buttons["listen.pause"].firstMatch
+        XCTAssertTrue(pause.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["listen.word"].firstMatch.waitForExistence(timeout: 15), "Must receive actual AVFoundation speech progress")
+        pause.click()
+        XCTAssertTrue(app.buttons["listen.continue"].firstMatch.waitForExistence(timeout: 5))
+        snapshot(app, "v04-listen-paused-flow")
+        app.buttons["listen.continue"].firstMatch.click()
+        XCTAssertTrue(app.buttons["listen.pause"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["listen.stop"].firstMatch.click()
+        XCTAssertTrue(app.buttons["listen.saved"].firstMatch.waitForExistence(timeout: 5))
+        app.menuBars.menuBarItems.element(boundBy: 1).click(); app.menuItems["Quit AdaptiveReader"].firstMatch.click()
+        XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
+        let restored = launch(id, specimen: false, additionalArguments: ["-silentSpeechTest"])
+        XCTAssertTrue(restored.windows["reflow"].waitForExistence(timeout: 10))
+        menu(restored, "View", "Study"); studySection(restored, "Listen")
+        let saved = restored.buttons["listen.saved"].firstMatch
+        XCTAssertTrue(saved.waitForExistence(timeout: 5)); saved.click()
+        XCTAssertTrue(restored.buttons["listen.pause"].firstMatch.waitForExistence(timeout: 15))
+        menu(restored, "File", "Close book")
+        XCTAssertTrue(restored.buttons["listen.pause"].firstMatch.waitForNonExistence(timeout: 5))
+        let view = restored.menuBars.menuBarItems["View"]; view.click()
+        XCTAssertFalse(view.menuItems["Stop listening"].firstMatch.isEnabled)
+        restored.typeKey(.escape, modifierFlags: [])
+        restored.terminate()
     }
 
     @MainActor func testEPUBSearchReflowBookmarkAndRestore() {

@@ -26,7 +26,7 @@ extension ReaderSession {
     func updateCompanionSelection() {
         if let epub = epubEngine {
             if let selection = epub.selection {
-                let text = String(selection.text.prefix(1400))
+                let text = String(selection.displayText.prefix(1400))
                 let id = SHA256.hash(data: Data((selection.anchor.sourceRevision + String(describing: selection.anchor.position)).utf8)).prefix(12).map { String(format: "%02x", $0) }.joined()
                 companion.selection = EvidencePassage(id: id, anchor: selection.anchor, text: text)
                 companion.selectionLabel = String(text.prefix(80))

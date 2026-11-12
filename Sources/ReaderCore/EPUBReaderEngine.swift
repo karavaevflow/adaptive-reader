@@ -37,11 +37,11 @@ public final class EPUBReaderEngine: NSObject, ReaderEngine, WKNavigationDelegat
     public let sourceRevision: String
     public let publication: EPUBPublication
     public let view: WKWebView
-    public let capabilities: Set<ReaderCapability> = [.textSelection, .search, .reflow, .pagePalette, .continuousScroll, .passageNavigation]
+    public let capabilities: Set<ReaderCapability>
     public private(set) var palette: PagePalette = .original
     public private(set) var typography = EPUBTypography()
     public private(set) var chapterIndex = 0
-    public private(set) var selection: (anchor: SourceAnchor, text: String)?
+    public private(set) var selection: (anchor: SourceAnchor, text: String, displayText: String)?
     public private(set) var ready = false
     public var onPositionChanged: (() -> Void)?
     public var onSelectionChanged: (() -> Void)?
@@ -53,9 +53,16 @@ public final class EPUBReaderEngine: NSObject, ReaderEngine, WKNavigationDelegat
     @ObservationIgnored private var loading = false
     @ObservationIgnored private var pendingNavigation: WKNavigation?
     @ObservationIgnored private var canScrollDown = true
+    @ObservationIgnored private var savedHighlights: [ReaderHighlight] = []
+    @ObservationIgnored private var playback: ReaderPassage?
 
     public init(publication: EPUBPublication, bookID: UUID, revision: String) {
         self.publication = publication; self.bookID = bookID; sourceRevision = revision
+        var capabilities: Set<ReaderCapability> = [.reflow, .pagePalette, .continuousScroll]
+        if publication.readingResources.contains(where: { $0.text.contains(where: { !$0.isWhitespace }) }) {
+            capabilities.formUnion([.textSelection, .search, .passageNavigation, .readAloud])
+        }
+        self.capabilities = capabilities
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
         configuration.setURLSchemeHandler(EPUBResourceHandler(publication), forURLScheme: "adaptive-epub")
@@ -137,6 +144,41 @@ public final class EPUBReaderEngine: NSObject, ReaderEngine, WKNavigationDelegat
             continuation.onTermination = { _ in worker.cancel() }
         }
     }
+    public func setHighlights(_ values: [ReaderHighlight]) throws {
+        for item in values {
+            try item.anchor.validate(bookID: bookID, revision: sourceRevision)
+            guard case .epub(let resource, let encoded) = item.anchor.position,
+                  let chapter = publication.readingResources.first(where: { $0.resource == resource }) else { throw ReaderError.invalidAnchor }
+            let locator = try EPUBTextLocator(encoded: encoded); try locator.validate(in: chapter.text)
+            let text = chapter.text as NSString
+            guard item.quotation.utf16.count <= text.length - locator.offset,
+                  text.substring(with: NSRange(location: locator.offset, length: item.quotation.utf16.count)) == item.quotation else { throw ReaderError.invalidAnchor }
+        }
+        savedHighlights = values; renderHighlights()
+    }
+    public func setPlayback(_ value: ReaderPassage?) throws {
+        if let value { try value.anchor.validate(bookID: bookID, revision: sourceRevision) }
+        playback = value; renderPlayback()
+    }
+    private func renderPlayback() {
+        guard ready else { return }
+        if let playback, case .epub(let path, let encoded) = playback.anchor.position,
+           path == publication.readingResources[chapterIndex].resource, let locator = try? EPUBTextLocator(encoded: encoded) {
+            evaluate("adaptive.playback({offset:\(locator.offset),length:\(playback.text.utf16.count)})")
+        } else { evaluate("adaptive.playback(null)") }
+    }
+    private func renderHighlights() {
+        guard ready else { return }
+        let resource = publication.readingResources[chapterIndex].resource
+        var values: [[String: Any]] = []
+        for item in savedHighlights {
+            if case .epub(let path, let encoded) = item.anchor.position, path == resource, let locator = try? EPUBTextLocator(encoded: encoded) {
+                values.append(["offset": locator.offset, "length": item.quotation.utf16.count, "color": item.color.rawValue])
+            }
+        }
+        if let data = try? JSONSerialization.data(withJSONObject: values), let json = String(data: data, encoding: .utf8) { evaluate("adaptive.highlights(\(json))") }
+        renderPlayback()
+    }
     public func cancelSearch() { searchTask?.cancel(); searchTask = nil }
     private func loadChapter() {
         ready = false; loading = true
@@ -167,7 +209,7 @@ public final class EPUBReaderEngine: NSObject, ReaderEngine, WKNavigationDelegat
     }
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard let navigation, navigation === pendingNavigation else { return }
-        loading = false; ready = true; applyStyle(); onPositionChanged?()
+        loading = false; ready = true; applyStyle(); renderHighlights(); onPositionChanged?()
     }
     public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         guard let navigation, navigation === pendingNavigation else { return }
@@ -200,7 +242,7 @@ public final class EPUBReaderEngine: NSObject, ReaderEngine, WKNavigationDelegat
         let next = EPUBTextLocator(offset: offset, quote: quote)
         guard (try? next.validate(in: publication.readingResources[chapterIndex].text)) != nil else { onError?(ReaderError.invalidAnchor); return }
         if let text = value["selection"] as? String {
-            selection = text.isEmpty ? nil : (SourceAnchor(bookID: bookID, sourceRevision: sourceRevision, position: .epub(resource: publication.readingResources[chapterIndex].resource, locator: next.encoded)), text)
+            selection = text.isEmpty ? nil : (SourceAnchor(bookID: bookID, sourceRevision: sourceRevision, position: .epub(resource: publication.readingResources[chapterIndex].resource, locator: next.encoded)), text, String(((value["displaySelection"] as? String) ?? text).prefix(8000)))
             onSelectionChanged?()
         } else { locator = next; onPositionChanged?() }
     }
@@ -209,15 +251,17 @@ public final class EPUBReaderEngine: NSObject, ReaderEngine, WKNavigationDelegat
       const nodes=[], starts=[]; let text='';
       const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.parentElement.closest('style,script')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
       while(walker.nextNode()){starts.push(text.length);nodes.push(walker.currentNode);text+=walker.currentNode.textContent;}
-      function point(offset){let i=starts.length-1;while(i>0&&starts[i]>offset)i--;return nodes[i]?[nodes[i],Math.min(nodes[i].length,Math.max(0,offset-starts[i]))]:null;}
+      function point(offset){let lo=0,hi=starts.length-1;while(lo<hi){const mid=Math.ceil((lo+hi)/2);if(starts[mid]<=offset)lo=mid;else hi=mid-1;}const i=lo;return nodes[i]?[nodes[i],Math.min(nodes[i].length,Math.max(0,offset-starts[i]))]:null;}
       function position(){const r=document.caretRangeFromPoint(Math.max(30,(innerWidth-document.body.clientWidth)/2+30),36);if(r){const i=nodes.indexOf(r.startContainer);if(i>=0)return starts[i]+r.startOffset;}for(let i=0;i<nodes.length;i++){const r=document.createRange();r.selectNodeContents(nodes[i]);if(r.getBoundingClientRect().bottom>32)return starts[i];}return 0;}
       let last={offset:0};let styled=false,programmaticY=null;
       function send(offset,extra={}){if(!('selection' in extra))last.offset=offset;window.webkit.messageHandlers.reader.postMessage({path:decodeURIComponent(location.pathname),offset,quote:Array.from(text.slice(offset)).slice(0,60).join(''),end:scrollY+innerHeight>=document.documentElement.scrollHeight-1,...extra});}
       let moving=false,timer;
       function go(offset){moving=true;clearTimeout(timer);timer=null;last.offset=offset;const p=point(offset);if(p){const r=document.createRange();r.setStart(...p);r.setEnd(p[0],Math.min(p[0].length,p[1]+1));scrollTo(0,Math.max(0,r.getBoundingClientRect().top+scrollY-36));}programmaticY=scrollY;setTimeout(()=>{moving=false;send(offset);},0);}
-      window.adaptive={go,style:(css,offset)=>{let s=document.getElementById('adaptive-style');if(!s){s=document.createElement('style');s.id='adaptive-style';document.head.append(s);}s.textContent=css;styled=true;go(offset);}};
+      function highlights(items){for(const color of ['yellow','green','blue','purple'])CSS.highlights.delete('adaptive-'+color);const groups={};for(const item of items){const a=point(item.offset),b=point(item.offset+item.length);if(!a||!b)continue;const r=document.createRange();r.setStart(...a);r.setEnd(...b);(groups[item.color]??=[]).push(r);}for(const [color,ranges]of Object.entries(groups))CSS.highlights.set('adaptive-'+color,new Highlight(...ranges));let s=document.getElementById('adaptive-highlights');if(!s){s=document.createElement('style');s.id='adaptive-highlights';document.head.append(s);}s.textContent='::highlight(adaptive-yellow){background:#efcc65;color:#201b0c}::highlight(adaptive-green){background:#a2d9aa;color:#15251a}::highlight(adaptive-blue){background:#9ac9ed;color:#132532}::highlight(adaptive-purple){background:#d1b2e5;color:#24152e}::highlight(adaptive-speech){background:#bad8fc;color:#14283f}';}
+      function playback(item){CSS.highlights.delete('adaptive-speech');if(!item)return;const a=point(item.offset),b=point(item.offset+item.length);if(!a||!b)return;const r=document.createRange();r.setStart(...a);r.setEnd(...b);CSS.highlights.set('adaptive-speech',new Highlight(r));}
+      window.adaptive={go,highlights,playback,style:(css,offset)=>{let s=document.getElementById('adaptive-style');if(!s){s=document.createElement('style');s.id='adaptive-style';document.head.append(s);}s.textContent=css;styled=true;go(offset);}};
       addEventListener('scroll',()=>{if(!styled||moving||Math.abs(scrollY-programmaticY)<1)return;if(timer)return;timer=setTimeout(()=>{timer=null;if(Math.abs(scrollY-programmaticY)>=1)send(position());},120);},{passive:true});
-      let selectionTimer;document.addEventListener('selectionchange',()=>{clearTimeout(selectionTimer);selectionTimer=setTimeout(()=>{const s=getSelection();if(!s||!s.rangeCount){send(position(),{selection:''});return;}const r=s.getRangeAt(0),i=nodes.indexOf(r.startContainer);send(i>=0?starts[i]+r.startOffset:position(),{selection:s.toString().slice(0,8000)});},100);});
+      let selectionTimer;document.addEventListener('selectionchange',()=>{clearTimeout(selectionTimer);selectionTimer=setTimeout(()=>{const s=getSelection();if(!s||!s.rangeCount){send(position(),{selection:''});return;}const r=s.getRangeAt(0);function offset(n,o){const i=nodes.indexOf(n);if(i>=0)return starts[i]+o;const t=document.createRange();t.setStart(document.body,0);t.setEnd(n,o);let total=0;for(const node of nodes){if(t.comparePoint(node,node.length)===0)total+=node.length;}return total;}const start=offset(r.startContainer,r.startOffset);let end=Math.min(offset(r.endContainer,r.endOffset),start+8000);if(end>start&&/[\uD800-\uDBFF]/.test(text[end-1]))end--;send(start,{selection:text.slice(start,end),displaySelection:s.toString().slice(0,8000)});},100);});
       document.addEventListener('click',e=>{const a=e.target.closest('a');if(a){e.preventDefault();window.webkit.messageHandlers.reader.postMessage({path:decodeURIComponent(location.pathname),link:a.href});}},true);
       addEventListener('resize',()=>{if(styled)go(last.offset);});
       document.fonts.addEventListener('loadingdone',()=>{if(styled)go(last.offset);});

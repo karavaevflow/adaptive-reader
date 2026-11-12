@@ -22,6 +22,7 @@ def write(name, entries, stored=False):
             info.compress_type = zipfile.ZIP_STORED if path == "mimetype" or stored else zipfile.ZIP_DEFLATED
             archive.writestr(info, value)
 write('reflow.epub', files)
+write('image-only.epub', files | {'EPUB/one.xhtml': xhtml('<img src="diagram.svg" alt="An illustration"/>'), 'EPUB/two.xhtml': xhtml('<img src="diagram.svg" alt="Another illustration"/>')})
 write('corrupt.epub', files, stored=True)
 corrupt = root / 'corrupt.epub'
 corrupt.write_bytes(corrupt.read_bytes().replace(b'#2080df', b'#2080de'))

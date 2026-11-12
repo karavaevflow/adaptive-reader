@@ -33,9 +33,11 @@ public struct EPUBTextLocator: Codable, Equatable, Sendable {
     }
     public func validate(in text: String) throws {
         let value = text as NSString
-        guard offset <= value.length, quote.isEmpty || (offset < value.length && value.substring(from: offset).hasPrefix(quote)) else {
+        guard offset <= value.length, quote.utf16.count <= value.length - offset,
+              quote.isEmpty || value.substring(with: NSRange(location: offset, length: quote.utf16.count)) == quote else {
             throw ReaderError.invalidAnchor
         }
+        if offset > 0 && offset < value.length, (0xDC00...0xDFFF).contains(value.character(at: offset)), (0xD800...0xDBFF).contains(value.character(at: offset - 1)) { throw ReaderError.invalidAnchor }
     }
 }
 
@@ -59,7 +61,7 @@ public struct EPUBPublication: Sendable {
     public let language: String?
     public let chapters: [EPUBChapter]
     public let linkedChapters: [EPUBChapter]
-    public var readingResources: [EPUBChapter] { chapters + linkedChapters }
+    public let readingResources: [EPUBChapter]
     public let resources: [String: EPUBResource]
 
     public init(data: Data) throws {
@@ -130,7 +132,7 @@ public struct EPUBPublication: Sendable {
             let chapter = try chapters.first(where: { $0.resource == path }) ?? Self.chapter(resource.data, resource: path, ordinal: 0)
             resources[path] = EPUBResource(data: chapter.html, mediaType: "application/xhtml+xml")
         }
-        self.chapters = chapters; linkedChapters = linked; self.resources = resources
+        self.chapters = chapters; linkedChapters = linked; readingResources = chapters + linked; self.resources = resources
     }
 
     public static func path(_ value: String) throws -> String {

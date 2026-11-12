@@ -72,6 +72,9 @@ struct WorkspaceView: View {
         .background(WindowIntegration(autosaveName: windowAutosaveName, focusRequest: nativeFocusRequest, onClose: { session.suspend(); Task { await session.flush() } }))
         .navigationTitle(title)
         .task { await startSession() }
+        .onChange(of: session.study.visible) {
+            if !session.study.visible { nativeFocusRequest = NativeFocusRequest(identifier: (session.surfaceView?.window?.contentView?.bounds.width ?? 800) >= Adaptive.Layout.inspectorThreshold ? "study.toggle" : "workspace.more") }
+        }
         .onChange(of: appearance, initial: true) { session.shellAppearance = appearance }
         .onDisappear { session.suspend(); Task { await session.flush() } }
         .onExitCommand { if session.focusMode { session.focusMode = false } }
@@ -80,7 +83,7 @@ struct WorkspaceView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
             if let window = notification.object as? NSWindow, window == session.surfaceView?.window {
-                Task { await session.refreshBookmarks(); await session.refreshComfortPreferences(); await session.companion.refreshSettings() }
+                Task { await session.refreshBookmarks(); await session.refreshComfortPreferences(); await session.companion.refreshSettings(); await session.study.reload() }
             } else if !hasBook { Task { await session.refreshLibrary() } }
         }
         .overlay { if session.busy { ProgressView("Opening document").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) } }
@@ -110,6 +113,9 @@ struct WorkspaceView: View {
             if !$0 { session.companionVisible = false; session.companion.cancel() }
         })) {
             CompanionView(session: session).frame(width: 380, height: 600)
+        }
+        .sheet(isPresented: Binding(get: { session.study.visible && (session.surfaceView?.window?.contentView?.bounds.width ?? 800) < Adaptive.Layout.inspectorThreshold }, set: { session.study.visible = $0 })) {
+            StudyView(session: session, model: session.study).frame(width: 460, height: min(640, max(460, (session.surfaceView?.window?.contentView?.bounds.height ?? 690) - 40)))
         }
         .sheet(isPresented: $catalogVisible) {
             VStack(spacing: 0) {
@@ -209,7 +215,10 @@ struct WorkspaceView: View {
                 }
                 else { library }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
-            if !session.focusMode && session.companionVisible && width >= Adaptive.Layout.inspectorThreshold {
+            if !session.focusMode && session.study.visible && width >= Adaptive.Layout.inspectorThreshold {
+                Divider(); StudyView(session: session, model: session.study).frame(width: 380)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            } else if !session.focusMode && session.companionVisible && width >= Adaptive.Layout.inspectorThreshold {
                 Divider(); CompanionView(session: session).frame(width: 340)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             } else if !session.focusMode && inspectorVisible && width >= Adaptive.Layout.inspectorThreshold {
@@ -223,6 +232,7 @@ struct WorkspaceView: View {
         .animation(reduceMotion ? nil : Adaptive.Motion.panel, value: session.focusMode)
         .animation(reduceMotion ? nil : Adaptive.Motion.panel, value: searchVisible)
         .animation(reduceMotion ? nil : Adaptive.Motion.panel, value: session.companionVisible)
+        .animation(reduceMotion ? nil : Adaptive.Motion.panel, value: session.study.visible)
     }
 
     private var filteredBooks: [BookRecord] {
@@ -424,7 +434,7 @@ struct WorkspaceView: View {
         switch command {
         case .commandCenter: session.setAutoScroll(false); session.commandCenterVisible.toggle()
         case .readingTools: readingToolsVisible = true
-        case .back, .forward, .nextPassage, .previousPassage, .toggleSpotlight, .spotlightNext, .spotlightPrevious, .toggleAutoScroll, .toggleSession, .stopSession, .miniReader, .returnToReader: break
+        case .study, .newNote, .newCard, .highlightPassage, .listenFromHere, .resumeListening, .toggleListening, .stopListening, .back, .forward, .nextPassage, .previousPassage, .toggleSpotlight, .spotlightNext, .spotlightPrevious, .toggleAutoScroll, .toggleSession, .stopSession, .miniReader, .returnToReader: break
         case .openDocument: if !session.busy { session.setAutoScroll(false); importReference = false; importing = true }
         case .importReference: if !session.busy { session.setAutoScroll(false); importReference = true; importing = true }
         case .closeBook: searchVisible = false; Task { await session.closeBook() }
@@ -492,7 +502,7 @@ struct WorkspaceView: View {
                 Toggle("Keep Awake", systemImage: "sun.max", isOn: Binding(get: { session.keepAwake }, set: { session.setKeepAwake($0) }))
                     .toggleStyle(.button).labelStyle(.iconOnly).accessibilityIdentifier("reader.awake")
             }
-            Button("Open book", systemImage: "doc.badge.plus") { perform(.openDocument, width: width) }.disabled(session.busy)
+            Button("Open book", systemImage: "doc.badge.plus") { perform(.openDocument, width: width) }.disabled(session.busy).accessibilityIdentifier("reader.open")
             Button("Appearance", systemImage: "paintpalette") { perform(.toggleAppearance, width: width) }
                 .focusable()
                 .focused($toolbarFocus, equals: .appearance)
@@ -527,18 +537,21 @@ struct WorkspaceView: View {
             .onKeyPress(.space) { perform(.toggleInspector, width: width); return .handled }
             .accessibilityIdentifier("inspector.toggle")
             if hasBook && width >= Adaptive.Layout.inspectorThreshold {
+                Button("Study", systemImage: "rectangle.stack") { perform(.study, width: width) }
+                    .disabled(session.record == nil).accessibilityIdentifier("study.toggle")
                 Button("AI Companion", systemImage: "sparkle") { perform(.companion, width: width) }
                     .accessibilityIdentifier("ai.toggle")
             }
             Menu {
                 Button("Command Center") { perform(.commandCenter, width: width) }
+                Button("Study", systemImage: "rectangle.stack") { perform(.study, width: width) }.disabled(session.record == nil).accessibilityIdentifier("study.more")
                 Button("AI Companion") { perform(.companion, width: width) }.disabled(!hasBook)
                 Button("Reading tools") { perform(.readingTools, width: width) }
                 if hasBook {
                     Button("Back") { perform(.back, width: width) }.disabled(session.commands?.canGoBack != true)
                     Button("Forward") { perform(.forward, width: width) }.disabled(session.commands?.canGoForward != true)
-                    Button("Mini Reader") { perform(.miniReader, width: width) }
-                    Button("Reading Spotlight") { perform(.toggleSpotlight, width: width) }
+                    Button("Mini Reader") { perform(.miniReader, width: width) }.disabled(!WorkspaceCommand.miniReader.isEnabled(in: session))
+                    Button("Reading Spotlight") { perform(.toggleSpotlight, width: width) }.disabled(!WorkspaceCommand.toggleSpotlight.isEnabled(in: session))
                     Button("Auto-scroll") { perform(.toggleAutoScroll, width: width) }
                 }
                 Divider()

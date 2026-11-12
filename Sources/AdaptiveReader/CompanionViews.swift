@@ -92,7 +92,7 @@ struct CompanionView: View {
                             }.padding(.vertical, 6)
                         }
                     }
-                    Toggle("Smart Margins", isOn: $model.smartMargins).accessibilityIdentifier("ai.margins")
+                    if session.pdfEngine != nil { Toggle("Smart Margins", isOn: $model.smartMargins).accessibilityIdentifier("ai.margins") }
                     Text("Source hints appear only when enabled; Focus hides them.").font(.caption).foregroundStyle(.secondary)
                 }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -182,7 +182,7 @@ struct MagicSelectionBar: View {
                 Text("Selected text").font(.caption).lineLimit(1)
                 Spacer(minLength: 0)
                 Button("Copy") {
-                    let text = session.pdfEngine?.view.currentSelection?.string ?? session.epubEngine?.selection?.text ?? selection.text
+                    let text = session.pdfEngine?.view.currentSelection?.string ?? session.epubEngine?.selection?.displayText ?? selection.text
                     NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string)
                 }.accessibilityIdentifier("ai.copySelection")
                 Button("Explain") { session.askCompanion(String(localized: "Explain the selected source.")) }.accessibilityIdentifier("ai.explainSelection")
@@ -193,7 +193,9 @@ struct MagicSelectionBar: View {
                         session.askCompanion(String(localized: "Find related passages in this book for this excerpt:") + "\n" + selection.text)
                     }
                     Button("Question") { session.companion.newTopic(); session.askCompanion("") }
-                    Button("Note") { session.companionVisible = true; session.companion.prepareNote(selection) }
+                    Button("Note") { _ = session.performReadingCommand(.newNote) }
+                    Button("New card") { _ = session.performReadingCommand(.newCard) }
+                    Button("Highlight passage") { _ = session.performReadingCommand(.highlightPassage) }
                 }
             }.buttonStyle(.borderless).padding(12).background(Adaptive.surface).accessibilityElement(children: .contain).accessibilityIdentifier("ai.magicSelection")
         }

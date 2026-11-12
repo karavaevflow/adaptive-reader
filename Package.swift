@@ -13,6 +13,7 @@ let package = Package(
     targets: [
         .target(name: "ReaderCore", dependencies: ["ZIPFoundation"]),
         .executableTarget(name: "ColorResearch", dependencies: ["ReaderCore"]),
+        .executableTarget(name: "EPUBResearch", dependencies: ["ReaderCore"]),
         .executableTarget(name: "AdaptiveReaderPreview", dependencies: ["ReaderCore"], path: "Sources/AdaptiveReader", exclude: ["AdaptiveReader.entitlements", "AppInfo.plist"], resources: [.process("Resources")]),
         .testTarget(name: "ReaderCoreTests", dependencies: ["ReaderCore"])
     ]

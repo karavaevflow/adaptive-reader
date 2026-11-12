@@ -132,6 +132,14 @@ private func epub(_ name: String = "reflow") throws -> Data {
     if let failure { throw failure }
     #expect(try await epubJavaScript(engine, "typeof window.authoredScriptRan", world: .page) == "undefined")
     #expect(try await epubJavaScript(engine, "document.querySelectorAll('script,iframe,[onload]').length") == "0")
+    let imageMetrics = "JSON.stringify((()=>{const i=document.querySelector('img'),r=i.getBoundingClientRect();return {natural:i.naturalWidth,ratio:r.width/r.height};})())"
+    let originalImage = try #require(JSONSerialization.jsonObject(with: Data(try await epubJavaScript(engine, imageMetrics).utf8)) as? [String: Double])
+    #expect(originalImage["natural"] == 360)
+    var imageTypography = EPUBTypography(); imageTypography.columnWidth = 360; imageTypography.fontSize = 28
+    try engine.applyTypography(imageTypography); try engine.applyPagePalette(.midnight)
+    let reflowedImage = try #require(JSONSerialization.jsonObject(with: Data(try await epubJavaScript(engine, imageMetrics).utf8)) as? [String: Double])
+    #expect(abs((originalImage["ratio"] ?? 0) - (reflowedImage["ratio"] ?? 1)) < 0.01)
+    #expect(try await epubJavaScript(engine, "getComputedStyle(document.querySelector('img')).filter") == "none")
     let chapter = publication.chapters[1]
     let offset = (chapter.text as NSString).range(of: "Passage 853.").location
     let anchor = SourceAnchor(bookID: engine.bookID, sourceRevision: engine.sourceRevision, position: .epub(resource: chapter.resource, locator: EPUBTextLocator(offset: offset, quote: "Passage 853.").encoded))
@@ -141,12 +149,19 @@ private func epub(_ name: String = "reflow") throws -> Data {
     if let failure { throw failure }
     let measure = "JSON.stringify((()=>{const p=document.getElementById('p853'),r=p.getBoundingClientRect();return {top:r.top,bottom:r.bottom,font:parseFloat(getComputedStyle(p).fontSize),width:document.body.getBoundingClientRect().width};})())"
     let before = try #require(JSONSerialization.jsonObject(with: Data(try await epubJavaScript(engine, measure).utf8)) as? [String: Double])
+    let persistent = ReaderHighlight(anchor: anchor, quotation: "Passage 853.", color: .green)
+    try ReaderCommands(engine: engine).perform(.setHighlights([persistent]))
+    try engine.setPlayback(ReaderPassage(anchor: anchor, text: "Passage", next: nil))
+    #expect(try await epubJavaScript(engine, "Array.from(CSS.highlights.get('adaptive-green'))[0].toString()") == "Passage 853.")
     #expect((before["top"] ?? -100) >= -5 && (before["top"] ?? 1000) < 100, "Before reflow: \(before)")
     var typography = EPUBTypography(); typography.fontSize = 30; typography.columnWidth = 420
     try engine.applyTypography(typography)
     try await Task.sleep(for: .milliseconds(150))
     let after = try #require(JSONSerialization.jsonObject(with: Data(try await epubJavaScript(engine, measure).utf8)) as? [String: Double])
     #expect(after["font"] == 30 && after["width"] == 420)
+    #expect(try await epubJavaScript(engine, "Array.from(CSS.highlights.get('adaptive-green'))[0].toString()") == "Passage 853.")
+    try engine.setPlayback(nil)
+    #expect(try await epubJavaScript(engine, "String(CSS.highlights.has('adaptive-green'))") == "true")
     #expect((after["top"] ?? -100) >= -5 && (after["top"] ?? 1000) < 100, "After reflow: \(after)")
     try await Task.sleep(for: .milliseconds(250))
     if case .epub(_, let encoded) = try engine.currentAnchor().position {
@@ -170,6 +185,7 @@ private func epub(_ name: String = "reflow") throws -> Data {
     for _ in 0..<100 { if engine.ready || failure != nil { break }; try await Task.sleep(for: .milliseconds(100)) }
     try await Task.sleep(for: .milliseconds(250))
     #expect(engine.chapterIndex == 1 && engine.ready)
+    #expect(try await epubJavaScript(engine, "Array.from(CSS.highlights.get('adaptive-green'))[0].toString()") == "Passage 853.")
     // Continuous movement must publish intermediate anchors, rather than waiting
     // for the scroll stream to go quiet (which starves auto-scroll checkpoints).
     for _ in 0..<10 {

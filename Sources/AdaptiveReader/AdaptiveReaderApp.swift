@@ -80,6 +80,7 @@ enum WorkspaceCommand: String, CaseIterable, Identifiable, Hashable {
     case toggleSidebar, toggleAppearance, toggleInspector, zoomIn, zoomOut
     case commandCenter, readingTools, back, forward, toggleSpotlight, spotlightNext, spotlightPrevious, nextPassage, previousPassage
     case toggleAutoScroll, toggleSession, stopSession, miniReader, returnToReader, companion
+    case study, newCard, newNote, highlightPassage, listenFromHere, resumeListening, toggleListening, stopListening
     var id: String { rawValue }
     var label: String {
         switch self {
@@ -110,6 +111,14 @@ enum WorkspaceCommand: String, CaseIterable, Identifiable, Hashable {
         case .miniReader: "Mini Reader"
         case .returnToReader: "Return to Reader"
         case .companion: "AI Companion"
+        case .study: "Study"
+        case .newCard: "New card"
+        case .newNote: "New note"
+        case .highlightPassage: "Highlight passage"
+        case .listenFromHere: "Listen from here"
+        case .resumeListening: "Resume saved listening"
+        case .toggleListening: "Pause or continue listening"
+        case .stopListening: "Stop listening"
         }
     }
     @MainActor func isEnabled(in session: ReaderSession) -> Bool {
@@ -117,6 +126,11 @@ enum WorkspaceCommand: String, CaseIterable, Identifiable, Hashable {
         case .openDocument, .importReference: !session.busy
         case .commandCenter, .toggleSidebar, .toggleAppearance, .toggleInspector: true
         case .readingTools: true
+        case .study: session.record != nil
+        case .newCard, .newNote, .highlightPassage: session.record != nil && session.engine?.capabilities.contains(.textSelection) == true
+        case .listenFromHere, .toggleListening: session.engine?.capabilities.contains(.readAloud) == true
+        case .resumeListening: session.engine?.capabilities.contains(.readAloud) == true && session.study.savedListen != nil && session.study.savedListen?.completed != true
+        case .stopListening: session.study.speech.status != .stopped
         case .nextPassage, .previousPassage: session.engine?.capabilities.contains(.passageNavigation) == true
         case .back: session.commands?.canGoBack == true
         case .forward: session.commands?.canGoForward == true
@@ -183,6 +197,10 @@ struct WorkspaceCommands: Commands {
             Button("Command Center") { actions?.perform(.commandCenter) }.keyboardShortcut("k").disabled(actions == nil)
             Button("Reading tools") { actions?.perform(.readingTools) }.disabled(actions == nil)
             Button("AI Companion") { actions?.perform(.companion) }.disabled(actions?.hasBook != true)
+            Button("Study") { actions?.perform(.study) }.keyboardShortcut("l", modifiers: [.command, .shift]).disabled(actions?.enabledCommands.contains(.study) != true)
+            Button("Listen from here") { actions?.perform(.listenFromHere) }.disabled(actions?.enabledCommands.contains(.listenFromHere) != true)
+            Button("Pause or continue listening") { actions?.perform(.toggleListening) }.keyboardShortcut("l", modifiers: [.command, .option]).disabled(actions?.enabledCommands.contains(.toggleListening) != true)
+            Button("Stop listening") { actions?.perform(.stopListening) }.disabled(actions?.enabledCommands.contains(.stopListening) != true)
             Button("Back") { actions?.perform(.back) }.keyboardShortcut("[").disabled(actions?.canGoBack != true)
             Button("Forward") { actions?.perform(.forward) }.keyboardShortcut("]").disabled(actions?.canGoForward != true)
             Button("Next text block") { actions?.perform(.nextPassage) }.keyboardShortcut(.downArrow, modifiers: [.command, .option]).disabled(actions?.canStepReading != true)
@@ -193,6 +211,9 @@ struct WorkspaceCommands: Commands {
         }
         CommandGroup(after: .textEditing) {
             Button(LocalizedStringKey(actions?.hasBook == true ? "Find in book" : "Search books")) { actions?.perform(.search) }.keyboardShortcut("f").disabled(actions?.canSearch != true)
+            Button("New note") { actions?.perform(.newNote) }.disabled(actions?.enabledCommands.contains(.newNote) != true)
+            Button("New card") { actions?.perform(.newCard) }.disabled(actions?.enabledCommands.contains(.newCard) != true)
+            Button("Highlight passage") { actions?.perform(.highlightPassage) }.disabled(actions?.enabledCommands.contains(.highlightPassage) != true)
             Button("Bookmark page") { actions?.perform(.toggleBookmark) }.keyboardShortcut("d").disabled(actions?.hasBook != true)
         }
         CommandGroup(after: .sidebar) {

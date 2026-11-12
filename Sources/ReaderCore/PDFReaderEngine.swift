@@ -14,6 +14,7 @@ public final class PDFReaderEngine: ReaderEngine {
     @ObservationIgnored public let view: PDFView
     @ObservationIgnored private let documentDelegate: AdaptivePDFDelegate
     public private(set) var palette: PagePalette = .original
+    @ObservationIgnored var adaptiveHighlights: [(PDFPage, PDFAnnotation)] = []
 
     public convenience init(data: Data, bookID: UUID, password: String? = nil) throws {
         try self.init(source: PreparedPDFSource(data: data), bookID: bookID, password: password)
@@ -59,7 +60,7 @@ public final class PDFReaderEngine: ReaderEngine {
 
     public var capabilities: Set<ReaderCapability> {
         var result: Set<ReaderCapability> = [.pageNavigation, .pagePalette, .zoom, .readingFocus, .continuousScroll]
-        if document.allowsCopying && hasText { result.formUnion([.search, .textSelection, .passageNavigation]) }
+        if document.allowsCopying && hasText { result.formUnion([.search, .textSelection, .passageNavigation, .readAloud]) }
         return result
     }
 
