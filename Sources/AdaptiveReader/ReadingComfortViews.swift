@@ -38,10 +38,10 @@ struct ReadingToolsView: View {
                     Button("Next text block", systemImage: "arrow.down.to.line") { session.stepPassage(1) }
                 }.labelStyle(.iconOnly).disabled(session.engine?.capabilities.contains(.passageNavigation) != true)
                 VStack(alignment: .leading, spacing: 12) {
-                    Toggle("Reading Spotlight", isOn: Binding(get: { session.engine?.spotlightEnabled == true }, set: { _ in session.toggleSpotlight() }))
-                        .disabled(session.engine == nil).accessibilityIdentifier("comfort.spotlight")
-                    if session.engine?.spotlightEnabled == true {
-                        Text(LocalizedStringKey(session.engine?.spotlightUsesText == true ? "Move the pointer over a line. Use Option–Up/Down to advance." : "Area spotlight: no text at this position."))
+                    Toggle("Reading Spotlight", isOn: Binding(get: { session.pdfEngine?.spotlightEnabled == true }, set: { _ in session.toggleSpotlight() }))
+                        .disabled(session.engine?.capabilities.contains(.readingFocus) != true).accessibilityIdentifier("comfort.spotlight")
+                    if session.pdfEngine?.spotlightEnabled == true {
+                        Text(LocalizedStringKey(session.pdfEngine?.spotlightUsesText == true ? "Move the pointer over a line. Use Option–Up/Down to advance." : "Area spotlight: no text at this position."))
                             .font(.caption).foregroundStyle(Adaptive.secondary)
                         HStack {
                             Button("Previous line", systemImage: "arrow.up") { session.stepSpotlight(-1) }
@@ -57,7 +57,7 @@ struct ReadingToolsView: View {
                     }
                     Text("Manual scrolling or selection stops auto-scroll.").font(.caption).foregroundStyle(Adaptive.secondary)
                     Button("Mini Reader", systemImage: "pip") { session.showMiniReader() }
-                        .disabled(session.engine == nil || session.miniReaderActive).accessibilityIdentifier("comfort.mini")
+                        .disabled(session.pdfEngine == nil || session.miniReaderActive).accessibilityIdentifier("comfort.mini")
                 }
                 Divider()
                 VStack(alignment: .leading, spacing: 12) {
@@ -157,7 +157,7 @@ struct CommandCenterView: View {
     }
     private var page: Int? {
         let value = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let number = Int(value), number > 0, number <= (session.engine?.document.pageCount ?? 0) else { return nil }
+        guard let number = Int(value), number > 0, number <= (session.pdfEngine?.document.pageCount ?? 0) else { return nil }
         return number
     }
     var body: some View {
@@ -212,7 +212,7 @@ final class MiniReaderController: NSObject, NSWindowDelegate {
     private let panel: MiniReadingPanel
     private var finishing = false
     init(session: ReaderSession) {
-        self.session = session; mainWindow = session.engine?.view.window
+        self.session = session; mainWindow = session.surfaceView?.window
         panel = MiniReadingPanel(contentRect: NSRect(x: 140, y: 180, width: 420, height: 600), styleMask: [.titled, .closable, .resizable, .utilityWindow], backing: .buffered, defer: false)
         super.init()
         panel.identifier = NSUserInterfaceItemIdentifier("reader.mini")
@@ -234,7 +234,7 @@ final class MiniReaderController: NSObject, NSWindowDelegate {
         _ = session.prepareViewportTransfer()
         DispatchQueue.main.async { [weak self, weak session] in
             guard let self, let session, session.miniReaderActive else { return }
-            session.engine?.view.removeFromSuperview()
+            session.surfaceView?.removeFromSuperview()
             self.panel.contentView = NSHostingView(rootView: MiniReaderView(session: session))
             self.updateLevel(); self.panel.makeKeyAndOrderFront(nil)
         }
@@ -254,7 +254,7 @@ final class MiniReaderController: NSObject, NSWindowDelegate {
     func finish(revealMain: Bool) {
         guard !finishing else { return }; finishing = true
         _ = session?.prepareViewportTransfer()
-        session?.engine?.view.removeFromSuperview(); panel.contentView = nil; panel.close()
+        session?.surfaceView?.removeFromSuperview(); panel.contentView = nil; panel.close()
         if revealMain { mainWindow?.makeKeyAndOrderFront(nil) }
     }
     func windowShouldClose(_ sender: NSWindow) -> Bool {
@@ -270,12 +270,12 @@ private struct MiniReaderView: View {
     @State private var pendingCommand: WorkspaceCommand?
     var body: some View {
         VStack(spacing: 0) {
-            if let engine = session.engine { NativePDFView(engine: engine, session: session) }
+            if let engine = session.pdfEngine { NativePDFView(engine: engine, session: session) }
             Divider()
             HStack(spacing: 10) {
                 Button("Previous page", systemImage: "chevron.left") { session.navigate(page: session.pageNumber - 1) }.disabled(session.pageNumber <= 1)
-                Text("\(session.pageNumber)/\(session.engine?.document.pageCount ?? 0)").monospacedDigit().font(.caption)
-                Button("Next page", systemImage: "chevron.right") { session.navigate(page: session.pageNumber + 1) }.disabled(session.pageNumber >= (session.engine?.document.pageCount ?? 0))
+                Text("\(session.pageNumber)/\(session.pdfEngine?.document.pageCount ?? 0)").monospacedDigit().font(.caption)
+                Button("Next page", systemImage: "chevron.right") { session.navigate(page: session.pageNumber + 1) }.disabled(session.pageNumber >= (session.pdfEngine?.document.pageCount ?? 0))
                 Spacer()
                 if session.readingTimer.status == .running || session.readingTimer.status == .paused { Text(clockString(session.readingTimer.remaining ?? session.readingTimer.elapsed)).font(.caption.monospacedDigit()) }
                 Button("Reading tools", systemImage: "slider.horizontal.3") { tools.toggle() }.popover(isPresented: $tools) { ReadingToolsView(session: session) }

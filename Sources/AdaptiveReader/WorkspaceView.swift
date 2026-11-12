@@ -1,6 +1,7 @@
 import SwiftUI
 import ReaderCore
 import PDFKit
+import WebKit
 import CoreText
 import UniformTypeIdentifiers
 
@@ -38,7 +39,8 @@ struct WorkspaceView: View {
         #endif
         return "AdaptiveReader.\(windowID)"
     }
-    private var document: PDFDocument? { session.engine?.document }
+    private var document: PDFDocument? { session.pdfEngine?.document }
+    private var hasBook: Bool { session.engine != nil }
     private var title: String { session.title }
     @State private var importing = false
     @State private var importReference = false
@@ -62,7 +64,7 @@ struct WorkspaceView: View {
         GeometryReader { geometry in
             workspace(width: geometry.size.width)
                 .toolbar { toolbar(width: geometry.size.width) }
-                .focusedSceneValue(\.workspaceActions, WorkspaceActions(hasBook: document != nil, canSearch: session.engine?.capabilities.contains(.search) == true || (document == nil && !session.books.isEmpty), canGoBack: session.commands?.canGoBack == true, canGoForward: session.commands?.canGoForward == true, canStepReading: session.engine?.capabilities.contains(.passageNavigation) == true, perform: { command in
+                .focusedSceneValue(\.workspaceActions, WorkspaceActions(hasBook: hasBook, canSearch: session.engine?.capabilities.contains(.search) == true || (!hasBook && !session.books.isEmpty), canGoBack: session.commands?.canGoBack == true, canGoForward: session.commands?.canGoForward == true, canStepReading: session.engine?.capabilities.contains(.passageNavigation) == true, perform: { command in
                     perform(command, width: geometry.size.width)
                 }))
         }
@@ -74,15 +76,15 @@ struct WorkspaceView: View {
         .onDisappear { session.suspend(); Task { await session.flush() } }
         .onExitCommand { if session.focusMode { session.focusMode = false } }
         .onReceive(NotificationCenter.default.publisher(for: .PDFViewSelectionChanged)) { notification in
-            if let view = notification.object as? PDFView, view === session.engine?.view { session.updateCompanionSelection() }
+            if let view = notification.object as? PDFView, view === session.surfaceView { session.updateCompanionSelection() }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
-            if let window = notification.object as? NSWindow, window == session.engine?.view.window {
+            if let window = notification.object as? NSWindow, window == session.surfaceView?.window {
                 Task { await session.refreshBookmarks(); await session.refreshComfortPreferences(); await session.companion.refreshSettings() }
-            } else if document == nil { Task { await session.refreshLibrary() } }
+            } else if !hasBook { Task { await session.refreshLibrary() } }
         }
         .overlay { if session.busy { ProgressView("Opening document").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) } }
-        .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf]) { result in
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf, UTType(filenameExtension: "epub")!]) { result in
             switch result {
             case .success(let url):
                 let repair = repairBook; repairBook = nil
@@ -93,7 +95,7 @@ struct WorkspaceView: View {
             }
         }
         .sheet(isPresented: Binding(get: { session.commandCenterVisible && !session.miniReaderActive }, set: { session.commandCenterVisible = $0 }), onDismiss: {
-            if let command = pendingCommand { pendingCommand = nil; perform(command, width: session.engine?.view.window?.contentView?.bounds.width ?? 1120) }
+            if let command = pendingCommand { pendingCommand = nil; perform(command, width: session.surfaceView?.window?.contentView?.bounds.width ?? 1120) }
         }) {
             CommandCenterView(session: session, commands: WorkspaceCommand.mainCommands, perform: { command in pendingCommand = command; session.commandCenterVisible = false }, dismiss: { session.commandCenterVisible = false })
         }
@@ -104,7 +106,7 @@ struct WorkspaceView: View {
                 HStack { Spacer(); Button("Done") { readingToolsVisible = false }.keyboardShortcut(.cancelAction) }.padding(16)
             }
         }
-        .sheet(isPresented: Binding(get: { session.companionVisible && !session.focusMode && (session.engine?.view.window?.contentView?.bounds.width ?? 800) < Adaptive.Layout.inspectorThreshold }, set: {
+        .sheet(isPresented: Binding(get: { session.companionVisible && !session.focusMode && (session.surfaceView?.window?.contentView?.bounds.width ?? 800) < Adaptive.Layout.inspectorThreshold }, set: {
             if !$0 { session.companionVisible = false; session.companion.cancel() }
         })) {
             CompanionView(session: session).frame(width: 380, height: 600)
@@ -180,7 +182,7 @@ struct WorkspaceView: View {
                     .transition(.move(edge: .leading).combined(with: .opacity))
                 Divider().overlay(Adaptive.divider)
             }
-            if searchVisible && document != nil && !session.focusMode {
+            if searchVisible && hasBook && !session.focusMode {
                 searchPanel.frame(width: 260)
                 Divider()
             }
@@ -192,7 +194,11 @@ struct WorkspaceView: View {
                         Button("Return to Reader") { session.closeMiniReader() }
                     }
                 }
-                else if let engine = session.engine {
+                else if let engine = session.epubEngine {
+                    NativeEPUBView(engine: engine, session: session).id(engine.bookID)
+                        .safeAreaInset(edge: .bottom, spacing: 0) { if !session.focusMode { MagicSelectionBar(session: session) } }
+                }
+                else if let engine = session.pdfEngine {
                     HStack(spacing: 0) {
                         NativePDFView(engine: engine, session: session).id(engine.bookID)
                             .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -229,10 +235,10 @@ struct WorkspaceView: View {
     @ViewBuilder private var library: some View {
         if session.books.isEmpty {
             VStack(spacing: Adaptive.Space.small) {
-                AdaptiveEmptyState(title: "Your next chapter", message: "Open a PDF to begin reading.", symbol: "book.closed")
-                Button("Open PDF", systemImage: "plus") { importReference = false; importing = true }
+                AdaptiveEmptyState(title: "Your next chapter", message: "Open a PDF or EPUB to begin reading.", symbol: "book.closed")
+                Button("Open book", systemImage: "plus") { importReference = false; importing = true }
                     .buttonStyle(.borderedProminent).disabled(session.busy).accessibilityIdentifier("library.open")
-                Button("Import linked PDF") { importReference = true; importing = true }.disabled(session.busy)
+                Button("Import linked book") { importReference = true; importing = true }.disabled(session.busy)
             }
         } else {
             VStack(alignment: .leading, spacing: 24) {
@@ -240,9 +246,9 @@ struct WorkspaceView: View {
                     Text(section.title).font(Adaptive.TypeStyle.title)
                     Spacer()
                     TextField("Search books", text: $libraryQuery).textFieldStyle(.roundedBorder).focused($librarySearchFocused).frame(maxWidth: 240)
-                    Menu("Import PDF", systemImage: "plus") {
+                    Menu("Import book", systemImage: "plus") {
                         Button("Import a copy") { importReference = false; importing = true }
-                        Button("Import linked PDF") { importReference = true; importing = true }
+                        Button("Import linked book") { importReference = true; importing = true }
                     }.menuStyle(.borderlessButton).fixedSize().disabled(session.busy).accessibilityIdentifier("library.import")
                 }
                 if filteredBooks.isEmpty { Text("No books in this view").foregroundStyle(Adaptive.secondary) }
@@ -257,7 +263,7 @@ struct WorkspaceView: View {
                                         VStack(alignment: .leading, spacing: 8) {
                                             Text(book.title).font(.headline).lineLimit(2).multilineTextAlignment(.leading)
                                                 .fixedSize(horizontal: false, vertical: true).help(book.title)
-                                            Text(LocalizedStringKey(book.isReference ? "Linked PDF" : "Managed PDF")).font(.caption).foregroundStyle(Adaptive.secondary)
+                                            Text(LocalizedStringKey(book.format == .epub ? (book.isReference ? "Linked EPUB" : "EPUB") : (book.isReference ? "Linked PDF" : "Managed PDF"))).font(.caption).foregroundStyle(Adaptive.secondary)
                                             if case .pdf(let point) = session.states[book.id]?.anchor?.position {
                                                 Text("Page \(point.pageIndex + 1)").font(.caption).foregroundStyle(Adaptive.secondary)
                                             }
@@ -278,7 +284,7 @@ struct WorkspaceView: View {
                                 }
                             }.padding(16).background(Adaptive.surface, in: RoundedRectangle(cornerRadius: Adaptive.corner))
                             .contextMenu {
-                                Button("Open PDF") { Task { await session.openBook(book) } }
+                                Button("Open book") { Task { await session.openBook(book) } }
                                 Button("Favorite") { Task { await session.toggleFavorite(book) } }
                                 if book.isReference {
                                     Button("Locate linked PDF") { repairBook = book; importing = true }
@@ -322,7 +328,7 @@ struct WorkspaceView: View {
         AdaptivePanel {
             List {
                 ForEach(LibrarySection.allCases) { item in
-                    Button { section = item; if document != nil { Task { await session.closeBook() } } } label: {
+                    Button { section = item; if hasBook { Task { await session.closeBook() } } } label: {
                         Label(item.title, systemImage: item.symbol)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.vertical, 4)
@@ -379,6 +385,24 @@ struct WorkspaceView: View {
                         }
                     }
 
+                } else if let epub = session.epubEngine {
+                    Text(title).font(.headline)
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 12) {
+                            ForEach(Array(epub.publication.readingResources.enumerated()), id: \.offset) { index, chapter in
+                                Button(chapter.title) { session.navigate(page: index + 1) }
+                                    .accessibilityIdentifier("epub.chapter.\(index)")
+                            }
+                            Divider()
+                            Text("Bookmarks").font(.headline)
+                            ForEach(session.bookmarks) { mark in
+                                HStack {
+                                    Button(mark.title.isEmpty ? "Bookmark" : mark.title) { session.navigate(to: mark.anchor) }
+                                    Button("Remove bookmark", systemImage: "minus.circle") { Task { await session.removeBookmark(mark) } }.labelStyle(.iconOnly)
+                                }
+                            }
+                        }
+                    }
                 } else {
                     Text("Open a book to see document details.").foregroundStyle(Adaptive.secondary)
                 }
@@ -405,7 +429,7 @@ struct WorkspaceView: View {
         case .importReference: if !session.busy { session.setAutoScroll(false); importReference = true; importing = true }
         case .closeBook: searchVisible = false; Task { await session.closeBook() }
         case .search:
-            if document == nil { librarySearchFocused = true }
+            if !hasBook { librarySearchFocused = true }
             else { session.focusMode = false; searchVisible = true; searchFieldFocused = true }
         case .toggleBookmark: Task { await session.toggleBookmark() }
         case .toggleFocus: session.focusMode.toggle()
@@ -443,21 +467,21 @@ struct WorkspaceView: View {
             .popover(isPresented: $compactSidebarVisible) { sidebar.frame(width: 240, height: 240).onExitCommand { compactSidebarVisible = false }.onDisappear { restoreFocus(.sidebar) } }
         }
         ToolbarItemGroup {
-            if document != nil && width >= 1250 {
+            if hasBook && width >= 1250 {
                 Button("Back", systemImage: "arrow.uturn.backward") { perform(.back, width: width) }.disabled(session.commands?.canGoBack != true).accessibilityIdentifier("reader.back")
                 Button("Forward", systemImage: "arrow.uturn.forward") { perform(.forward, width: width) }.disabled(session.commands?.canGoForward != true).accessibilityIdentifier("reader.forward")
             }
-            if let engine = session.engine {
+            if session.engine != nil {
                 Button("Library", systemImage: "books.vertical") { perform(.closeBook, width: width) }
                     .accessibilityIdentifier("reader.close").disabled(session.busy)
-                Button("Previous page", systemImage: "chevron.left") { session.navigate(page: session.pageNumber - 1) }
+                Button(LocalizedStringKey(session.epubEngine == nil ? "Previous page" : "Previous chapter"), systemImage: "chevron.left") { session.navigate(page: session.pageNumber - 1) }
                     .disabled(session.pageNumber <= 1).accessibilityIdentifier("page.previous")
-                Text("\(session.pageNumber)/\(engine.document.pageCount)").monospacedDigit()
+                Text("\(session.pageNumber)/\(session.sectionCount)").monospacedDigit()
                     .accessibilityIdentifier("page.current")
-                Button("Next page", systemImage: "chevron.right") { session.navigate(page: session.pageNumber + 1) }
-                    .disabled(session.pageNumber >= engine.document.pageCount).accessibilityIdentifier("page.next")
+                Button(LocalizedStringKey(session.epubEngine == nil ? "Next page" : "Next chapter"), systemImage: "chevron.right") { session.navigate(page: session.pageNumber + 1) }
+                    .disabled(session.pageNumber >= session.sectionCount).accessibilityIdentifier("page.next")
             }
-            if document != nil && width >= 1100 {
+            if hasBook && width >= 1100 {
                 Button("Find in book", systemImage: "magnifyingglass") { perform(.search, width: width) }
                     .disabled(session.engine?.capabilities.contains(.search) != true).accessibilityIdentifier("reader.find")
                 Button("Bookmark page", systemImage: session.pageIsBookmarked ? "bookmark.fill" : "bookmark") { perform(.toggleBookmark, width: width) }
@@ -468,7 +492,7 @@ struct WorkspaceView: View {
                 Toggle("Keep Awake", systemImage: "sun.max", isOn: Binding(get: { session.keepAwake }, set: { session.setKeepAwake($0) }))
                     .toggleStyle(.button).labelStyle(.iconOnly).accessibilityIdentifier("reader.awake")
             }
-            Button("Open PDF", systemImage: "doc.badge.plus") { perform(.openDocument, width: width) }.disabled(session.busy)
+            Button("Open book", systemImage: "doc.badge.plus") { perform(.openDocument, width: width) }.disabled(session.busy)
             Button("Appearance", systemImage: "paintpalette") { perform(.toggleAppearance, width: width) }
                 .focusable()
                 .focused($toolbarFocus, equals: .appearance)
@@ -477,17 +501,18 @@ struct WorkspaceView: View {
                  .popover(isPresented: $appearanceVisible) {
                     VStack(spacing: 0) {
                         AppearancePicker(appearance: $appearance)
-                        if let engine = session.engine {
+                        if session.engine != nil {
                             Divider()
                             VStack(alignment: .leading, spacing: 12) {
                                 Picker("Page palette", selection: Binding(get: { session.commands?.palette ?? .original }, set: { session.setPalette($0) })) {
                                     ForEach(PagePalette.allCases, id: \.self) { Text(LocalizedStringKey($0.rawValue.capitalized)).tag($0) }
                                 }.accessibilityIdentifier("page.palette")
                                 Text("Page \(session.pageNumber)").font(.caption).foregroundStyle(Adaptive.secondary)
-                                if session.commands?.palette != .original && engine.colorSupport != .available {
+                                if session.commands?.palette != .original && session.pdfEngine?.colorSupport != nil && session.pdfEngine?.colorSupport != .available {
                                     Text("Original preserves this page’s images or layout.").font(.caption).foregroundStyle(Adaptive.secondary)
                                         .accessibilityIdentifier("page.fallback")
                                 }
+                                if let epub = session.epubEngine { EPUBTypographyControls(session: session, engine: epub) }
                                 Button("Undo palette") { session.undoPalette() }
                                     .disabled(!(session.commands?.canUndoPalette ?? false))
                             }.padding(24).frame(width: 280)
@@ -501,15 +526,15 @@ struct WorkspaceView: View {
             .focused($toolbarFocus, equals: .inspector)
             .onKeyPress(.space) { perform(.toggleInspector, width: width); return .handled }
             .accessibilityIdentifier("inspector.toggle")
-            if document != nil && width >= Adaptive.Layout.inspectorThreshold {
+            if hasBook && width >= Adaptive.Layout.inspectorThreshold {
                 Button("AI Companion", systemImage: "sparkle") { perform(.companion, width: width) }
                     .accessibilityIdentifier("ai.toggle")
             }
             Menu {
                 Button("Command Center") { perform(.commandCenter, width: width) }
-                Button("AI Companion") { perform(.companion, width: width) }.disabled(document == nil)
+                Button("AI Companion") { perform(.companion, width: width) }.disabled(!hasBook)
                 Button("Reading tools") { perform(.readingTools, width: width) }
-                if document != nil {
+                if hasBook {
                     Button("Back") { perform(.back, width: width) }.disabled(session.commands?.canGoBack != true)
                     Button("Forward") { perform(.forward, width: width) }.disabled(session.commands?.canGoForward != true)
                     Button("Mini Reader") { perform(.miniReader, width: width) }
@@ -517,11 +542,11 @@ struct WorkspaceView: View {
                     Button("Auto-scroll") { perform(.toggleAutoScroll, width: width) }
                 }
                 Divider()
-                Button("Import linked PDF") { perform(.importReference, width: width) }
+                Button("Import linked book") { perform(.importReference, width: width) }
                 Button("Appearance") { perform(.toggleAppearance, width: width) }
                 Button("Sidebar") { perform(.toggleSidebar, width: width) }
                 Button("Document inspector") { perform(.toggleInspector, width: width) }
-                if document != nil {
+                if hasBook {
                     Button("Find in book") { perform(.search, width: width) }.disabled(session.engine?.capabilities.contains(.search) != true)
                     Button("Bookmark page") { perform(.toggleBookmark, width: width) }
                     Button("Focus") { perform(.toggleFocus, width: width) }
@@ -580,6 +605,45 @@ final class PDFSurfaceHost: NSView {
         DispatchQueue.main.async { [weak self] in
             guard let self, self.window != nil, self.pdf.superview === self else { return }
             self.layoutSubtreeIfNeeded(); self.pdf.layoutDocumentView(); self.mounted()
+        }
+    }
+}
+
+struct NativeEPUBView: NSViewRepresentable {
+    let engine: EPUBReaderEngine
+    let session: ReaderSession
+    func makeNSView(context: Context) -> WKWebView {
+        Task { @MainActor [weak session, weak engine] in
+            guard let session, session.engine === engine else { return }
+            session.mount()
+        }
+        return engine.view
+    }
+    func updateNSView(_ view: WKWebView, context: Context) {}
+}
+
+struct EPUBTypographyControls: View {
+    let session: ReaderSession
+    let engine: EPUBReaderEngine
+    private func binding<T>(_ keyPath: WritableKeyPath<EPUBTypography, T>) -> Binding<T> {
+        Binding(get: { engine.typography[keyPath: keyPath] }, set: { value in
+            var settings = engine.typography; settings[keyPath: keyPath] = value
+            do { try session.commands?.perform(.setTypography(settings)); Task { await session.flush() } }
+            catch { session.report(error) }
+        })
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Picker("Typeface", selection: binding(\.typeface)) {
+                Text("Serif").tag(EPUBTypography.Typeface.serif)
+                Text("System").tag(EPUBTypography.Typeface.system)
+            }.accessibilityIdentifier("epub.typeface")
+            Text("Text size")
+            Slider(value: binding(\.fontSize), in: 12...36, step: 1).accessibilityLabel("Text size").accessibilityIdentifier("epub.fontSize")
+            Text("Column width")
+            Slider(value: binding(\.columnWidth), in: 320...960, step: 20).accessibilityLabel("Column width").accessibilityIdentifier("epub.columnWidth")
+            Text("Line spacing")
+            Slider(value: binding(\.lineHeight), in: 1.2...2.2, step: 0.1).accessibilityLabel("Line spacing").accessibilityIdentifier("epub.lineHeight")
         }
     }
 }

@@ -182,7 +182,7 @@ struct MagicSelectionBar: View {
                 Text("Selected text").font(.caption).lineLimit(1)
                 Spacer(minLength: 0)
                 Button("Copy") {
-                    let text = session.engine?.view.currentSelection?.string ?? selection.text
+                    let text = session.pdfEngine?.view.currentSelection?.string ?? session.epubEngine?.selection?.text ?? selection.text
                     NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string)
                 }.accessibilityIdentifier("ai.copySelection")
                 Button("Explain") { session.askCompanion(String(localized: "Explain the selected source.")) }.accessibilityIdentifier("ai.explainSelection")
@@ -208,7 +208,7 @@ struct SmartMarginRail: View {
             if let answer = session.companion.answer, let id = answer.sourceIDs.first,
                let source = session.companion.evidence.first(where: { $0.id == id }),
                case .pdf(let point) = source.anchor.position,
-               let engine = session.engine, let page = engine.document.page(at: point.pageIndex), point.pageIndex == session.pageNumber - 1 {
+               let engine = session.pdfEngine, let page = engine.document.page(at: point.pageIndex), point.pageIndex == session.pageNumber - 1 {
                 let native = engine.view.convert(NSPoint(x: point.x, y: point.y), from: page)
                 let y = engine.view.isFlipped ? native.y : engine.view.bounds.height - native.y
                 Button { expanded.toggle() } label: {

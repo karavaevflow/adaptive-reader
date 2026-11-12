@@ -83,8 +83,8 @@ enum WorkspaceCommand: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .openDocument: "Open PDF"
-        case .importReference: "Import linked PDF"
+        case .openDocument: "Open book"
+        case .importReference: "Import linked book"
         case .closeBook: "Close book"
         case .search: "Find in book"
         case .toggleBookmark: "Bookmark page"
@@ -120,9 +120,11 @@ enum WorkspaceCommand: String, CaseIterable, Identifiable {
         case .nextPassage, .previousPassage: session.engine?.capabilities.contains(.passageNavigation) == true
         case .back: session.commands?.canGoBack == true
         case .forward: session.commands?.canGoForward == true
-        case .spotlightNext, .spotlightPrevious: session.engine?.spotlightEnabled == true
+        case .toggleSpotlight: session.engine?.capabilities.contains(.readingFocus) == true
+        case .zoomIn, .zoomOut: session.engine?.capabilities.contains(.zoom) == true
+        case .spotlightNext, .spotlightPrevious: session.pdfEngine?.spotlightEnabled == true
         case .stopSession: session.readingTimer.status == .running || session.readingTimer.status == .paused
-        case .miniReader: session.engine != nil && !session.miniReaderActive
+        case .miniReader: session.pdfEngine != nil && !session.miniReaderActive
         case .returnToReader: session.miniReaderActive
         case .search: session.engine?.capabilities.contains(.search) == true || (session.engine == nil && !session.books.isEmpty)
         default: session.engine != nil && !session.busy
@@ -168,10 +170,10 @@ struct WorkspaceCommands: Commands {
     @FocusedValue(\.workspaceActions) private var actions
     var body: some Commands {
         CommandGroup(after: .newItem) {
-            Button("Open PDF") { actions?.perform(.openDocument) }
+            Button("Open book") { actions?.perform(.openDocument) }
                 .keyboardShortcut("o")
                 .disabled(actions == nil)
-            Button("Import linked PDF") { actions?.perform(.importReference) }
+            Button("Import linked book") { actions?.perform(.importReference) }
                 .keyboardShortcut("o", modifiers: [.command, .shift]).disabled(actions == nil)
             Button("Close book") { actions?.perform(.closeBook) }
                 .keyboardShortcut("w", modifiers: [.command, .shift]).disabled(actions?.hasBook != true)

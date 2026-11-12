@@ -6,7 +6,8 @@ import CryptoKit
 
 extension ReaderSession {
     var companionChapterLabel: String? {
-        guard let document = engine?.document, let root = document.outlineRoot else { return nil }
+        if let epub = epubEngine { return epub.publication.readingResources[epub.chapterIndex].title }
+        guard let document = pdfEngine?.document, let root = document.outlineRoot else { return nil }
         var visited = 0, bestPage = -1, label: String?
         func visit(_ node: PDFOutline, depth: Int) {
             guard depth < 16, visited < 512 else { return }; visited += 1
@@ -23,7 +24,16 @@ extension ReaderSession {
         visit(root, depth: 0); return label
     }
     func updateCompanionSelection() {
-        guard let engine, engine.capabilities.contains(.textSelection),
+        if let epub = epubEngine {
+            if let selection = epub.selection {
+                let text = String(selection.text.prefix(1400))
+                let id = SHA256.hash(data: Data((selection.anchor.sourceRevision + String(describing: selection.anchor.position)).utf8)).prefix(12).map { String(format: "%02x", $0) }.joined()
+                companion.selection = EvidencePassage(id: id, anchor: selection.anchor, text: text)
+                companion.selectionLabel = String(text.prefix(80))
+            } else { companion.selection = nil; companion.selectionLabel = "" }
+            return
+        }
+        guard let engine = pdfEngine, engine.capabilities.contains(.textSelection),
               let selection = engine.view.currentSelection, let page = selection.pages.first,
               let text = selection.string, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             companion.selection = nil; companion.selectionLabel = ""; return
@@ -48,12 +58,12 @@ extension ReaderSession {
         do {
             try companion.validate(source)
             try commands?.perform(.navigate(source.anchor))
-            if case .pdf(let point) = source.anchor.position, let page = engine?.document.page(at: point.pageIndex),
+            if case .pdf(let point) = source.anchor.position, let page = pdfEngine?.document.page(at: point.pageIndex),
                let text = page.string {
                 let range = (text as NSString).range(of: source.text)
                 if range.location != NSNotFound, let selection = page.selection(for: range) {
                     selection.color = NSColor.systemYellow.withAlphaComponent(0.3)
-                    engine?.view.highlightedSelections = [selection]
+                    pdfEngine?.view.highlightedSelections = [selection]
                 }
             }
         } catch { companion.errorMessage = error.localizedDescription }
@@ -61,7 +71,7 @@ extension ReaderSession {
     func applyCompanionAction(_ action: CompanionAction) {
         do {
             guard let engine, companion.bookID == engine.bookID, companion.revision == engine.sourceRevision else { throw CompanionError.invalidEvidence }
-            try action.validate(pageCount: engine.document.pageCount, sources: companion.evidence)
+            try action.validate(pageCount: pdfEngine?.document.pageCount ?? 0, sources: companion.evidence)
             switch action.kind {
             case .goToPage: if let page = action.page { navigate(page: page) }
             case .navigateToPassage: if let source = companion.evidence.first(where: { $0.id == action.sourceID }) { goToCompanionSource(source) }

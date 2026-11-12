@@ -7,7 +7,11 @@ import Darwin
 @MainActor
 @Observable
 final class ReaderSession {
-    var engine: PDFReaderEngine?
+    var engine: (any ReaderEngine)?
+    var pdfEngine: PDFReaderEngine? { engine as? PDFReaderEngine }
+    var epubEngine: EPUBReaderEngine? { engine as? EPUBReaderEngine }
+    var surfaceView: NSView? { pdfEngine?.view ?? epubEngine?.view }
+    var sectionCount: Int { pdfEngine?.document.pageCount ?? epubEngine?.publication.readingResources.count ?? 0 }
     var commands: ReaderCommands?
     var title = "Adaptive Reader"
     var busy = false
@@ -120,9 +124,8 @@ final class ReaderSession {
     }
 
     private func load(record: BookRecord, data: Data, state: ReadingState?) async throws {
-        let prepared = await Task.detached(priority: .userInitiated) { PreparedPDFSource(data: data) }.value
+        let candidate = try await makeEngine(data: data, format: record.format, id: record.id)
         guard active, !Task.isCancelled else { return }
-        let candidate = try PDFReaderEngine(source: prepared, bookID: record.id)
         try candidate.applyPagePalette(state?.palette ?? .original)
         let marks = try await store.bookmarks(for: record)
         let preferences = try await store.comfortPreferences(for: record)
@@ -143,7 +146,7 @@ final class ReaderSession {
                 return (try Data(contentsOf: url), bookmark)
             }.value
             guard active, !Task.isCancelled else { return }
-            try await importData(data, title: url.deletingPathExtension().lastPathComponent, reference: reference)
+            try await importData(data, title: url.deletingPathExtension().lastPathComponent, reference: reference, format: url.pathExtension.lowercased() == "epub" ? .epub : .pdf)
         } catch { report(error) }
     }
 
@@ -166,11 +169,19 @@ final class ReaderSession {
         } catch { report(error) }
     }
 
-    func importData(_ data: Data, title: String, reference: Data? = nil) async throws {
+    private func makeEngine(data: Data, format: BookFormat, id: UUID) async throws -> any ReaderEngine {
+        if format == .epub {
+            let worker = Task.detached(priority: .userInitiated) { (try EPUBPublication(data: data), PDFReaderEngine.revision(data)) }
+            let (publication, revision) = try await withTaskCancellationHandler(operation: { try await worker.value }, onCancel: { worker.cancel() })
+            return EPUBReaderEngine(publication: publication, bookID: id, revision: revision)
+        }
         let prepared = await Task.detached(priority: .userInitiated) { PreparedPDFSource(data: data) }.value
+        return try PDFReaderEngine(source: prepared, bookID: id)
+    }
+    func importData(_ data: Data, title: String, reference: Data? = nil, format: BookFormat = .pdf) async throws {
+        let candidate = try await makeEngine(data: data, format: format, id: UUID())
         guard active, !Task.isCancelled else { return }
-        let candidate = try PDFReaderEngine(source: prepared, bookID: UUID())
-        let record = try await store.importBook(data: data, id: candidate.bookID, title: title, revision: candidate.sourceRevision, reference: reference, pageCount: candidate.document.pageCount)
+        let record = try await store.importBook(data: data, id: candidate.bookID, title: title, revision: candidate.sourceRevision, reference: reference, pageCount: (candidate as? PDFReaderEngine)?.document.pageCount ?? 0, format: format)
         await flush()
         guard active, !Task.isCancelled else { return }
         let defaults = try await store.ambientDefaults()
@@ -182,7 +193,7 @@ final class ReaderSession {
         install(try PDFReaderEngine(data: data, bookID: UUID()), title: "Reading specimen", record: nil, state: nil, bookmarks: [], data: data)
     }
 
-    private func install(_ candidate: PDFReaderEngine, title: String, record: BookRecord?, state: ReadingState?, bookmarks: [ReaderBookmark], data: Data, preferences: ReadingComfortPreferences = ReadingComfortPreferences(), defaults: AmbientReadingSettings = AmbientReadingSettings()) {
+    private func install(_ candidate: any ReaderEngine, title: String, record: BookRecord?, state: ReadingState?, bookmarks: [ReaderBookmark], data: Data, preferences: ReadingComfortPreferences = ReadingComfortPreferences(), defaults: AmbientReadingSettings = AmbientReadingSettings()) {
         stopWork()
         awake.release(); keepAwake = false
         subscriptions.removeAll(); saving?.cancel()
@@ -200,7 +211,16 @@ final class ReaderSession {
         #endif
         engine = candidate; commands = ReaderCommands(engine: candidate)
         companion.configure(data: data, bookID: candidate.bookID, revision: candidate.sourceRevision, title: title,
-                            pageCount: candidate.document.pageCount, record: record, store: store)
+                            pageCount: (candidate as? PDFReaderEngine)?.document.pageCount ?? 0, record: record, store: store, epub: (candidate as? EPUBReaderEngine)?.publication)
+        if let epub = candidate as? EPUBReaderEngine {
+            epub.onInternalNavigation = { [weak self] in self?.navigate(to: $0) }
+            epub.onManualInteraction = { [weak self] in self?.setAutoScroll(false) }
+            epub.onPositionChanged = { [weak self] in self?.positionChanged() }
+            epub.onSelectionChanged = { [weak self] in self?.updateCompanionSelection() }
+            epub.onError = { [weak self] in self?.report($0) }
+            return
+        }
+        guard let candidate = candidate as? PDFReaderEngine else { return }
         candidate.onInternalNavigation = { [weak self] anchor in self?.navigate(to: anchor) }
         candidate.onManualInteraction = { [weak self] in self?.setAutoScroll(false) }
         candidate.onSpotlightStep = { [weak self] direction in self?.stepSpotlight(direction) }
@@ -224,6 +244,16 @@ final class ReaderSession {
 
     func mount() {
         guard let engine, !mounted else { return }
+        if let epub = engine as? EPUBReaderEngine {
+            mounted = true
+            do {
+                if let value = pendingState?.epubTypography { try commands?.perform(.setTypography(value)) }
+                if let anchor = pendingState?.anchor { try epub.navigate(to: anchor) }
+                epub.start()
+            } catch { report(error) }
+            pendingState = nil; positionChanged(); updateActivityDriver(); return
+        }
+        guard let engine = engine as? PDFReaderEngine else { return }
         engine.view.layoutDocumentView()
         if let state = pendingState {
             if let raw = state.pdfDisplayMode, let mode = PDFDisplayMode(rawValue: raw) { engine.view.displayMode = mode }
@@ -254,8 +284,9 @@ final class ReaderSession {
     private func positionChanged() {
         guard mounted, let engine else { return }
         if companion.smartMargins { companionViewportRevision &+= 1 }
-        scale = engine.view.scaleFactor
-        engine.updateSpotlightLayout()
+        scale = Double(pdfEngine?.view.scaleFactor ?? 1)
+        pdfEngine?.updateSpotlightLayout()
+        if let epubEngine { pageNumber = epubEngine.chapterIndex + 1 }
         if let anchor = try? engine.currentAnchor(), case .pdf(let point) = anchor.position {
             pageNumber = point.pageIndex + 1
         }
@@ -268,7 +299,11 @@ final class ReaderSession {
     }
 
     func navigate(page: Int) {
-        guard let engine, let target = engine.document.page(at: page - 1) else { return }
+        if let epub = epubEngine {
+            guard epub.publication.readingResources.indices.contains(page - 1) else { return }
+            navigate(to: SourceAnchor(bookID: epub.bookID, sourceRevision: epub.sourceRevision, position: .epub(resource: epub.publication.readingResources[page - 1].resource, locator: EPUBTextLocator(offset: 0).encoded))); return
+        }
+        guard let engine = pdfEngine, let target = engine.document.page(at: page - 1) else { return }
         let bounds = target.bounds(for: .cropBox)
         navigate(to: SourceAnchor(bookID: engine.bookID, sourceRevision: engine.sourceRevision,
             position: .pdf(.init(pageIndex: page - 1, x: bounds.minX, y: bounds.maxY))))
@@ -291,22 +326,22 @@ final class ReaderSession {
         }
     }
     private func applyPalette(_ palette: PagePalette) {
-        do { try commands?.perform(.setPalette(palette)); subscriptions.removeAll(); mounted = false; mount() }
+        do { try commands?.perform(.setPalette(palette)); if pdfEngine != nil { subscriptions.removeAll(); mounted = false; mount() } else { positionChanged() } }
         catch { report(error) }
     }
     func undoPalette() {
         recordManualPaletteChoice()
-        do { try commands?.undoPalette(); subscriptions.removeAll(); mounted = false; mount() } catch { report(error) }
+        do { try commands?.undoPalette(); if pdfEngine != nil { subscriptions.removeAll(); mounted = false; mount() } else { positionChanged() } } catch { report(error) }
     }
     func zoom(by factor: Double) {
-        guard let engine else { return }
+        guard let engine = pdfEngine else { return }
         do { try commands?.perform(.setScale(engine.view.scaleFactor * factor)); positionChanged() } catch { report(error) }
     }
 
     func search(_ query: String) {
         searchTask?.cancel(); engine?.cancelSearch()
         searchQuery = query; searchMatches = []; searching = false; searchLimitReached = false
-        engine?.view.highlightedSelections = nil
+        pdfEngine?.view.highlightedSelections = nil
         guard let engine, engine.capabilities.contains(.search), !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         searching = true
         searchTask = Task { [weak self, weak engine] in
@@ -328,13 +363,22 @@ final class ReaderSession {
     }
 
     var pageIsBookmarked: Bool {
-        bookmarks.contains { if case .pdf(let point) = $0.anchor.position { point.pageIndex == pageNumber - 1 } else { false } }
+        bookmarks.contains {
+            switch $0.anchor.position {
+            case .pdf(let point): point.pageIndex == pageNumber - 1
+            case .epub(let resource, let encoded):
+                if let current = try? epubEngine?.currentAnchor(), case .epub(let currentResource, let currentEncoded) = current.position,
+                   let a = try? EPUBTextLocator(encoded: encoded), let b = try? EPUBTextLocator(encoded: currentEncoded) {
+                    resource == currentResource && a.offset == b.offset
+                } else { false }
+            }
+        }
     }
     func toggleBookmark() async {
         guard !bookmarkUpdating, let record, let engine else { return }
         bookmarkUpdating = true; defer { bookmarkUpdating = false }
         do {
-            let updated = try await store.toggleBookmark(anchor: engine.currentAnchor(), title: engine.view.currentSelection?.string ?? "", for: record)
+            let updated = try await store.toggleBookmark(anchor: engine.currentAnchor(), title: pdfEngine?.view.currentSelection?.string ?? epubEngine?.selection?.text ?? companionChapterLabel ?? "", for: record)
             if self.record?.id == record.id { bookmarks = updated }
         } catch { report(error) }
     }
@@ -368,6 +412,7 @@ final class ReaderSession {
         await refreshLibrary(); writeComfortDiagnostics(force: true)
     }
     private func stopWork() {
+        epubEngine?.stop()
         companion.reset(); companionVisible = false
         checkpointTask?.cancel(); checkpointTask = nil; checkpointToken = UUID()
         closeMiniReader(); stopReadingActivity()
@@ -386,7 +431,7 @@ final class ReaderSession {
         }
         do {
             try await store.save(ReadingState(anchor: try engine.currentAnchor(), palette: commands.palette,
-                scale: engine.view.scaleFactor, autoScales: engine.view.autoScales, pdfDisplayMode: engine.view.displayMode.rawValue), for: record)
+                scale: Double(pdfEngine?.view.scaleFactor ?? 1), autoScales: pdfEngine?.view.autoScales ?? false, pdfDisplayMode: pdfEngine?.view.displayMode.rawValue ?? 1, epubTypography: epubEngine?.typography), for: record)
         } catch { report(error) }
     }
     var effectiveAmbient: AmbientReadingSettings { comfort.ambient ?? ambientDefaults }
@@ -500,7 +545,7 @@ final class ReaderSession {
     func smartBack() { do { try commands?.perform(.back); positionChanged() } catch { report(error) } }
     func smartForward() { do { try commands?.perform(.forward); positionChanged() } catch { report(error) } }
     func toggleSpotlight() {
-        do { try commands?.perform(.setSpotlight(!(engine?.spotlightEnabled ?? false))) } catch { report(error) }
+        do { try commands?.perform(.setSpotlight(!(pdfEngine?.spotlightEnabled ?? false))) } catch { report(error) }
     }
     func stepSpotlight(_ direction: Int) { do { try commands?.perform(.stepSpotlight(direction)); positionChanged() } catch { report(error) } }
     func setAutoScroll(_ enabled: Bool) {
@@ -553,7 +598,7 @@ final class ReaderSession {
         updateActivityDriver()
     }
     func showMiniReader() {
-        guard engine != nil, !miniReaderActive else { return }
+        guard pdfEngine != nil, !miniReaderActive else { return }
         setAutoScroll(false)
         let controller = MiniReaderController(session: self)
         miniReader = controller; miniReaderActive = true
@@ -568,8 +613,8 @@ final class ReaderSession {
     func prepareViewportTransfer() -> ReadingState? {
         guard let engine else { return nil }
         setAutoScroll(false)
-        let value = ReadingState(anchor: try? engine.currentAnchor(), palette: engine.palette, scale: engine.view.scaleFactor,
-            autoScales: engine.view.autoScales, pdfDisplayMode: engine.view.displayMode.rawValue)
+        let value = ReadingState(anchor: try? engine.currentAnchor(), palette: engine.palette, scale: Double(pdfEngine?.view.scaleFactor ?? 1),
+            autoScales: pdfEngine?.view.autoScales ?? false, pdfDisplayMode: pdfEngine?.view.displayMode.rawValue ?? 1, epubTypography: epubEngine?.typography)
         subscriptions.removeAll(); mounted = false; pendingState = value
         return value
     }

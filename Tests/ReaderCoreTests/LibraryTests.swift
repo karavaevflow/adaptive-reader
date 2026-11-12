@@ -18,11 +18,11 @@ private var sample: Data {
     let metadata = root.appendingPathComponent("Books/\(id.uuidString).json")
     try JSONSerialization.data(withJSONObject: old).write(to: metadata)
     let (migrated, restored, state) = try #require(try await LibraryStore(root: root).lastBook())
-    #expect(migrated.schemaVersion == 2)
+    #expect(migrated.schemaVersion == 3)
     #expect(restored == data)
     #expect(state?.anchor == anchor)
     #expect(state?.palette == .forest)
-    #expect((try JSONSerialization.jsonObject(with: Data(contentsOf: metadata)) as? [String: Any])?["schemaVersion"] as? Int == 2)
+    #expect((try JSONSerialization.jsonObject(with: Data(contentsOf: metadata)) as? [String: Any])?["schemaVersion"] as? Int == 3)
     #expect(try Data(contentsOf: root.appendingPathComponent("Assets/\(id.uuidString).pdf")) == data)
 }
 

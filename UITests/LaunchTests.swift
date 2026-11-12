@@ -443,10 +443,53 @@ final class OfflineReaderTests: XCTestCase {
         return start
     }
 
+    @MainActor func testEPUBSearchReflowBookmarkAndRestore() {
+        let id = UUID().uuidString
+        let app = launch(id, specimen: false)
+        menu(app, "File", "Open book")
+        choosePDF(app, relativePath: "Research/Fixtures/EPUB/reflow.epub")
+        XCTAssertTrue(app.windows["reflow"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 10))
+        menu(app, "Edit", "Find in book")
+        let field = app.textFields["reader.search.query"].firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        paste("Passage 853.", into: field, app: app)
+        let match = app.buttons["reader.search.match"].firstMatch
+        XCTAssertTrue(match.waitForExistence(timeout: 10)); match.click()
+        XCTAssertTrue(app.staticTexts["2/2"].waitForExistence(timeout: 5))
+        app.buttons["Close search"].firstMatch.click()
+        let passage = app.webViews.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@ OR value BEGINSWITH %@", "Passage 853.", "Passage 853.")).firstMatch
+        XCTAssertTrue(passage.waitForExistence(timeout: 10))
+        XCTAssertTrue(passage.isHittable, "Locator must resolve to visible text in WebKit")
+        menu(app, "Edit", "Bookmark page")
+        app.buttons["appearance.toggle"].firstMatch.click()
+        let size = app.sliders["epub.fontSize"].firstMatch
+        XCTAssertTrue(size.waitForExistence(timeout: 5))
+        size.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5)).click()
+        let column = app.sliders["epub.columnWidth"].firstMatch
+        column.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.5)).click()
+        app.typeKey(.escape, modifierFlags: [])
+        XCTAssertTrue(passage.isHittable, "Reflow must keep the source fragment visible")
+        snapshot(app, "v04-epub-reflow")
+        app.menuBars.menuBarItems.element(boundBy: 1).click()
+        app.menuItems["Quit AdaptiveReader"].firstMatch.click()
+        XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
+        let restored = launch(id, specimen: false)
+        XCTAssertTrue(restored.windows["reflow"].waitForExistence(timeout: 10))
+        XCTAssertTrue(restored.staticTexts["2/2"].waitForExistence(timeout: 10))
+        let restoredPassage = restored.webViews.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@ OR value BEGINSWITH %@", "Passage 853.", "Passage 853.")).firstMatch
+        XCTAssertTrue(restoredPassage.waitForExistence(timeout: 10))
+        XCTAssertTrue(restoredPassage.isHittable)
+        snapshot(restored, "v04-epub-restored")
+        menu(restored, "File", "Close book")
+        XCTAssertTrue(restored.buttons.matching(NSPredicate(format: "label CONTAINS %@", "EPUB")).firstMatch.waitForExistence(timeout: 5))
+        restored.terminate()
+    }
+
     @MainActor func testLinkedImportSurvivesQuit() {
         let id = UUID().uuidString
         let app = launch(id, specimen: false)
-        menu(app, "File", "Import linked PDF")
+        menu(app, "File", "Import linked book")
         choosePDF(app, relativePath: "Research/Fixtures/text.pdf")
         XCTAssertTrue(app.windows["text"].waitForExistence(timeout: 10))
         app.buttons["page.next"].firstMatch.click()
@@ -464,7 +507,7 @@ final class OfflineReaderTests: XCTestCase {
     }
     @MainActor func testLargeDocumentCommandsDuringSearch() {
         let app = launch(UUID().uuidString, specimen: false)
-        menu(app, "File", "Open PDF")
+        menu(app, "File", "Open book")
         choosePDF(app, relativePath: "Research/Large/large-text.pdf")
         XCTAssertTrue(app.windows["large-text"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["1/600"].waitForExistence(timeout: 5))
@@ -494,7 +537,7 @@ final class OfflineReaderTests: XCTestCase {
         var rows = [[String: Double]]()
         for index in 0..<5 {
             let app = launch(UUID().uuidString, specimen: false)
-            menu(app, "File", "Open PDF")
+            menu(app, "File", "Open book")
             let start = choosePDF(app, relativePath: "Research/Large/large-text.pdf")
             XCTAssertTrue(app.windows["large-text"].waitForExistence(timeout: 15))
             XCTAssertTrue(app.staticTexts["1/600"].waitForExistence(timeout: 5))
@@ -588,7 +631,7 @@ final class OfflineReaderTests: XCTestCase {
         XCTAssertTrue(app.buttons["ai.cancel"].firstMatch.waitForNonExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["ai.answer"].firstMatch.exists)
         menu(app, "File", "Close book")
-        menu(app, "File", "Open PDF")
+        menu(app, "File", "Open book")
         choosePDF(app, relativePath: "Research/Fixtures/scan.pdf")
         XCTAssertTrue(app.windows["scan"].firstMatch.waitForExistence(timeout: 10))
         menu(app, "View", "AI Companion")
@@ -682,7 +725,7 @@ final class OfflineReaderTests: XCTestCase {
 
     @MainActor func testDailyPhysicalFootnoteLinkReturnsToSource() {
         let app = launch(UUID().uuidString, specimen: false)
-        menu(app, "File", "Open PDF")
+        menu(app, "File", "Open book")
         choosePDF(app, relativePath: "Research/Comfort/footnote.pdf")
         XCTAssertTrue(app.windows["footnote"].waitForExistence(timeout: 10))
         let pages = app.scrollViews["reader.pages"].firstMatch
@@ -730,7 +773,7 @@ final class OfflineReaderTests: XCTestCase {
         #else
         executionTimeAllowance = 1800
         let id = UUID().uuidString, app = launch(id, specimen: false, diagnostics: true, additionalArguments: ["-comfortSoak", "YES"])
-        menu(app, "File", "Open PDF")
+        menu(app, "File", "Open book")
         choosePDF(app, relativePath: "Research/Large/large-text.pdf")
         XCTAssertTrue(app.windows["large-text"].waitForExistence(timeout: 10))
         menu(app, "View", "Mini Reader")
