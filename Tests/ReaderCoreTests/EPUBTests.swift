@@ -170,6 +170,16 @@ private func epub(_ name: String = "reflow") throws -> Data {
     for _ in 0..<100 { if engine.ready || failure != nil { break }; try await Task.sleep(for: .milliseconds(100)) }
     try await Task.sleep(for: .milliseconds(250))
     #expect(engine.chapterIndex == 1 && engine.ready)
+    // Continuous movement must publish intermediate anchors, rather than waiting
+    // for the scroll stream to go quiet (which starves auto-scroll checkpoints).
+    for _ in 0..<10 {
+        _ = try engine.scroll(by: 80)
+        try await Task.sleep(for: .milliseconds(40))
+    }
+    if case .epub(_, let encoded) = try engine.currentAnchor().position {
+        let moved = try EPUBTextLocator(encoded: encoded).offset
+        #expect(moved > offset)
+    }
     if let failure { throw failure }
 }
 
