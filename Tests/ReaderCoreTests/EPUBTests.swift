@@ -148,8 +148,28 @@ private func epub(_ name: String = "reflow") throws -> Data {
     let after = try #require(JSONSerialization.jsonObject(with: Data(try await epubJavaScript(engine, measure).utf8)) as? [String: Double])
     #expect(after["font"] == 30 && after["width"] == 420)
     #expect((after["top"] ?? -100) >= -5 && (after["top"] ?? 1000) < 100, "After reflow: \(after)")
-    if case .epub(_, let encoded) = try engine.currentAnchor().position { #expect(try EPUBTextLocator(encoded: encoded).offset == offset) }
+    try await Task.sleep(for: .milliseconds(250))
+    if case .epub(_, let encoded) = try engine.currentAnchor().position {
+        let restoredOffset = try EPUBTextLocator(encoded: encoded).offset
+        #expect(restoredOffset == offset)
+    }
     else { Issue.record("EPUB position changed format") }
+    for iteration in 0..<4 {
+        typography.fontSize = iteration % 2 == 0 ? 18 : 30
+        typography.columnWidth = iteration % 2 == 0 ? 680 : 420
+        try engine.applyTypography(typography)
+        try await Task.sleep(for: .milliseconds(250))
+        if case .epub(_, let encoded) = try engine.currentAnchor().position {
+            let restoredOffset = try EPUBTextLocator(encoded: encoded).offset
+            #expect(restoredOffset == offset)
+        }
+    }
+    // Cancelling a stale chapter load must not report a failed current document.
+    let first = SourceAnchor(bookID: engine.bookID, sourceRevision: engine.sourceRevision, position: .epub(resource: publication.chapters[0].resource, locator: EPUBTextLocator(offset: 0).encoded))
+    try engine.navigate(to: first); try engine.navigate(to: anchor)
+    for _ in 0..<100 { if engine.ready || failure != nil { break }; try await Task.sleep(for: .milliseconds(100)) }
+    try await Task.sleep(for: .milliseconds(250))
+    #expect(engine.chapterIndex == 1 && engine.ready)
     if let failure { throw failure }
 }
 

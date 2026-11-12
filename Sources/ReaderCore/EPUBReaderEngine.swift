@@ -211,16 +211,16 @@ public final class EPUBReaderEngine: NSObject, ReaderEngine, WKNavigationDelegat
       while(walker.nextNode()){starts.push(text.length);nodes.push(walker.currentNode);text+=walker.currentNode.textContent;}
       function point(offset){let i=starts.length-1;while(i>0&&starts[i]>offset)i--;return nodes[i]?[nodes[i],Math.min(nodes[i].length,Math.max(0,offset-starts[i]))]:null;}
       function position(){const r=document.caretRangeFromPoint(Math.max(30,(innerWidth-document.body.clientWidth)/2+30),36);if(r){const i=nodes.indexOf(r.startContainer);if(i>=0)return starts[i]+r.startOffset;}for(let i=0;i<nodes.length;i++){const r=document.createRange();r.selectNodeContents(nodes[i]);if(r.getBoundingClientRect().bottom>32)return starts[i];}return 0;}
-      let last={offset:0};
+      let last={offset:0};let styled=false,programmaticY=null;
       function send(offset,extra={}){if(!('selection' in extra))last.offset=offset;window.webkit.messageHandlers.reader.postMessage({path:decodeURIComponent(location.pathname),offset,quote:Array.from(text.slice(offset)).slice(0,60).join(''),end:scrollY+innerHeight>=document.documentElement.scrollHeight-1,...extra});}
       let moving=false,timer;
-      function go(offset){moving=true;const p=point(offset);if(p){const r=document.createRange();r.setStart(...p);r.setEnd(p[0],Math.min(p[0].length,p[1]+1));scrollTo(0,Math.max(0,r.getBoundingClientRect().top+scrollY-36));}setTimeout(()=>{moving=false;send(offset);},0);}
-      window.adaptive={go,style:(css,offset)=>{let s=document.getElementById('adaptive-style');if(!s){s=document.createElement('style');s.id='adaptive-style';document.head.append(s);}s.textContent=css;go(offset);}};
-      addEventListener('scroll',()=>{if(moving)return;clearTimeout(timer);timer=setTimeout(()=>send(position()),120);},{passive:true});
+      function go(offset){moving=true;clearTimeout(timer);last.offset=offset;const p=point(offset);if(p){const r=document.createRange();r.setStart(...p);r.setEnd(p[0],Math.min(p[0].length,p[1]+1));scrollTo(0,Math.max(0,r.getBoundingClientRect().top+scrollY-36));}programmaticY=scrollY;setTimeout(()=>{moving=false;send(offset);},0);}
+      window.adaptive={go,style:(css,offset)=>{let s=document.getElementById('adaptive-style');if(!s){s=document.createElement('style');s.id='adaptive-style';document.head.append(s);}s.textContent=css;styled=true;go(offset);}};
+      addEventListener('scroll',()=>{if(!styled||moving||Math.abs(scrollY-programmaticY)<1)return;clearTimeout(timer);timer=setTimeout(()=>{if(Math.abs(scrollY-programmaticY)>=1)send(position());},120);},{passive:true});
       let selectionTimer;document.addEventListener('selectionchange',()=>{clearTimeout(selectionTimer);selectionTimer=setTimeout(()=>{const s=getSelection();if(!s||!s.rangeCount){send(position(),{selection:''});return;}const r=s.getRangeAt(0),i=nodes.indexOf(r.startContainer);send(i>=0?starts[i]+r.startOffset:position(),{selection:s.toString().slice(0,8000)});},100);});
       document.addEventListener('click',e=>{const a=e.target.closest('a');if(a){e.preventDefault();window.webkit.messageHandlers.reader.postMessage({path:decodeURIComponent(location.pathname),link:a.href});}},true);
-      addEventListener('resize',()=>go(last.offset));
-      document.fonts.ready.then(()=>go(last.offset));
+      addEventListener('resize',()=>{if(styled)go(last.offset);});
+      document.fonts.addEventListener('loadingdone',()=>{if(styled)go(last.offset);});
       function manual(){window.webkit.messageHandlers.reader.postMessage({path:decodeURIComponent(location.pathname),manual:true});}
       addEventListener('wheel',manual,{passive:true});addEventListener('pointerdown',manual,{passive:true});
       addEventListener('keydown',e=>{if(['ArrowDown','ArrowUp','PageDown','PageUp','Home','End',' '].includes(e.key))manual();});

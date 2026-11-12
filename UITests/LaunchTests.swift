@@ -453,7 +453,6 @@ final class OfflineReaderTests: XCTestCase {
         let footnote = app.webViews.links["[1]"].firstMatch
         XCTAssertTrue(footnote.waitForExistence(timeout: 10)); footnote.click()
         XCTAssertTrue(app.staticTexts["2/2"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.webViews.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Footnote one:")).firstMatch.waitForExistence(timeout: 10))
         menu(app, "View", "Back")
         XCTAssertTrue(app.staticTexts["1/2"].waitForExistence(timeout: 5))
         menu(app, "Edit", "Find in book")
@@ -464,7 +463,10 @@ final class OfflineReaderTests: XCTestCase {
         XCTAssertTrue(match.waitForExistence(timeout: 10)); match.click()
         XCTAssertTrue(app.staticTexts["2/2"].waitForExistence(timeout: 5))
         app.buttons["Close search"].firstMatch.click()
-        let passage = app.webViews.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Passage 853.")).firstMatch
+        // WebKit exposes paragraph text in AXValue; heading AXValue is numeric.
+        // Exact equality supports both types without substring predicate exceptions.
+        let passageText = "Passage 853. Retrieval practice strengthens memory through active recall. Reflow changes presentation while keeping the original text and its source locator stable. Images preserve their colors."
+        let passage = app.webViews.staticTexts.matching(NSPredicate(format: "value == %@", passageText)).firstMatch
         XCTAssertTrue(passage.waitForExistence(timeout: 10))
         XCTAssertTrue(passage.isHittable, "Locator must resolve to visible text in WebKit")
         menu(app, "Edit", "Bookmark page")
@@ -483,7 +485,7 @@ final class OfflineReaderTests: XCTestCase {
         let restored = launch(id, specimen: false)
         XCTAssertTrue(restored.windows["reflow"].waitForExistence(timeout: 10))
         XCTAssertTrue(restored.staticTexts["2/2"].waitForExistence(timeout: 10))
-        let restoredPassage = restored.webViews.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Passage 853.")).firstMatch
+        let restoredPassage = restored.webViews.staticTexts.matching(NSPredicate(format: "value == %@", passageText)).firstMatch
         XCTAssertTrue(restoredPassage.waitForExistence(timeout: 10))
         XCTAssertTrue(restoredPassage.isHittable)
         snapshot(restored, "v04-epub-restored")

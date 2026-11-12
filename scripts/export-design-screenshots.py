@@ -10,7 +10,7 @@ import tempfile
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("result", type=Path, help="Xcode .xcresult bundle")
 parser.add_argument("destination", type=Path, help="Reference image directory")
-parser.add_argument("--release", choices=("phase0", "v02", "v03"), default="phase0")
+parser.add_argument("--release", choices=("phase0", "v02", "v03", "v04-foundation"), default="phase0")
 args = parser.parse_args()
 expected = {
     f"{screen}-{language}-{width}-{theme}"
@@ -36,6 +36,8 @@ if args.release == "v03":
         for width in (800, 1440)
         for theme in ("light", "dark")
     }
+if args.release == "v04-foundation":
+    expected = {"v04-epub-reflow", "v04-epub-restored"}
 with tempfile.TemporaryDirectory(prefix="adaptive-design-") as temporary:
     directory = Path(temporary)
     subprocess.run([
