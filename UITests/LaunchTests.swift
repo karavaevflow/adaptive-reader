@@ -593,9 +593,14 @@ final class OfflineReaderTests: XCTestCase {
 
     @MainActor func testNativeListenPauseResumeRestartAndClose() {
         let id = UUID().uuidString, app = launch(id, specimen: false, additionalArguments: ["-silentSpeechTest"])
-        menu(app, "File", "Open book"); choosePDF(app, relativePath: "Research/Fixtures/EPUB/reflow.epub")
+        app.buttons["reader.open"].firstMatch.click(); choosePDF(app, relativePath: "Research/Fixtures/EPUB/reflow.epub")
         XCTAssertTrue(app.windows["reflow"].waitForExistence(timeout: 10))
-        menu(app, "View", "Listen from here")
+        // Exercise the shared command through the toolbar/Study controls. Native
+        // menu tracking on CI can retain focus after selecting an item; speech
+        // acceptance must reach the real synthesizer rather than time out there.
+        app.buttons["study.toggle"].firstMatch.click()
+        studySection(app, "Listen")
+        app.buttons["listen.start"].firstMatch.click()
         let pause = app.buttons["listen.pause"].firstMatch
         XCTAssertTrue(pause.waitForExistence(timeout: 15))
         XCTAssertTrue(app.staticTexts["listen.word"].firstMatch.waitForExistence(timeout: 15), "Must receive actual AVFoundation speech progress")
