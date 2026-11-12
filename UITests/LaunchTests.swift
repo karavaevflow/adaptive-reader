@@ -450,6 +450,12 @@ final class OfflineReaderTests: XCTestCase {
         choosePDF(app, relativePath: "Research/Fixtures/EPUB/reflow.epub")
         XCTAssertTrue(app.windows["reflow"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 10))
+        let viewMenu = app.menuBars.menuBarItems["View"]
+        viewMenu.click()
+        for command in ["Zoom in", "Zoom out", "Reading Spotlight", "Mini Reader"] {
+            XCTAssertFalse(viewMenu.menuItems[command].firstMatch.isEnabled)
+        }
+        app.typeKey(.escape, modifierFlags: [])
         let footnote = app.webViews.links["[1]"].firstMatch
         XCTAssertTrue(footnote.waitForExistence(timeout: 10)); footnote.click()
         XCTAssertTrue(app.staticTexts["2/2"].waitForExistence(timeout: 5))

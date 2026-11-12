@@ -64,7 +64,7 @@ struct WorkspaceView: View {
         GeometryReader { geometry in
             workspace(width: geometry.size.width)
                 .toolbar { toolbar(width: geometry.size.width) }
-                .focusedSceneValue(\.workspaceActions, WorkspaceActions(hasBook: hasBook, canSearch: session.engine?.capabilities.contains(.search) == true || (!hasBook && !session.books.isEmpty), canGoBack: session.commands?.canGoBack == true, canGoForward: session.commands?.canGoForward == true, canStepReading: session.engine?.capabilities.contains(.passageNavigation) == true, perform: { command in
+                .focusedSceneValue(\.workspaceActions, WorkspaceActions(hasBook: hasBook, canSearch: session.engine?.capabilities.contains(.search) == true || (!hasBook && !session.books.isEmpty), canGoBack: session.commands?.canGoBack == true, canGoForward: session.commands?.canGoForward == true, canStepReading: session.engine?.capabilities.contains(.passageNavigation) == true, enabledCommands: Set(WorkspaceCommand.allCases.filter { $0.isEnabled(in: session) }), perform: { command in
                     perform(command, width: geometry.size.width)
                 }))
         }
@@ -287,7 +287,7 @@ struct WorkspaceView: View {
                                 Button("Open book") { Task { await session.openBook(book) } }
                                 Button("Favorite") { Task { await session.toggleFavorite(book) } }
                                 if book.isReference {
-                                    Button("Locate linked PDF") { repairBook = book; importing = true }
+                                    Button("Locate linked book") { repairBook = book; importing = true }
                                 }
                             }
                         }

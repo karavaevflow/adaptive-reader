@@ -3818,6 +3818,22 @@
           }
         }
       }
+    },
+    "Locate linked book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Locate linked book"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Найти исходный файл"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
