@@ -51,6 +51,7 @@ public final class EPUBReaderEngine: NSObject, ReaderEngine, WKNavigationDelegat
     @ObservationIgnored private var locator = EPUBTextLocator(offset: 0)
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     @ObservationIgnored private var loading = false
+    @ObservationIgnored private var pendingNavigation: WKNavigation?
     @ObservationIgnored private var canScrollDown = true
 
     public init(publication: EPUBPublication, bookID: UUID, revision: String) {
@@ -141,7 +142,7 @@ public final class EPUBReaderEngine: NSObject, ReaderEngine, WKNavigationDelegat
         ready = false; loading = true
         let resource = publication.readingResources[chapterIndex].resource
         var url = URLComponents(); url.scheme = "adaptive-epub"; url.host = "book"; url.path = "/" + resource
-        if let url = url.url { view.load(URLRequest(url: url)) }
+        if let url = url.url { pendingNavigation = view.load(URLRequest(url: url)) }
     }
     private func applyStyle() {
         guard ready else { return }
@@ -165,9 +166,17 @@ public final class EPUBReaderEngine: NSObject, ReaderEngine, WKNavigationDelegat
         }
     }
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard let navigation, navigation === pendingNavigation else { return }
         loading = false; ready = true; applyStyle(); onPositionChanged?()
     }
-    public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { loading = false; onError?(error) }
+    public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        guard let navigation, navigation === pendingNavigation else { return }
+        loading = false
+        if (error as NSError).code != NSURLErrorCancelled { onError?(error) }
+    }
+    public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        self.webView(webView, didFail: navigation, withError: error)
+    }
     public func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void) {
         guard action.navigationType == .other, action.request.url?.scheme == "adaptive-epub", action.request.url?.host == "book", action.targetFrame?.isMainFrame == true else { decisionHandler(.cancel); return }
         decisionHandler(.allow)
