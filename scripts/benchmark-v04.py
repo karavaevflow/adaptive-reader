@@ -6,6 +6,8 @@ the real production speech player runs with volume zero. No model or network cal
 """
 import argparse
 import json
+import hashlib
+from datetime import datetime, timezone
 from pathlib import Path
 import subprocess
 import time
@@ -16,7 +18,12 @@ p.add_argument('--pdf-binary', type=Path)
 p.add_argument('--output', type=Path, default=Path('Research/v0.4/performance.json'))
 a = p.parse_args()
 root = Path(__file__).resolve().parent.parent
-result = {'epub': [], 'pdfIdle': []}
+result = {
+    'epub': [], 'pdfIdle': [],
+    'sourceCommit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip(),
+    'startedUTC': datetime.now(timezone.utc).isoformat(),
+    'sourceFiles': {str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted((root / 'Sources').rglob('*.swift'))},
+}
 a.output.parent.mkdir(parents=True, exist_ok=True)
 
 def processes():
