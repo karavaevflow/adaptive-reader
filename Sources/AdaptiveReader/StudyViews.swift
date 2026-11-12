@@ -68,10 +68,10 @@ struct StudyView: View {
         .sheet(item: $model.draftCard, onDismiss: { editorReturn = "card" }) { card in CardEditor(model: model, initial: card) }
         .sheet(item: $model.draftNote, onDismiss: { editorReturn = "note" }) { note in NoteEditor(model: model, initial: note) }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.json]) { result in
-            switch result { case .success(let url): Task { await model.importCards(url) }; case .failure(let error): model.errorMessage = error.localizedDescription }
+            switch result { case .success(let url): Task { await model.importCards(url) }; case .failure(let error): if (error as NSError).code != NSUserCancelledError { model.errorMessage = error.localizedDescription } }
         }
         .fileExporter(isPresented: $exporting, document: exportDocument, contentType: exportType, defaultFilename: exportName) { result in
-            if case .failure(let error) = result { model.errorMessage = error.localizedDescription }
+            if case .failure(let error) = result, (error as NSError).code != NSUserCancelledError { model.errorMessage = error.localizedDescription }
         }
     }
     private var notes: some View {

@@ -83,7 +83,7 @@ final class StudyModel {
         return (passage.anchor, passage.text)
     }
     func newCard() {
-        errorMessage = nil
+        visible = true; tab = "cards"; errorMessage = nil
         do {
             let (anchor, text) = try source()
             draftCard = StudyCard(anchor: anchor, quotation: text, question: "", answer: "")
@@ -91,7 +91,7 @@ final class StudyModel {
         } catch { errorMessage = NSLocalizedString(error.localizedDescription, comment: "Study error") }
     }
     func newNote() {
-        errorMessage = nil
+        visible = true; tab = "notes"; errorMessage = nil
         do {
             let (anchor, text) = try source()
             draftNote = ReaderNote(anchor: anchor, text: "", quotation: String(text.prefix(1600)))
@@ -120,6 +120,7 @@ final class StudyModel {
     }
     func addHighlight() async {
         guard !busy, let record, let store else { return }; busy = true; defer { busy = false }
+        visible = true; tab = "highlights"; errorMessage = nil
         do {
             var additions: [ReaderHighlight] = []
             if let pdf = session?.pdfEngine, let selection = pdf.view.currentSelection {
