@@ -1,6 +1,6 @@
 # Adaptive Reader
 
-Native macOS reading workspace with an offline PDF library. Requires macOS 15 or later. SwiftUI and AppKit provide the shell, PDFKit displays documents. MIT licensed.
+Native macOS reading workspace with an offline PDF/EPUB library and source-linked study tools. Requires macOS 15 or later. SwiftUI and AppKit provide the shell, PDFKit displays documents. MIT licensed.
 
 ## Build
 
@@ -16,7 +16,7 @@ xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination
 
 ## Current behavior
 
-Import a PDF as a managed copy, or choose **Open linked PDF** to retain a read-only reference to the original file. The library shows reading progress and favorites. Both modes verify the source SHA-256 on reopen; a changed file produces an explicit error. A linked book can be reauthorized through its library context menu using the same source bytes.
+Import a PDF or reflowable EPUB as a managed copy, or choose **Import linked book** to retain a read-only reference to the original file. The library shows reading progress and favorites. Both modes verify the source SHA-256 on reopen; a changed file produces an explicit error. A linked book can be reauthorized through its library context menu using the same source bytes.
 
 Search text, jump to a result, bookmark the current page, or enter Focus to hide surrounding panels. Keep Awake prevents idle display sleep only while enabled in an open reading session; closing the book, window or app releases it. Quit and reopen restores the document, fragment, zoom and palette. Books, positions and bookmarks stay on disk.
 
@@ -24,7 +24,7 @@ Smart Back/Forward returns to the source after a footnote, search result or comm
 
 | Shortcut | Action |
 |---|---|
-| ⌘O / ⇧⌘O | Import copy / linked PDF |
+| ⌘O / ⇧⌘O | Import copy / linked book |
 | ⇧⌘W | Close book and show library |
 | ⌘F | Search book or library titles |
 | ⌘D | Toggle page bookmark |
@@ -37,7 +37,7 @@ Smart Back/Forward returns to the source after a footnote, search result or comm
 
 The appearance popover changes the shell between System, Light and Dark independently of the page palette. Compact windows retain commands in More. The app includes English and Russian translations. The [Adaptive design system](docs/adaptive-design-system.md) documents the shared components; [v0.1 acceptance](docs/v0.1.md) freezes the offline baseline; [v0.2 acceptance](docs/v0.2.md) tracks the daily reading additions.
 
-Versioned PDF/EPUB source anchors, typed navigation/search commands and atomic records preserve the shared architecture for future EPUB and further AI features. PDFKit retains native selection, links and document geometry. Eligible text/vector pages use the bounded selective Color Engine; complex pages preserve Original with a fallback explanation. [Color Engine evidence](Research/README.md) and [reader contracts](docs/reader-architecture.md) describe the boundaries and limitations. EPUB, OCR and AI are later milestones.
+Versioned PDF/EPUB source anchors, typed navigation/search commands and atomic records preserve the shared architecture for EPUB and further AI features. PDFKit retains native selection, links and document geometry. Eligible text/vector pages use the bounded selective Color Engine; complex pages preserve Original with a fallback explanation. [Color Engine evidence](Research/README.md) and [reader contracts](docs/reader-architecture.md) describe the boundaries and limitations. EPUB reflow, persistent study tools and local speech are implemented in v0.4; OCR is a later milestone.
 
 AI is off by default. The PDF Companion can use a local Ollama model or an explicitly enabled HTTPS Chat Completions endpoint with streaming JSON mode. Keys are stored in macOS Keychain. On an explicit question, cloud mode sends the question, book title, current page and at most eight selected/retrieved excerpts; opening a book never sends a model request. Provider retention follows the selected service's policy.
 
@@ -46,3 +46,5 @@ The Companion resolves citations to versioned source anchors, retains evidence f
 To connect later, open **View → AI Companion → AI settings**. Local mode expects a running Ollama service at `http://127.0.0.1:11434/api/chat` and your installed model identifier. Cloud mode requires your full HTTPS Chat Completions URL, a model supporting JSON responses, optional API key and explicit consent for that endpoint/model. The integration build has no default model. It supports the documented streaming/JSON protocol, not every provider-specific API variation.
 
 Phase 0, the v0.1 offline PDF workflow and v0.2 daily reading have passed acceptance. The v0.2 report includes the real 25-minute Release session, final-source CI and the precise local automation limitation. v0.3 adds the optional AI integration; connecting a real model and judging its answers are deferred by the owner. See [acceptance evidence](docs/phase-0.md) and the [release gates](docs/release-gates.md) for all milestones. The first UI-test run may require confirming macOS “Enable UI Automation”.
+
+The [v0.4 report](docs/v0.4.md) records EPUB, study and local speech verification. EPUB typography lives in Appearance, separately from the shell theme. View → Study (`⇧⌘L`) opens editable notes, persistent highlights, cards, optional Recall and Listen & Read. Markdown export and portable card JSON are under Study → More; imports keep existing cards and require the exact source revision. `⌥⌘L` pauses/continues speech. Listening position survives restart, and closing the source stops playback. macOS speech uses installed on-device voices; a real AI model remains optional and deferred. Sources are not rewritten. The sandbox permits user-selected Read/Write for native export; retained source-reference bookmarks remain read-only.
