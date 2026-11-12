@@ -33,7 +33,7 @@ public struct EPUBTextLocator: Codable, Equatable, Sendable {
     }
     public func validate(in text: String) throws {
         let value = text as NSString
-        guard offset <= value.length, quote.utf16.count <= value.length - offset,
+        guard offset >= 0, offset <= value.length, quote.utf16.count <= value.length - offset,
               quote.isEmpty || value.substring(with: NSRange(location: offset, length: quote.utf16.count)) == quote else {
             throw ReaderError.invalidAnchor
         }
@@ -167,7 +167,7 @@ public struct EPUBPublication: Sendable {
             if forbidden.contains(element.localName?.lowercased() ?? "") { element.detach(); continue }
             for attribute in element.attributes ?? [] {
                 let name = attribute.name?.lowercased() ?? ""
-                if name.hasPrefix("on") || name == "srcdoc" || name == "formaction" { element.removeAttribute(forName: attribute.name!) }
+                if name.hasPrefix("on") || ["srcdoc", "formaction", "contenteditable"].contains(name) { element.removeAttribute(forName: attribute.name!) }
             }
         }
         guard let body = try doc.nodes(forXPath: "//*[local-name()='body']").first as? XMLElement else { throw EPUBError.invalidContainer }

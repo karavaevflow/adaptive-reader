@@ -21,7 +21,7 @@ enum MeasurementError: Error { case timeout(String), wrongPosition, noSpeechProg
 func uptime() -> Double { ProcessInfo.processInfo.systemUptime }
 func quantile(_ values: [Double], _ q: Double) -> Double { let sorted = values.sorted(); return sorted[min(sorted.count - 1, Int(Double(sorted.count - 1) * q))] }
 
-@MainActor func measure(_ path: String, speechEnabled: Bool) throws {
+@MainActor func measure(_ path: String, speechEnabled: Bool, probeControls: Bool = false) throws {
     _ = NSApplication.shared
     NSApp.setActivationPolicy(.prohibited)
     let begin = uptime(), data = try Data(contentsOf: URL(fileURLWithPath: path)), publication = try EPUBPublication(data: data)
@@ -58,6 +58,12 @@ func quantile(_ values: [Double], _ q: Double) -> Double { let sorted = values.s
     let speechStart = uptime()
     if speechEnabled {
         player.start(engine: engine, anchor: target)
+        if probeControls {
+            player.pause()
+            guard player.status == .paused else { throw MeasurementError.noSpeechProgress }
+            player.resume()
+            guard player.status == .playing else { throw MeasurementError.noSpeechProgress }
+        }
         try waitFor("native speech first word", timeout: 30) { wordCount > 0 || player.errorMessage != nil }
         if player.errorMessage != nil { throw MeasurementError.noSpeechProgress }
     }
@@ -86,11 +92,11 @@ func quantile(_ values: [Double], _ q: Double) -> Double { let sorted = values.s
         "nativeWordCallbacks": wordCount, "inputRoundTripMedianMs": quantile(roundTrips, 0.5),
         "runLoopIntervalP95Ms": quantile(intervals, 0.95), "runLoopIntervalMaxMs": intervals.max() ?? 0,
         "speechStopMs": stopElapsed * 1000, "lateWordCallbacksAfterStop": wordCount - countAtStop,
-        "peakClientBytes": usage.ru_maxrss, "windowVisible": false
+        "peakClientBytes": usage.ru_maxrss, "windowVisible": false, "immediatePauseResumeProbe": probeControls
     ]
     print(String(decoding: try JSONSerialization.data(withJSONObject: row, options: [.sortedKeys]), as: UTF8.self))
 }
 
 let arguments = ProcessInfo.processInfo.arguments
 guard arguments.count >= 2 else { fatalError("Usage: EPUBResearch fixture.epub [--speech]") }
-try measure(arguments[1], speechEnabled: arguments.contains("--speech"))
+try measure(arguments[1], speechEnabled: arguments.contains("--speech"), probeControls: arguments.contains("--probe-controls"))

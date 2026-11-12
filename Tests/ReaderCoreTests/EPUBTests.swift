@@ -131,7 +131,8 @@ private func epub(_ name: String = "reflow") throws -> Data {
     #expect(engine.ready)
     if let failure { throw failure }
     #expect(try await epubJavaScript(engine, "typeof window.authoredScriptRan", world: .page) == "undefined")
-    #expect(try await epubJavaScript(engine, "document.querySelectorAll('script,iframe,[onload]').length") == "0")
+    #expect(try await epubJavaScript(engine, "document.querySelectorAll('script,iframe,[onload],[contenteditable]').length") == "0")
+    _ = try await epubJavaScript(engine, "document.documentElement.style.scrollBehavior='smooth'; 'ready'")
     let imageMetrics = "JSON.stringify((()=>{const i=document.querySelector('img'),r=i.getBoundingClientRect();return {natural:i.naturalWidth,ratio:r.width/r.height};})())"
     let originalImage = try #require(JSONSerialization.jsonObject(with: Data(try await epubJavaScript(engine, imageMetrics).utf8)) as? [String: Double])
     #expect(originalImage["natural"] == 360)

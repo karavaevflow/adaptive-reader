@@ -19,6 +19,7 @@ public final class SpeechPlayer {
     @ObservationIgnored private weak var engine: (any ReaderEngine)?
     @ObservationIgnored private var passage: ReaderPassage?
     @ObservationIgnored private var utteranceID: ObjectIdentifier?
+    @ObservationIgnored private var resumeAnchor: SourceAnchor?
     @ObservationIgnored public var onPosition: ((SourceAnchor) -> Void)?
     @ObservationIgnored public var onPassage: ((ReaderPassage) -> Void)?
     @ObservationIgnored public var onWord: ((ReaderPassage) -> Void)?
@@ -60,25 +61,39 @@ public final class SpeechPlayer {
     }
     public func pause() {
         guard status == .playing else { return }
-        if synthesizer?.pauseSpeaking(at: .immediate) == true { status = .paused }
+        status = .paused
+        if synthesizer?.pauseSpeaking(at: .immediate) != true {
+            // The native queue can be between utterances or preparing a voice.
+            // Preserve the user's pause intent and cancel any not-yet-started text.
+            resumeAnchor = position ?? passage?.anchor; utteranceID = nil
+            _ = synthesizer?.stopSpeaking(at: .immediate)
+        }
     }
     public func resume() {
         guard status == .paused else { return }
         if utteranceID == nil {
-            if let next = passage?.next { status = .playing; speak(next) }
+            if let next = resumeAnchor ?? passage?.next { resumeAnchor = nil; status = .playing; speak(next) }
             else { completed = true; stop() }
             return
         }
         if synthesizer?.continueSpeaking() == true { status = .playing }
+        else if let anchor = position ?? passage?.anchor {
+            utteranceID = nil; _ = synthesizer?.stopSpeaking(at: .immediate)
+            status = .playing; speak(anchor)
+        }
     }
     public func stop() {
-        utteranceID = nil; passage = nil
+        utteranceID = nil; passage = nil; resumeAnchor = nil
         if status != .stopped { status = .stopped; _ = synthesizer?.stopSpeaking(at: .immediate); onStop?() }
         engine = nil; synthesizer = nil; bridge = nil
     }
     fileprivate func finished(_ id: ObjectIdentifier) {
         guard utteranceID == id, status != .stopped else { return }
-        if status == .paused { utteranceID = nil; return }
+        if status == .paused {
+            utteranceID = nil; resumeAnchor = passage?.next
+            if resumeAnchor == nil { completed = true; stop() }
+            return
+        }
         if let next = passage?.next { speak(next) }
         else { completed = true; stop() }
     }

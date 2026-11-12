@@ -41,6 +41,7 @@ private func studyFixture(_ name: String = "EPUB/reflow.epub") throws -> Data {
 }
 
 @Test func recallSchedulesAreExplicitAndMarkdownIncludesPortableAnchors() throws {
+    #expect(throws: ReaderError.invalidAnchor) { try EPUBTextLocator(offset: -1).validate(in: "text") }
     let now = Date(timeIntervalSince1970: 1000), id = UUID(), anchor = SourceAnchor(bookID: id, sourceRevision: "revision", position: .epub(resource: "chapter.xhtml", locator: EPUBTextLocator(offset: 5).encoded))
     var card = StudyCard(anchor: anchor, quotation: "Source quotation", question: "Why?", answer: "Because.", now: now)
     #expect(card.dueAt == now && card.intervalDays == 0)
