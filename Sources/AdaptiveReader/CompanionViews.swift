@@ -64,6 +64,9 @@ struct CompanionView: View {
                                 Button(LocalizedStringKey(style)) { model.ask(page: session.pageNumber, question: model.query, refinement: style, chapter: session.companionChapterLabel) }
                             }
                         }.accessibilityIdentifier("ai.explainAgain")
+                        if answer.kind == .book && model.canSaveNotes {
+                            Button("Save to Knowledge") { session.knowledge.captureCompanionAnswer() }.accessibilityIdentifier("ai.saveKnowledge")
+                        }
                         if !answer.actions.isEmpty {
                             Text("Suggested actions · review before applying").font(.caption).foregroundStyle(.secondary)
                             ForEach(answer.actions) { action in

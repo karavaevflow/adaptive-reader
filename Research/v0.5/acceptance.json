@@ -1,0 +1,18 @@
+{
+  "applicationSource": "2a244f4e55f38b2d1bfa786d9006d2c556e3f423",
+  "testedCommit": "8447ef63a27ec06b8c66ed8cc84d334eebb2a98e",
+  "workflowRun": "https://github.com/karavaevflow/adaptive-reader/actions/runs/43678749887",
+  "workflowResult": "success",
+  "coreTestsPassed": 61,
+  "knowledgeUITestsPassed": 3,
+  "regressionUITestsPassed": 26,
+  "regressionUITestsSkipped": 5,
+  "uiTestsFailed": 0,
+  "referenceImages": 46,
+  "archiveSHA256": "8a2cff4f88d37d87f76e3a33850bce7f751c49bb7e34fbd3abc4520b954f5c3c",
+  "architectures": [
+    "arm64",
+    "x86_64"
+  ],
+  "signature": "ad-hoc, strict verification after extraction passed, not notarized"
+}

@@ -15,7 +15,7 @@ final class LaunchTests: XCTestCase {
     @MainActor
     private func launch(width: Int = 1440, theme: String = "light", language: String = "en", reader: Bool = false, library: Bool = false, storedReader: Bool = false, companionReview: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-designReview", "YES", "-designWidth", String(width),
+        app.launchArguments = ["-silentSpeechTest", "-designReview", "YES", "-designWidth", String(width),
                                "-reviewAppearance", theme,
                                "-AppleLanguages", "(\(language))", "-AppleLocale", language]
         if reader { app.launchArguments += ["-designReader", "YES"] }
@@ -83,7 +83,7 @@ final class LaunchTests: XCTestCase {
         let id = UUID().uuidString
         func open(importBook: Bool) -> XCUIApplication {
             let app = XCUIApplication()
-            app.launchArguments = ["-phase0Store", id, "-designWidth", "1440", "-AppleLanguages", "(en)", "-AppleLocale", "en"]
+            app.launchArguments = ["-silentSpeechTest", "-phase0Store", id, "-designWidth", "1440", "-AppleLanguages", "(en)", "-AppleLocale", "en"]
             if importBook { app.launchArguments += ["-phase0Import", "YES"] }
             app.launch()
             app.activate()
@@ -333,7 +333,7 @@ final class OfflineReaderTests: XCTestCase {
 
     @MainActor private func launch(_ id: String, specimen: Bool, diagnostics: Bool = false, additionalArguments: [String] = [], width: Int = 1440, theme: String = "light", language: String = "en") -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-phase0Store", id, "-designWidth", String(width), "-AppleLanguages", "(\(language))", "-AppleLocale", language, "-shellAppearance", theme]
+        app.launchArguments = ["-silentSpeechTest", "-phase0Store", id, "-designWidth", String(width), "-AppleLanguages", "(\(language))", "-AppleLocale", language, "-shellAppearance", theme]
         if specimen { app.launchArguments += ["-phase0Import", "YES"] }
         if diagnostics { app.launchArguments += ["-comfortDiagnostics", "YES"] }
         app.launchArguments += additionalArguments
@@ -350,7 +350,14 @@ final class OfflineReaderTests: XCTestCase {
         bar.click()
         let item = bar.menuItems[command].firstMatch
         XCTAssertTrue(item.isEnabled, "Command must remain enabled: \(command)")
-        item.click()
+        if group == "View" && command == "Command Center" {
+            // Native SwiftUI menu items share `menuAction:`. XCTest can re-resolve
+            // that identifier to a different item after hovering. Availability is
+            // checked above; use the documented shortcut for the command action.
+            app.typeKey(.escape, modifierFlags: [])
+            app.typeKey("k", modifierFlags: [.command])
+            XCTAssertTrue(app.textFields["command.query"].firstMatch.waitForExistence(timeout: 10))
+        } else { item.click() }
     }
     @MainActor private func snapshot(_ app: XCUIApplication, _ name: String) {
         let shot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
@@ -589,6 +596,136 @@ final class OfflineReaderTests: XCTestCase {
         XCTAssertTrue(text.contains("Exported question?") && text.contains("Exported answer.") && text.contains("SourceAnchor:"))
         snapshot(app, "v04-markdown-export-flow")
         app.terminate()
+    }
+
+    @MainActor private func expectKnowledgeCount(_ query: XCUIElementQuery, _ expected: Int) {
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in query.count == expected }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed)
+        XCTAssertEqual(query.count, expected)
+    }
+    @MainActor private func knowledgeTab(_ app: XCUIApplication, _ title: String) {
+        let item = app.radioButtons[title].firstMatch
+        XCTAssertTrue(item.waitForExistence(timeout: 5)); item.click()
+    }
+    @MainActor private func saveKnowledgePassage(_ app: XCUIApplication, title: String) {
+        app.buttons["knowledge.capture"].firstMatch.click()
+        let field = app.textFields["knowledge.editor.title"].firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5)); paste(title, into: field, app: app)
+        app.buttons["knowledge.editor.save"].firstMatch.click()
+        XCTAssertTrue(app.staticTexts[title].firstMatch.waitForExistence(timeout: 5))
+    }
+    @MainActor func testKnowledgeGraphComparisonTimelinePathAndRestart() throws {
+        let id = UUID().uuidString, app = launch(id, specimen: false)
+        app.buttons["reader.open"].firstMatch.click(); choosePDF(app, relativePath: "Research/Fixtures/text.pdf")
+        app.buttons["knowledge.toggle"].firstMatch.click()
+        saveKnowledgePassage(app, title: "PDF concept")
+        app.buttons["knowledge.card.canvas"].firstMatch.click()
+        XCTAssertTrue(app.buttons["knowledge.node.select"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["knowledge.close"].click()
+        app.buttons["reader.open"].firstMatch.click(); choosePDF(app, relativePath: "Research/Fixtures/EPUB/reflow.epub")
+        app.buttons["knowledge.toggle"].firstMatch.click()
+        knowledgeTab(app, "Memory"); saveKnowledgePassage(app, title: "EPUB concept")
+        app.buttons.matching(identifier: "knowledge.card.canvas").element(boundBy: 1).click()
+        let nodes = app.buttons.matching(identifier: "knowledge.node.select")
+        expectKnowledgeCount(nodes, 2); nodes.element(boundBy: 0).click(); nodes.element(boundBy: 1).click()
+        paste("Shared source anchors", into: app.textFields["knowledge.connection.label"], app: app)
+        app.buttons["knowledge.connect"].click()
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Shared source anchors")).firstMatch.waitForExistence(timeout: 5))
+        knowledgeTab(app, "Library search")
+        paste("stable", into: app.textFields["knowledge.search.query"], app: app); app.buttons["knowledge.search.run"].click()
+        let epubCheck = app.checkBoxes.matching(NSPredicate(format: "label CONTAINS %@", " · reflow · ")).firstMatch
+        XCTAssertTrue(epubCheck.waitForExistence(timeout: 30)); epubCheck.click()
+        let pdfCheck = app.checkBoxes.matching(NSPredicate(format: "label CONTAINS %@", " · text · ")).firstMatch
+        let results = app.scrollViews["knowledge.search.results"].firstMatch
+        XCTAssertTrue(results.waitForExistence(timeout: 5))
+        for _ in 0..<16 {
+            if pdfCheck.exists && pdfCheck.isHittable { break }
+            results.scroll(byDeltaX: 0, deltaY: -500)
+        }
+        XCTAssertTrue(pdfCheck.exists && pdfCheck.isHittable); pdfCheck.click()
+        XCTAssertTrue(app.buttons["knowledge.compare"].isEnabled); app.buttons["knowledge.compare"].click()
+        let verification = app.buttons.matching(NSPredicate(format: "label == %@", "Verify source"))
+        XCTAssertTrue(verification.firstMatch.waitForExistence(timeout: 10))
+        expectKnowledgeCount(verification, 2); verification.element(boundBy: 0).click()
+        XCTAssertTrue(app.sheets.firstMatch.waitForNonExistence(timeout: 10))
+        XCTAssertTrue(app.windows["reflow"].waitForExistence(timeout: 5))
+        app.buttons["knowledge.toggle"].firstMatch.click(); app.buttons["knowledge.compare"].click()
+        app.buttons.matching(NSPredicate(format: "label == %@", "Verify source")).element(boundBy: 1).click()
+        XCTAssertTrue(app.sheets.firstMatch.waitForNonExistence(timeout: 10))
+        XCTAssertTrue(app.windows["text"].waitForExistence(timeout: 5))
+        app.buttons["knowledge.toggle"].firstMatch.click(); app.buttons["knowledge.compare"].click()
+        let relation = app.descendants(matching: .any)["knowledge.relation.text"].firstMatch
+        XCTAssertTrue(relation.waitForExistence(timeout: 5)); paste("Both books preserve stable source anchors.", into: relation, app: app)
+        snapshot(app, "v05-comparison-flow")
+        app.buttons["knowledge.relation.save"].click()
+        XCTAssertTrue(app.staticTexts["Both books preserve stable source anchors."].firstMatch.waitForExistence(timeout: 5))
+        app.buttons.matching(identifier: "knowledge.card.canvas").element(boundBy: 2).click()
+        expectKnowledgeCount(app.buttons.matching(identifier: "knowledge.node.select"), 3)
+        snapshot(app, "v05-canvas-flow")
+        let canvasQuery = app.textFields["knowledge.canvas.query"]
+        paste("EPUB", into: canvasQuery, app: app); canvasQuery.typeKey(.return, modifierFlags: [])
+        expectKnowledgeCount(app.buttons.matching(identifier: "knowledge.node.select"), 1)
+        knowledgeTab(app, "Library search"); app.buttons["knowledge.path.suggest"].click()
+        let goal = app.textFields["knowledge.path.goal"].firstMatch
+        XCTAssertTrue(goal.waitForExistence(timeout: 5)); paste("My source reading route", into: goal, app: app)
+        app.buttons["knowledge.path.save"].firstMatch.click(); snapshot(app, "v05-path-flow")
+        knowledgeTab(app, "Timeline"); app.buttons["knowledge.timeline.load"].click()
+        XCTAssertTrue(app.links.matching(identifier: "knowledge.source").firstMatch.waitForExistence(timeout: 20))
+        snapshot(app, "v05-timeline-flow")
+        app.links.matching(identifier: "knowledge.source").firstMatch.click()
+        XCTAssertTrue(app.sheets.firstMatch.waitForNonExistence(timeout: 10))
+        app.menuBars.menuBarItems.element(boundBy: 1).click(); app.menuItems["Quit AdaptiveReader"].firstMatch.click()
+        XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
+        let restored = launch(id, specimen: false)
+        restored.buttons["knowledge.toggle"].firstMatch.click(); knowledgeTab(restored, "Canvas")
+        XCTAssertTrue(restored.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Shared source anchors")).firstMatch.waitForExistence(timeout: 5))
+        expectKnowledgeCount(restored.buttons.matching(identifier: "knowledge.node.select"), 3)
+        restored.buttons.matching(identifier: "knowledge.node.select").firstMatch.click()
+        restored.buttons["knowledge.board.new"].click()
+        XCTAssertTrue(restored.buttons.matching(identifier: "knowledge.node.select").firstMatch.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(restored.buttons.matching(identifier: "knowledge.node.select").count, 0)
+        XCTAssertFalse(restored.buttons["knowledge.connect"].isEnabled)
+        knowledgeTab(restored, "Reading paths")
+        XCTAssertEqual(restored.textFields["knowledge.path.goal"].firstMatch.value as? String, "My source reading route")
+        snapshot(restored, "v05-restored-flow"); restored.terminate()
+    }
+
+    @MainActor func testKnowledgeVisualMatrix() {
+        for language in ["en", "ru"] { for width in [800, 1440] { for theme in ["light", "dark"] {
+            let app = launch(UUID().uuidString, specimen: true, additionalArguments: ["-knowledgeReview"], width: width, theme: theme, language: language)
+            app.buttons["knowledge.toggle"].firstMatch.click()
+            let suffix = "\(language)-\(width)-\(theme)"
+            let sections = language == "ru" ? ["Знания", "Доска", "Поиск", "Хронология", "Маршруты"] : ["Memory", "Canvas", "Library search", "Timeline", "Reading paths"]
+            let names = ["Memory", "Canvas", "Search", "Timeline", "Paths"]
+            for (index, section) in sections.enumerated() {
+                knowledgeTab(app, section)
+                if index == 3 { app.buttons["knowledge.timeline.load"].click(); XCTAssertTrue(app.links.matching(identifier: "knowledge.source").firstMatch.waitForExistence(timeout: 10)) }
+                snapshot(app, "v05-" + names[index] + "-" + suffix)
+            }
+            app.buttons["knowledge.close"].click(); app.terminate()
+        } } }
+    }
+    @MainActor func testKnowledgeMarkdownNativeExport() throws {
+        let app = launch(UUID().uuidString, specimen: true, additionalArguments: ["-knowledgeReview"])
+        app.buttons["knowledge.toggle"].firstMatch.click()
+        XCTAssertTrue(app.staticTexts["A source passage"].firstMatch.waitForExistence(timeout: 5))
+        app.descendants(matching: .any)["knowledge.more"].firstMatch.click(); app.menuItems["Export Markdown"].firstMatch.click()
+        let panel = app.sheets["save-panel"].firstMatch
+        XCTAssertTrue(panel.waitForExistence(timeout: 5))
+        let destination = FileManager.default.temporaryDirectory.appendingPathComponent("Adaptive-Knowledge-Export-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        panel.typeKey(goToFolderKey(), modifierFlags: [.command, .shift])
+        let path = app.textFields["PathTextField"].firstMatch
+        XCTAssertTrue(path.waitForExistence(timeout: 5)); paste(destination.path, into: path, app: app); path.typeKey(.return, modifierFlags: [])
+        panel.buttons["OKButton"].firstMatch.click()
+        let exists = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            ((try? FileManager.default.contentsOfDirectory(at: destination, includingPropertiesForKeys: nil)) ?? []).contains { $0.pathExtension == "md" }
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [exists], timeout: 10), .completed)
+        let file = try XCTUnwrap(try FileManager.default.contentsOfDirectory(at: destination, includingPropertiesForKeys: nil).first { $0.pathExtension == "md" })
+        let text = try String(contentsOf: file, encoding: .utf8)
+        XCTAssertTrue(text.contains("AdaptiveSourceAnchor:") && text.contains("readerNote") && text.contains("modelInference") && text.contains("Reader connection"))
+        snapshot(app, "v05-export-flow"); app.terminate()
     }
 
     @MainActor func testNativeListenPauseResumeRestartAndClose() {
