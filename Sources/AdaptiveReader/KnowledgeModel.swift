@@ -21,7 +21,10 @@ final class KnowledgeModel {
     var truncated = false
     var busy = false
     var progress = 0.0
+    var operationLabel = "Searching library"
+    var hasSearched = false
     var errorMessage: String?
+    var statusMessage: String?
     var draft: KnowledgeCard?
     var boardID: UUID?
     var selectedNodes = Set<UUID>()
@@ -33,23 +36,27 @@ final class KnowledgeModel {
     var deleted: KnowledgeSnapshot?
     var deletedCardID: UUID?
     var comparisonVisible = false
+    private var pendingCompanionPresentation = false
     var undoMovement: (UUID, CanvasNode)?
     @ObservationIgnored private var store: LibraryStore?
     @ObservationIgnored private var index: KnowledgeSearchIndex?
     @ObservationIgnored private weak var session: ReaderSession?
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var generation = UUID()
+    @ObservationIgnored private var reloading = false
     var canCapture: Bool { session?.record != nil && session?.engine?.capabilities.contains(.textSelection) == true }
     var board: KnowledgeBoard? { memory.boards.first { $0.id == boardID } }
     func configure(store: LibraryStore, session: ReaderSession) { self.store = store; self.session = session; index = KnowledgeSearchIndex(store: store) }
     func show() { visible = true; Task { await reload() } }
     func reload() async {
-        guard let store else { return }
+        guard let store, !reloading else { return }
+        reloading = true; defer { reloading = false }
         do {
             memory = try await store.knowledge(); books = try await store.books(); settings = try await store.companionSettings()
             #if DEBUG || FOUNDATION_BENCHMARK
             let args = ProcessInfo.processInfo.arguments
-            if memory.cards.isEmpty, args.contains("-knowledgeReview"), args.contains("-phase0Store"), let session, session.record != nil {
+            let isolatedStore = args.firstIndex(of: "-phase0Store").flatMap { i in args.indices.contains(i + 1) ? UUID(uuidString: args[i + 1]) : nil } != nil
+            if memory.cards.isEmpty, args.contains("-knowledgeReview"), isolatedStore, let session, session.record != nil {
                 let (anchor, text) = try session.study.source()
                 let source = KnowledgeSource(anchor: anchor, bookTitle: session.title, location: KnowledgeSearchIndex.location(anchor), quotation: String(text.prefix(1600)))
                 let cards = [
@@ -73,7 +80,12 @@ final class KnowledgeModel {
     func report(_ error: Error) { errorMessage = NSLocalizedString(error.localizedDescription, comment: "Knowledge error") }
     @discardableResult func perform(_ command: KnowledgeCommand) async -> Bool {
         guard let store else { return false }
-        do { memory = try await store.performKnowledge(command); errorMessage = nil; return true }
+        do { memory = try await store.performKnowledge(command)
+            switch command {
+            case .saveCard, .removeCard, .restoreCard, .merge: await index?.clearTransientCache()
+            default: break
+            }
+            errorMessage = nil; return true }
         catch { report(error); return false }
     }
     func capture(kind: KnowledgeKind = .quotation) {
@@ -86,6 +98,22 @@ final class KnowledgeModel {
     }
     func saveDraft(_ value: KnowledgeCard) async {
         if await perform(.saveCard(value)) { draft = nil }
+    }
+    func captureCompanionAnswer() {
+        guard let session, let answer = session.companion.answer, answer.kind == .book else { return }
+        let sources = session.companion.evidence.filter { answer.sourceIDs.contains($0.id) }.map {
+            KnowledgeSource(anchor: $0.anchor, bookTitle: session.title, location: KnowledgeSearchIndex.location($0.anchor), quotation: String($0.text.prefix(1600)))
+        }
+        guard !sources.isEmpty else { return }
+        draft = .init(title: String(session.companion.query.prefix(120)), kind: .modelInference, text: answer.answer, sources: sources)
+        tab = "memory"
+        let compact = (session.surfaceView?.window?.contentView?.bounds.width ?? 800) < Adaptive.Layout.inspectorThreshold
+        pendingCompanionPresentation = compact
+        session.companionVisible = false
+        if !compact { show() }
+    }
+    func finishCompanionTransition() {
+        if pendingCompanionPresentation { pendingCompanionPresentation = false; show() }
     }
     func saveHit(_ hit: KnowledgeSearchHit) {
         draft = .init(title: String(hit.text.prefix(60)), kind: hit.kind, text: hit.text, sources: [hit.source])
@@ -119,7 +147,7 @@ final class KnowledgeModel {
         _ = await perform(.connect(board: boardID, edge: .init(from: ids[0], to: ids[1], label: label)))
     }
     func search() {
-        guard let index else { return }; cancel(); answer = nil; answerSources = []; selectedHits = []; errorMessage = nil; hits = []; busy = true
+        guard let index else { return }; cancel(); answer = nil; answerSources = []; selectedHits = []; errorMessage = nil; statusMessage = nil; hits = []; busy = true; hasSearched = true; operationLabel = "Searching library"
         let token = generation, query = query
         let progressModel = self
         let filter = KnowledgeSearchFilter(bookIDs: selectedBooks, title: titleFilter, author: authorFilter, collection: collectionFilter, savedOnly: savedOnly)
@@ -145,9 +173,18 @@ final class KnowledgeModel {
             close()
         } catch { report(error) }
     }
+    func resetIndex() async {
+        guard let store else { return }
+        cancel(); busy = true; operationLabel = "Resetting index"; defer { busy = false }; hits = []; answer = nil; answerSources = []
+        await index?.clearTransientCache()
+        do {
+            for book in try await store.books() { try await store.invalidateKnowledgeCache(for: book) }
+            statusMessage = NSLocalizedString("Index cleared. The next search rebuilds it locally.", comment: "Index status")
+        } catch { report(error) }
+    }
     func loadTimeline() {
         guard let index, let book = books.first(where: { $0.id == timelineBook }) else { return }
-        cancel(); busy = true; timeline = []; errorMessage = nil
+        cancel(); busy = true; operationLabel = "Preparing timeline"; timeline = []; errorMessage = nil
         let token = generation, memory = memory
         task = Task { [weak self] in
             do {
@@ -166,7 +203,7 @@ final class KnowledgeModel {
         let chosen = hits.filter { selectedHits.contains($0.id) && $0.kind == .quotation }.prefix(8)
         let sources = Array(chosen)
         guard !sources.isEmpty, !compare || Set(sources.map { $0.source.anchor.bookID }).count >= 2 else { errorMessage = NSLocalizedString("Select excerpts from at least two books to compare.", comment: "Comparison"); return }
-        cancel(); busy = true; errorMessage = nil; answer = nil; answerSources = sources
+        cancel(); busy = true; operationLabel = "Receiving answer"; errorMessage = nil; answer = nil; answerSources = sources
         let token = generation, query = query
         task = Task { [weak self] in await self?.runQuestion(store: store, sources: sources, token: token, query: query, compare: compare) }
     }

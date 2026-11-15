@@ -71,6 +71,10 @@ private func importKnowledgePDF(_ store: LibraryStore, title: String = "Learning
     try await store.performKnowledge(.metadata(.init(bookID: first.id, author: "Author A", collection: "Research")))
     let index = KnowledgeSearchIndex(store: store)
     let (passages, _) = try await index.passages(for: first), passage = try #require(passages.first)
+    #expect(try await store.cachedKnowledgePassages(for: first) != nil)
+    try await store.invalidateKnowledgeCache(for: first)
+    #expect(try await store.cachedKnowledgePassages(for: first) == nil)
+    _ = try await index.passages(for: first)
     let query = String(passage.text.split(whereSeparator: { !$0.isLetter }).first(where: { $0.count > 3 }) ?? "Adaptive")
     let result = try await index.search(query)
     #expect(Set(result.hits.map { $0.source.anchor.bookID }) == [first.id, second.id])
@@ -80,9 +84,11 @@ private func importKnowledgePDF(_ store: LibraryStore, title: String = "Learning
     let task = Task { try await index.search(query) }; task.cancel()
     await #expect(throws: CancellationError.self) { try await task.value }
     let root = await store.root, asset = root.appendingPathComponent("Assets/" + second.assetName), moved = root.appendingPathComponent("TemporarilyUnavailable.pdf")
+    try await store.saveNote(.init(anchor: knowledgeSource(second).anchor, text: query + " my saved thought", quotation: "A saved quote"), for: second)
     try FileManager.default.moveItem(at: asset, to: moved)
     let partial = try await index.search(query)
-    #expect(!partial.issues.isEmpty && partial.hits.allSatisfy { $0.source.anchor.bookID == first.id })
+    #expect(!partial.issues.isEmpty && partial.hits.filter { $0.kind == .quotation }.allSatisfy { $0.source.anchor.bookID == first.id })
+    #expect(partial.hits.contains { $0.kind == .readerNote && $0.source.anchor.bookID == second.id })
     try FileManager.default.moveItem(at: moved, to: asset)
 }
 @Test @MainActor func librarySourceCommandsCrossFormatsReopenAndPaths() async throws {
@@ -113,4 +119,19 @@ private func importKnowledgePDF(_ store: LibraryStore, title: String = "Learning
     #expect(throws: CompanionError.invalidResponse) { try CompanionAnswer(kind: .book, answer: "An action", sourceIDs: ["a", "b"], actions: [.init(kind: .setFocus, enabled: true)]).validateLibrary(sources: sources, comparing: true) }
     let messages = try CompanionRequest(question: "Compare", title: "Library", page: nil, sources: sources, scope: .library).messages
     #expect(messages[0]["content"]?.contains("multi-book") == true)
+}
+
+@Test func canvasViewportCullsOffscreenCardsAndKeepsConnectionsAndDragAligned() throws {
+    let book = BookRecord(id: UUID(), title: "Test", revision: String(repeating: "a", count: 64), source: .managed(name: "unused.pdf"))
+    let source = knowledgeSource(book)
+    let cards = (0..<1000).map { KnowledgeCard(title: "Card \($0)", kind: .quotation, text: "Text", sources: [source]) }
+    let nodes = cards.enumerated().map { CanvasNode(cardID: $0.element.id, point: .init(x: Double($0.offset % 20) * 300, y: Double($0.offset / 20) * 210)) }
+    let edge = CanvasEdge(from: cards[0].id, to: cards[1].id, label: "Related")
+    let board = KnowledgeBoard(title: "Large board", nodes: nodes, edges: [edge])
+    let layout = KnowledgeCanvasLayout(board: board, cards: cards, origin: .init(x: 0, y: 0), zoom: 1, viewport: .init(x: 800, y: 560), translations: [cards[0].id: .init(x: 30, y: 40)])
+    #expect(layout.visibleNodes.count < 15)
+    #expect(layout.connections.first?.start == layout.centers[cards[0].id])
+    #expect(layout.centers[cards[0].id] == .init(x: 155, y: 115))
+    let filtered = KnowledgeCanvasLayout(board: board, cards: cards, origin: .init(x: 0, y: 0), zoom: 1, viewport: .init(x: 800, y: 560), query: "Card 0")
+    #expect(!filtered.visibleNodes.isEmpty)
 }

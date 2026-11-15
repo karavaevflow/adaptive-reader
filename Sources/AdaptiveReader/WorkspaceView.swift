@@ -83,7 +83,7 @@ struct WorkspaceView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
             if let window = notification.object as? NSWindow, window == session.surfaceView?.window {
-                Task { await session.refreshBookmarks(); await session.refreshComfortPreferences(); await session.companion.refreshSettings(); await session.study.reload() }
+                Task { await session.refreshBookmarks(); await session.refreshComfortPreferences(); await session.companion.refreshSettings(); await session.study.reload(); if session.knowledge.visible { await session.knowledge.reload() } }
             } else if !hasBook { Task { await session.refreshLibrary() } }
         }
         .overlay { if session.busy { ProgressView("Opening document").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) } }
@@ -111,7 +111,7 @@ struct WorkspaceView: View {
         }
         .sheet(isPresented: Binding(get: { session.companionVisible && !session.focusMode && (session.surfaceView?.window?.contentView?.bounds.width ?? 800) < Adaptive.Layout.inspectorThreshold }, set: {
             if !$0 { session.companionVisible = false; session.companion.cancel() }
-        })) {
+        }), onDismiss: { session.knowledge.finishCompanionTransition() }) {
             CompanionView(session: session).frame(width: 380, height: 600)
         }
         .sheet(isPresented: Binding(get: { session.study.visible && (session.surfaceView?.window?.contentView?.bounds.width ?? 800) < Adaptive.Layout.inspectorThreshold }, set: { session.study.visible = $0 })) {

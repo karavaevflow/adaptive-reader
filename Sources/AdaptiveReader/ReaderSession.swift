@@ -729,7 +729,7 @@ final class SessionRegistry {
         for entry in entries {
             guard let session = entry.session, session !== origin, session.sharesLibrary(with: origin) else { continue }
             session.knowledge.cancel(); session.companion.cancel()
-            Task { await session.companion.refreshSettings() }
+            Task { await session.companion.refreshSettings(); await session.knowledge.reload() }
         }
     }
     func flush() async {

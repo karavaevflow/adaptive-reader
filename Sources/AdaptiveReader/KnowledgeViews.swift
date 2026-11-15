@@ -31,7 +31,8 @@ struct KnowledgeView: View {
                         catch { model.report(error) }
                     }
                     Button("Import knowledge (JSON)") { importing = true }
-                }.accessibilityIdentifier("knowledge.more")
+                    Button("Reset search index") { Task { await model.resetIndex() } }.disabled(model.busy)
+                }.menuStyle(.borderlessButton).fixedSize().accessibilityIdentifier("knowledge.more")
                 Button("Close", systemImage: "xmark") { model.close() }.labelStyle(.iconOnly).keyboardShortcut(.cancelAction).accessibilityIdentifier("knowledge.close")
             }.padding(16)
             Picker("Knowledge section", selection: $model.tab) {
@@ -39,7 +40,8 @@ struct KnowledgeView: View {
             }.pickerStyle(.segmented).padding(.horizontal, 16).padding(.bottom, 12).accessibilityIdentifier("knowledge.tabs")
             Divider()
             if let error = model.errorMessage { HStack { Text(error).foregroundStyle(.red).textSelection(.enabled); Spacer(); Button("Dismiss") { model.errorMessage = nil } }.font(.callout).padding(12).accessibilityIdentifier("knowledge.error") }
-            if model.busy { HStack { ProgressView(); ProgressView(value: model.progress); Button("Cancel") { model.cancel() } }.padding(12) }
+            if let message = model.statusMessage { Text(message).font(.caption).foregroundStyle(Adaptive.secondary).padding(8) }
+            if model.busy { HStack { ProgressView(); Text(LocalizedStringKey(model.operationLabel)).font(.callout); if model.operationLabel == "Searching library" { ProgressView(value: model.progress) }; Spacer(); Button("Cancel") { model.cancel() } }.padding(12) }
             Group {
                 switch model.tab {
                 case "search": search
@@ -50,7 +52,7 @@ struct KnowledgeView: View {
                 }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .background(Adaptive.background).accessibilityIdentifier("knowledge.workspace")
+        .background(Adaptive.background).accessibilityElement(children: .contain).accessibilityIdentifier("knowledge.workspace")
         .task { await model.reload() }
         .sheet(isPresented: $model.comparisonVisible) { KnowledgeComparison(model: model) }
         .sheet(item: $model.draft) { value in KnowledgeEditor(model: model, initial: value) }
@@ -135,6 +137,9 @@ struct KnowledgeView: View {
                             Button("Save cited answer") { model.saveAnswer() }.disabled(answer.kind != .book)
                         }.padding(16).background(Adaptive.surface, in: RoundedRectangle(cornerRadius: 12))
                     }
+                    if !model.busy && model.hits.isEmpty {
+                        ContentUnavailableView(LocalizedStringKey(model.hasSearched ? "No matching excerpts" : "Search your library"), systemImage: "magnifyingglass", description: Text("Try a term or filter the books, authors and collections."))
+                    }
                     ForEach(model.hits) { hit in
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
@@ -158,9 +163,10 @@ struct KnowledgeView: View {
             }
             Text("Actual source chapters and your saved events or ideas. No invented events.").font(.caption).foregroundStyle(Adaptive.secondary)
             if let id = model.timelineBook { KnowledgeMetadataEditor(model: model, bookID: id).id(id) }
+            if !model.busy && model.timeline.isEmpty { Text("This book has no available outline or saved events yet.").font(.caption).foregroundStyle(Adaptive.secondary) }
             List(model.timeline) { step in
                 VStack(alignment: .leading, spacing: 4) { Text(step.title).font(.headline); sourceButton(step.source) }.padding(.vertical, 4)
-            }.accessibilityIdentifier("knowledge.timeline")
+            }.accessibilityElement(children: .contain).accessibilityIdentifier("knowledge.timeline")
         }.padding(16)
     }
     private var paths: some View {
@@ -198,7 +204,7 @@ private struct KnowledgeEditor: View {
                 Button("Save card") {
                     value.tags = tags.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
                     Task { await model.saveDraft(value) }
-                }.keyboardShortcut(.defaultAction).disabled(value.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty).accessibilityIdentifier("knowledge.editor.save")
+                }.keyboardShortcut(.defaultAction).disabled(value.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || value.title.count > 300 || value.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || value.text.count > 8000 || value.comment.count > 8000).accessibilityIdentifier("knowledge.editor.save")
             }
         }.padding(24).frame(width: 480)
     }
@@ -266,26 +272,36 @@ private struct KnowledgeCanvas: View {
             if let board = model.board {
                 HStack {
                     TextField("Connection label", text: $relation).textFieldStyle(.roundedBorder).accessibilityIdentifier("knowledge.connection.label")
-                    Button("Connect selected") { Task { await model.connect(label: relation) } }.disabled(model.selectedNodes.count != 2 || relation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty).accessibilityIdentifier("knowledge.connect")
+                    Button("Connect selected") { Task { await model.connect(label: relation) } }.disabled(model.selectedNodes.count != 2 || relation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || relation.count > 300).accessibilityIdentifier("knowledge.connect")
                     TextField("Cluster", text: $cluster).textFieldStyle(.roundedBorder).frame(maxWidth: 130)
-                    Button("Group selected") { Task { for node in board.nodes where model.selectedNodes.contains(node.id) { var item = node; item.cluster = cluster; _ = await model.perform(.placeNode(board: board.id, node: item)) } } }.disabled(model.selectedNodes.isEmpty)
+                    Button("Group selected") { Task { for node in board.nodes where model.selectedNodes.contains(node.id) { var item = node; item.cluster = cluster; _ = await model.perform(.placeNode(board: board.id, node: item)) } } }.disabled(model.selectedNodes.isEmpty || cluster.count > 100)
                 }.padding(.horizontal, 12).padding(.bottom, 10).controlSize(.small)
                 GeometryReader { geometry in
+                    let translations = drag.mapValues { CanvasPoint(x: $0.width, y: $0.height) }
+                    let layout = KnowledgeCanvasLayout(board: board, cards: model.memory.cards, origin: .init(x: pan.width, y: pan.height), zoom: zoom, viewport: .init(x: geometry.size.width, y: geometry.size.height), query: query, translations: translations)
                     ZStack(alignment: .topLeading) {
                         Adaptive.surface.opacity(0.5).contentShape(Rectangle()).gesture(DragGesture().onChanged { pan = .init(width: panStart.width + $0.translation.width, height: panStart.height + $0.translation.height) }.onEnded { _ in panStart = pan })
                         Canvas { context, _ in
-                            for edge in board.edges {
-                                guard let from = board.nodes.first(where: { $0.id == edge.from }), let to = board.nodes.first(where: { $0.id == edge.to }) else { continue }
-                                let a = center(from), b = center(to)
+                            let groups = Dictionary(grouping: layout.visibleNodes.filter { !$0.cluster.isEmpty }, by: \.cluster)
+                            for (name, nodes) in groups {
+                                let points = nodes.compactMap { layout.centers[$0.id] }
+                                if let x = points.map(\.x).min(), let y = points.map(\.y).min(), let maxX = points.map(\.x).max(), let maxY = points.map(\.y).max() {
+                                    let rect = CGRect(x: x - 125 * zoom - 12, y: y - 75 * zoom - 24, width: maxX - x + 250 * zoom + 24, height: maxY - y + 150 * zoom + 36)
+                                    context.fill(Path(roundedRect: rect, cornerRadius: 16), with: .color(Color.accentColor.opacity(0.04)))
+                                    context.draw(Text(name).font(.caption2).foregroundStyle(.secondary), at: CGPoint(x: rect.minX + 12, y: rect.minY + 12), anchor: .leading)
+                                }
+                            }
+                            for edge in layout.connections {
+                                let a = CGPoint(x: edge.start.x, y: edge.start.y), b = CGPoint(x: edge.end.x, y: edge.end.y)
                                 var line = Path(); line.move(to: a); line.addLine(to: b)
                                 context.stroke(line, with: .color(.secondary.opacity(0.6)), lineWidth: 1.5)
                                 context.draw(Text(edge.label).font(.caption).foregroundStyle(.secondary), at: .init(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2))
                             }
                         }.allowsHitTesting(false)
-                        ForEach(board.nodes) { node in
-                            if let card = model.memory.cards.first(where: { $0.id == node.id }), query.isEmpty || KnowledgeSearchIndex.matches(query, card.title + " " + card.text + " " + node.cluster) {
-                                let point = center(node)
-                                if point.x > -300 && point.y > -200 && point.x < geometry.size.width + 300 && point.y < geometry.size.height + 200 {
+                        ForEach(layout.visibleNodes) { node in
+                            if let card = layout.cards[node.id], let center = layout.centers[node.id] {
+                                let point = CGPoint(x: center.x, y: center.y)
+                                Group {
                                     canvasCard(card, node: node).frame(width: 250, height: 150).scaleEffect(zoom).position(point)
                                         .gesture(DragGesture(minimumDistance: 4).onChanged { drag[node.id] = $0.translation }.onEnded {
                                             let target = CanvasPoint(x: node.point.x + $0.translation.width / zoom, y: node.point.y + $0.translation.height / zoom)
@@ -295,20 +311,17 @@ private struct KnowledgeCanvas: View {
                             }
                         }
                     }.clipped().gesture(MagnificationGesture().onChanged { zoom = min(2, max(0.25, zoomStart * $0)) }.onEnded { _ in zoomStart = zoom })
-                }.accessibilityIdentifier("knowledge.canvas")
+                }.accessibilityElement(children: .contain).accessibilityIdentifier("knowledge.canvas")
                 if !board.edges.isEmpty {
                     ScrollView(.horizontal) { HStack { ForEach(board.edges) { edge in Button { Task { _ = await model.perform(.disconnect(board: board.id, edge: edge.id)) } } label: { Label(edge.label, systemImage: "xmark.circle") }.accessibilityLabel(Text("Remove connection") + Text(": " + edge.label)) } }.padding(8) }.frame(height: 42)
                 }
             } else { ContentUnavailableView("No boards", systemImage: "square.grid.2x2", description: Text("Add saved cards to a board, then select two to connect them.")) }
         }
     }
-    private func center(_ node: CanvasNode) -> CGPoint {
-        .init(x: node.point.x * zoom + pan.width + 125 * zoom + (drag[node.id]?.width ?? 0), y: node.point.y * zoom + pan.height + 75 * zoom + (drag[node.id]?.height ?? 0))
-    }
     private func canvasCard(_ card: KnowledgeCard, node: CanvasNode) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             HStack {
-                Button { if model.selectedNodes.contains(card.id) { model.selectedNodes.remove(card.id) } else { model.selectedNodes.insert(card.id) } } label: { Label(card.kind.label, systemImage: model.selectedNodes.contains(card.id) ? "checkmark.circle.fill" : card.kind.symbol).font(.caption) }.buttonStyle(.plain).accessibilityIdentifier("knowledge.node.select").accessibilityValue(model.selectedNodes.contains(card.id) ? "Selected" : "Not selected")
+                Button { if model.selectedNodes.contains(card.id) { model.selectedNodes.remove(card.id) } else { model.selectedNodes.insert(card.id) } } label: { Label(card.kind.label, systemImage: model.selectedNodes.contains(card.id) ? "checkmark.circle.fill" : card.kind.symbol).font(.caption) }.buttonStyle(.plain).accessibilityIdentifier("knowledge.node.select").accessibilityValue(Text(LocalizedStringKey(model.selectedNodes.contains(card.id) ? "Selected" : "Not selected")))
                 Spacer()
             }
             Text(card.title).font(.headline).lineLimit(2)
@@ -356,6 +369,6 @@ private struct KnowledgeComparison: View {
                     if await model.perform(.saveCard(card)) { model.comparisonVisible = false; model.tab = "memory" }
                 } }.disabled(relation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty).accessibilityIdentifier("knowledge.relation.save")
             }
-        }.padding(24).frame(width: 680, height: 510).accessibilityIdentifier("knowledge.comparison")
+        }.padding(24).frame(width: 680, height: 510).accessibilityElement(children: .contain).accessibilityIdentifier("knowledge.comparison")
     }
 }

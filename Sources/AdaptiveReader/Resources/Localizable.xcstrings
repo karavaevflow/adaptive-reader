@@ -6167,6 +6167,193 @@
           }
         }
       }
+    },
+    "Reset search index": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset search index"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сбросить поисковый индекс"
+          }
+        }
+      }
+    },
+    "Index cleared. The next search rebuilds it locally.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Index cleared. The next search rebuilds it locally."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Индекс сброшен. Следующий поиск пересоздаст его локально."
+          }
+        }
+      }
+    },
+    "A card needs a title, text and one to eight valid sources. Shorten oversized fields or tags.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A card needs a title, text and one to eight valid sources. Shorten oversized fields or tags."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Карточке нужны название, текст и от одного до восьми источников. Сократите слишком длинные поля или теги."
+          }
+        }
+      }
+    },
+    "A reading path needs a goal and one to one hundred source-linked steps.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A reading path needs a goal and one to one hundred source-linked steps."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Маршруту нужны цель и от одного до ста шагов со ссылками на источники."
+          }
+        }
+      }
+    },
+    "Searching library": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Searching library"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поиск по библиотеке"
+          }
+        }
+      }
+    },
+    "Resetting index": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resetting index"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сброс индекса"
+          }
+        }
+      }
+    },
+    "Preparing timeline": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing timeline"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подготовка хронологии"
+          }
+        }
+      }
+    },
+    "No matching excerpts": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No matching excerpts"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подходящие фрагменты не найдены"
+          }
+        }
+      }
+    },
+    "Search your library": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search your library"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поиск по библиотеке"
+          }
+        }
+      }
+    },
+    "Try a term or filter the books, authors and collections.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try a term or filter the books, authors and collections."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Введите термин или уточните книги, авторов и коллекции."
+          }
+        }
+      }
+    },
+    "This book has no available outline or saved events yet.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This book has no available outline or saved events yet."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "У этой книги пока нет доступного оглавления или сохранённых событий."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

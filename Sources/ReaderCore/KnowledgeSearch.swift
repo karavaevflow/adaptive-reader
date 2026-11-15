@@ -1,6 +1,7 @@
 import Foundation
 import NaturalLanguage
 import PDFKit
+import CryptoKit
 
 public struct KnowledgeSearchFilter: Sendable {
     public var bookIDs: Set<UUID>
@@ -37,8 +38,18 @@ public struct KnowledgeSearchResult: Sendable {
 }
 private struct KnowledgeIndexCache: Codable { let schemaVersion: Int; let passages: [EvidencePassage]; let truncated: Bool }
 extension LibraryStore {
+    private func knowledgeCacheURL(for book: BookRecord) throws -> URL {
+        guard book.revision.count == 64, book.revision.allSatisfy(\.isHexDigit) else { throw ReaderError.sourceChanged }
+        return root.appendingPathComponent("Cache/Knowledge/\(book.id.uuidString)-\(book.revision).json")
+    }
+    public func invalidateKnowledgeCache(for book: BookRecord) throws {
+        let url = try knowledgeCacheURL(for: book)
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        // Replace derived text with an invalid marker, never touch original/user data.
+        try JSONEncoder().encode(KnowledgeIndexCache(schemaVersion: 0, passages: [], truncated: false)).write(to: url, options: .atomic)
+    }
     public func cachedKnowledgePassages(for book: BookRecord) throws -> ([EvidencePassage], Bool)? {
-        let url = root.appendingPathComponent("Cache/Knowledge/\(book.id.uuidString)-\(book.revision).json")
+        let url = try knowledgeCacheURL(for: book)
         guard FileManager.default.fileExists(atPath: url.path), (try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? Int.max) <= 40 * 1024 * 1024,
               let value = try? JSONDecoder().decode(KnowledgeIndexCache.self, from: Data(contentsOf: url)), value.schemaVersion == 1,
               value.passages.count <= 32_000, value.passages.reduce(0, { $0 + $1.text.utf8.count }) <= 25 * 1024 * 1024,
@@ -50,11 +61,15 @@ extension LibraryStore {
         return (value.passages, value.truncated)
     }
     public func cacheKnowledgePassages(_ passages: [EvidencePassage], truncated: Bool, for book: BookRecord) throws {
-        let url = root.appendingPathComponent("Cache/Knowledge/\(book.id.uuidString)-\(book.revision).json")
+        let url = try knowledgeCacheURL(for: book)
         guard passages.count <= 32_000 else { throw CompanionError.limitExceeded }
         let data = try JSONEncoder().encode(KnowledgeIndexCache(schemaVersion: 1, passages: passages, truncated: truncated))
         guard data.count <= 40 * 1024 * 1024 else { throw CompanionError.limitExceeded }
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let files = try FileManager.default.contentsOfDirectory(at: url.deletingLastPathComponent(), includingPropertiesForKeys: [.fileSizeKey])
+        let otherBytes = try files.filter { $0 != url }.reduce(0) { $0 + (try $1.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) }
+        // Bounded derived disk cache; over-budget sources remain searchable uncached.
+        guard otherBytes + data.count <= 128 * 1024 * 1024 else { return }
         try data.write(to: url, options: .atomic)
     }
 }
@@ -62,6 +77,8 @@ extension LibraryStore {
 /// object crosses actors; all user records remain in LibraryStore, not this cache.
 public actor KnowledgeSearchIndex {
     private let store: LibraryStore
+    private var vectorCache: [String: [Double]] = [:]
+    public func clearTransientCache() { vectorCache = [:] }
     public init(store: LibraryStore) { self.store = store }
     public func passages(for book: BookRecord) async throws -> ([EvidencePassage], Bool) {
         try Task.checkCancellation()
@@ -97,17 +114,20 @@ public actor KnowledgeSearchIndex {
                         hits.append(Self.hit(item, book: book))
                     }
                 }
+            } catch is CancellationError { throw CancellationError() }
+            catch { issues.append(book.title + ": " + error.localizedDescription) }
+            // Reader-owned notes remain searchable even if the original is unavailable.
+            do {
                 let notes = try await store.notes(for: book)
                 for note in notes where Self.matches(query, note.text + " " + note.quotation) {
                     let source = KnowledgeSource(anchor: note.anchor, bookTitle: book.title, location: Self.location(note.anchor), quotation: String(note.quotation.prefix(1600)))
                     if !source.quotation.isEmpty { hits.append(.init(id: "note:" + note.id.uuidString, source: source, kind: .readerNote, text: note.text)) }
                 }
-            } catch is CancellationError { throw CancellationError() }
-            catch { issues.append(book.title + ": " + error.localizedDescription) }
+            } catch { issues.append(book.title + ": " + error.localizedDescription) }
             if hits.count >= 400 { truncated = true; break }
         }
         let saved = memory.cards.filter { $0.sources.contains { allowed.contains($0.anchor.bookID) } }
-        let (ranked, semantic) = try Self.rankSaved(query, cards: saved)
+        let (ranked, semantic) = try rankSaved(query, cards: saved)
         for card in ranked {
             guard let source = card.sources.first(where: { allowed.contains($0.anchor.bookID) }) else { continue }
             hits.append(.init(id: "card:" + card.id.uuidString, source: source, kind: card.kind, text: card.text, cardID: card.id))
@@ -131,7 +151,7 @@ public actor KnowledgeSearchIndex {
     }
     /// Uses only installed Apple sentence embeddings; never requests a model download.
     /// Explicit lexical fallback when a language/model is absent.
-    public static func rankSaved(_ query: String, cards: [KnowledgeCard]) throws -> ([KnowledgeCard], Bool) {
+    private func rankSaved(_ query: String, cards: [KnowledgeCard]) throws -> ([KnowledgeCard], Bool) {
         let language = NLLanguageRecognizer.dominantLanguage(for: query)
         let embedding = language.flatMap { NLEmbedding.sentenceEmbedding(for: $0) }
         let q = embedding?.vector(for: String(query.prefix(500)))
@@ -139,11 +159,18 @@ public actor KnowledgeSearchIndex {
         for (index, card) in cards.enumerated() {
             if index % 32 == 0 { try Task.checkCancellation() }
             let content = card.title + " " + card.text + " " + card.comment + " " + card.tags.joined(separator: " ")
-            var score = matches(query, content) ? 2.0 : 0
-            if let q, let vector = embedding?.vector(for: String(content.prefix(500))), q.count == vector.count {
-                let dot = zip(q, vector).reduce(0) { $0 + $1.0 * $1.1 }
-                let norm = sqrt(q.reduce(0) { $0 + $1 * $1 } * vector.reduce(0) { $0 + $1 * $1 })
-                if norm > 0, dot / norm > 0.55 { score += dot / norm }
+            var score = Self.matches(query, content) ? 2.0 : 0
+            if let q, let embedding, let language {
+                let input = String(content.prefix(500))
+                let fingerprint = SHA256.hash(data: Data(input.utf8)).map { String(format: "%02x", $0) }.joined()
+                let key = language.rawValue + ":" + String(embedding.revision) + ":" + fingerprint
+                let vector = vectorCache[key] ?? embedding.vector(for: input)
+                if let vector, q.count == vector.count {
+                    if vectorCache[key] == nil, vectorCache.count < 2000 { vectorCache[key] = vector }
+                    let dot = zip(q, vector).reduce(0) { $0 + $1.0 * $1.1 }
+                    let norm = sqrt(q.reduce(0) { $0 + $1 * $1 } * vector.reduce(0) { $0 + $1 * $1 })
+                    if norm > 0, dot / norm > 0.55 { score += dot / norm }
+                }
             }
             if score > 0 { scored.append((card, score)) }
         }

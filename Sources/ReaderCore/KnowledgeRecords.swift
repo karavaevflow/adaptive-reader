@@ -1,5 +1,15 @@
 import Foundation
 
+public enum KnowledgeError: Error, LocalizedError {
+    case invalidCard, invalidPath
+    public var errorDescription: String? {
+        switch self {
+        case .invalidCard: "A card needs a title, text and one to eight valid sources. Shorten oversized fields or tags."
+        case .invalidPath: "A reading path needs a goal and one to one hundred source-linked steps."
+        }
+    }
+}
+
 public enum KnowledgeKind: String, Codable, CaseIterable, Sendable { case quotation, readerNote, modelInference }
 public struct KnowledgeSource: Codable, Equatable, Sendable, Identifiable {
     public let anchor: SourceAnchor
@@ -34,7 +44,7 @@ public struct KnowledgeCard: Codable, Sendable, Equatable, Identifiable {
         guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, title.count <= 300,
               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, text.count <= 8000,
               comment.count <= 8000, tags.count <= 32, tags.allSatisfy({ !$0.isEmpty && $0.count <= 80 }),
-              (1...8).contains(sources.count), createdAt.timeIntervalSince1970.isFinite else { throw ReaderError.invalidAnchor }
+              (1...8).contains(sources.count), createdAt.timeIntervalSince1970.isFinite else { throw KnowledgeError.invalidCard }
         for source in sources { try source.validate() }
     }
 }
@@ -111,7 +121,7 @@ public struct KnowledgeSnapshot: Codable, Sendable, Equatable {
             for edge in board.edges { guard edge.from != edge.to, nodes.contains(edge.from), nodes.contains(edge.to), !edge.label.isEmpty, edge.label.count <= 300 else { throw ReaderError.invalidAnchor } }
         }
         for path in paths {
-            guard !path.goal.isEmpty, path.goal.count <= 4000, (1...100).contains(path.steps.count), Set(path.steps.map(\.id)).count == path.steps.count else { throw ReaderError.invalidAnchor }
+            guard !path.goal.isEmpty, path.goal.count <= 4000, (1...100).contains(path.steps.count), Set(path.steps.map(\.id)).count == path.steps.count else { throw KnowledgeError.invalidPath }
             for step in path.steps { try step.source.validate(); guard !step.title.isEmpty, step.title.count <= 500 else { throw ReaderError.invalidAnchor } }
         }
         for item in metadata { guard item.author.count <= 300, item.collection.count <= 100 else { throw ReaderError.invalidAnchor } }
