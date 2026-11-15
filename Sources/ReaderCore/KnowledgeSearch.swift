@@ -51,7 +51,7 @@ extension LibraryStore {
     public func cachedKnowledgePassages(for book: BookRecord) throws -> ([EvidencePassage], Bool)? {
         let url = try knowledgeCacheURL(for: book)
         guard FileManager.default.fileExists(atPath: url.path), (try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? Int.max) <= 40 * 1024 * 1024,
-              let value = try? JSONDecoder().decode(KnowledgeIndexCache.self, from: Data(contentsOf: url)), value.schemaVersion == 1,
+              let value = try? JSONDecoder().decode(KnowledgeIndexCache.self, from: Data(contentsOf: url)), value.schemaVersion == 1, !value.passages.isEmpty,
               value.passages.count <= 32_000, value.passages.reduce(0, { $0 + $1.text.utf8.count }) <= 25 * 1024 * 1024,
               Set(value.passages.map(\.id)).count == value.passages.count else { return nil }
         for passage in value.passages {
@@ -96,6 +96,7 @@ public actor KnowledgeSearchIndex {
             passages = index.passages; truncated = index.truncated
         }
         try Task.checkCancellation()
+        guard !passages.isEmpty else { throw CompanionError.noText }
         try await store.cacheKnowledgePassages(passages, truncated: truncated, for: book)
         return (passages, truncated)
     }

@@ -135,3 +135,17 @@ private func importKnowledgePDF(_ store: LibraryStore, title: String = "Learning
     let filtered = KnowledgeCanvasLayout(board: board, cards: cards, origin: .init(x: 0, y: 0), zoom: 1, viewport: .init(x: 800, y: 560), query: "Card 0")
     #expect(!filtered.visibleNodes.isEmpty)
 }
+
+@Test func librarySearchDisclosesImageOnlyAndLockedSources() async throws {
+    let store = knowledgeStore()
+    let image = try knowledgeFixture("EPUB/image-only.epub")
+    let book = try await store.importBook(data: image, id: UUID(), title: "Image-only EPUB", revision: PDFReaderEngine.revision(image), format: .epub)
+    let locked = try knowledgeFixture("protected.pdf")
+    _ = try await store.importBook(data: locked, id: UUID(), title: "Locked PDF", revision: PDFReaderEngine.revision(locked))
+    let index = KnowledgeSearchIndex(store: store)
+    await #expect(throws: CompanionError.noText) { try await index.passages(for: book) }
+    let result = try await index.search("stable")
+    #expect(result.hits.isEmpty)
+    #expect(result.issues.contains { $0.contains("Image-only EPUB") })
+    #expect(result.issues.contains { $0.contains("Locked PDF") })
+}
