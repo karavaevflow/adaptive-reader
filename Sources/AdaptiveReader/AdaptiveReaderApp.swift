@@ -80,6 +80,7 @@ enum WorkspaceCommand: String, CaseIterable, Identifiable, Hashable {
     case toggleSidebar, toggleAppearance, toggleInspector, zoomIn, zoomOut
     case commandCenter, readingTools, back, forward, toggleSpotlight, spotlightNext, spotlightPrevious, nextPassage, previousPassage
     case toggleAutoScroll, toggleSession, stopSession, miniReader, returnToReader, companion
+    case knowledge, saveKnowledge
     case study, newCard, newNote, highlightPassage, listenFromHere, resumeListening, toggleListening, stopListening
     var id: String { rawValue }
     var label: String {
@@ -111,6 +112,8 @@ enum WorkspaceCommand: String, CaseIterable, Identifiable, Hashable {
         case .miniReader: "Mini Reader"
         case .returnToReader: "Return to Reader"
         case .companion: "AI Companion"
+        case .knowledge: "Knowledge workspace"
+        case .saveKnowledge: "Save to Knowledge"
         case .study: "Study"
         case .newCard: "New card"
         case .newNote: "New note"
@@ -126,6 +129,8 @@ enum WorkspaceCommand: String, CaseIterable, Identifiable, Hashable {
         case .openDocument, .importReference: !session.busy
         case .commandCenter, .toggleSidebar, .toggleAppearance, .toggleInspector: true
         case .readingTools: true
+        case .knowledge: true
+        case .saveKnowledge: session.record != nil && session.engine?.capabilities.contains(.textSelection) == true
         case .study: session.record != nil
         case .newCard, .newNote, .highlightPassage: session.record != nil && session.engine?.capabilities.contains(.textSelection) == true
         case .listenFromHere, .toggleListening: session.engine?.capabilities.contains(.readAloud) == true
@@ -197,6 +202,8 @@ struct WorkspaceCommands: Commands {
             Button("Command Center") { actions?.perform(.commandCenter) }.keyboardShortcut("k").disabled(actions == nil)
             Button("Reading tools") { actions?.perform(.readingTools) }.disabled(actions == nil)
             Button("AI Companion") { actions?.perform(.companion) }.disabled(actions?.hasBook != true)
+            Button("Knowledge workspace") { actions?.perform(.knowledge) }.keyboardShortcut("j", modifiers: [.command, .shift])
+            Button("Save to Knowledge") { actions?.perform(.saveKnowledge) }.disabled(actions?.enabledCommands.contains(.saveKnowledge) != true)
             Button("Study") { actions?.perform(.study) }.keyboardShortcut("l", modifiers: [.command, .shift]).disabled(actions?.enabledCommands.contains(.study) != true)
             Button("Listen from here") { actions?.perform(.listenFromHere) }.disabled(actions?.enabledCommands.contains(.listenFromHere) != true)
             Button("Pause or continue listening") { actions?.perform(.toggleListening) }.keyboardShortcut("l", modifiers: [.command, .option]).disabled(actions?.enabledCommands.contains(.toggleListening) != true)

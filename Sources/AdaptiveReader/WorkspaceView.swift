@@ -117,6 +117,12 @@ struct WorkspaceView: View {
         .sheet(isPresented: Binding(get: { session.study.visible && (session.surfaceView?.window?.contentView?.bounds.width ?? 800) < Adaptive.Layout.inspectorThreshold }, set: { session.study.visible = $0 })) {
             StudyView(session: session, model: session.study).frame(width: 460, height: min(640, max(460, (session.surfaceView?.window?.contentView?.bounds.height ?? 690) - 40)))
         }
+        .sheet(isPresented: Binding(get: { session.knowledge.visible }, set: { if !$0 { session.knowledge.close() } }), onDismiss: {
+            nativeFocusRequest = NativeFocusRequest(identifier: "knowledge.toggle")
+        }) {
+            KnowledgeView(model: session.knowledge)
+                .frame(width: min(1120, max(740, (session.surfaceView?.window?.contentView?.bounds.width ?? 800) - 40)), height: min(680, max(480, (session.surfaceView?.window?.contentView?.bounds.height ?? 740) - 50)))
+        }
         .sheet(isPresented: $catalogVisible) {
             VStack(spacing: 0) {
                 ComponentCatalog()
@@ -434,7 +440,7 @@ struct WorkspaceView: View {
         switch command {
         case .commandCenter: session.setAutoScroll(false); session.commandCenterVisible.toggle()
         case .readingTools: readingToolsVisible = true
-        case .study, .newNote, .newCard, .highlightPassage, .listenFromHere, .resumeListening, .toggleListening, .stopListening, .back, .forward, .nextPassage, .previousPassage, .toggleSpotlight, .spotlightNext, .spotlightPrevious, .toggleAutoScroll, .toggleSession, .stopSession, .miniReader, .returnToReader: break
+        case .knowledge, .saveKnowledge, .study, .newNote, .newCard, .highlightPassage, .listenFromHere, .resumeListening, .toggleListening, .stopListening, .back, .forward, .nextPassage, .previousPassage, .toggleSpotlight, .spotlightNext, .spotlightPrevious, .toggleAutoScroll, .toggleSession, .stopSession, .miniReader, .returnToReader: break
         case .openDocument: if !session.busy { session.setAutoScroll(false); importReference = false; importing = true }
         case .importReference: if !session.busy { session.setAutoScroll(false); importReference = true; importing = true }
         case .closeBook: searchVisible = false; Task { await session.closeBook() }
@@ -502,6 +508,7 @@ struct WorkspaceView: View {
                 Toggle("Keep Awake", systemImage: "sun.max", isOn: Binding(get: { session.keepAwake }, set: { session.setKeepAwake($0) }))
                     .toggleStyle(.button).labelStyle(.iconOnly).accessibilityIdentifier("reader.awake")
             }
+            Button("Knowledge workspace", systemImage: "square.grid.2x2") { perform(.knowledge, width: width) }.accessibilityIdentifier("knowledge.toggle")
             Button("Open book", systemImage: "doc.badge.plus") { perform(.openDocument, width: width) }.disabled(session.busy).accessibilityIdentifier("reader.open")
             Button("Appearance", systemImage: "paintpalette") { perform(.toggleAppearance, width: width) }
                 .focusable()
@@ -544,6 +551,8 @@ struct WorkspaceView: View {
             }
             Menu {
                 Button("Command Center") { perform(.commandCenter, width: width) }
+                Button("Knowledge workspace") { perform(.knowledge, width: width) }
+                Button("Save to Knowledge") { perform(.saveKnowledge, width: width) }.disabled(!WorkspaceCommand.saveKnowledge.isEnabled(in: session))
                 Button("Study", systemImage: "rectangle.stack") { perform(.study, width: width) }.disabled(session.record == nil).accessibilityIdentifier("study.more")
                 Button("AI Companion") { perform(.companion, width: width) }.disabled(!hasBook)
                 Button("Reading tools") { perform(.readingTools, width: width) }

@@ -253,6 +253,8 @@ public actor LibraryStore {
         try JSONEncoder().encode(state).write(to: stateURL(record.id), options: .atomic)
     }
 
+    public func bookRecord(_ id: UUID) throws -> BookRecord { try readRecord(id) }
+
     private func readRecord(_ id: UUID) throws -> BookRecord {
         let url = recordURL(id), data = try Data(contentsOf: url)
         let record = try JSONDecoder().decode(BookRecord.self, from: data)
