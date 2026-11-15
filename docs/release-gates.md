@@ -14,3 +14,5 @@ Phase 0 is the prerequisite for v0.1. Every release is evaluated in RU/EN, Syste
 | v1.0 Stable public | Core workflows across languages, appearances, window sizes and accessibility | Minimum supported OS: launch, large files, search, long reading; regressions resolved | Clean-Mac install/offline use; update retains library/notes/relations; GitHub release includes binary, checksum, changelog and actual signing status |
 
 v0.4 application-source gates passed at `0c5d73c`: [acceptance report](v0.4.md), [Release measurements](../Research/v0.4/README.md), [full CI](https://github.com/karavaevflow/adaptive-reader/actions/runs/43243196440). The distributed binary is built from that revision. v0.5 has not started.
+
+v0.5 application-source gates passed at `2a244f4`, fully tested in commit `8447ef6`: [acceptance report](v0.5.md), [Release measurements](../Research/v0.5/README.md), [full CI](https://github.com/karavaevflow/adaptive-reader/actions/runs/43678749887). v0.6 has not started.

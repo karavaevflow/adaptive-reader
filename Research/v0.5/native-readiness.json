@@ -1,0 +1,28 @@
+{
+  "source": "45bb7739fec17b3150f9732eaef8cd35876bf649",
+  "bundleID": "com.karavaevflow.AdaptiveReader.KnowledgeQA.v05",
+  "scenario": "Isolated Release QA copy; one PDF, two cards, one edge; five action-to-accessibility-readiness observations including automation/IPC overhead. Not GPU frame times.",
+  "boardReadyMS": [
+    846,
+    842,
+    830,
+    854,
+    821
+  ],
+  "accessibleMoveReadyMS": [
+    826,
+    807,
+    827,
+    798,
+    803
+  ],
+  "canvasViewSHA256": "95e445c0d33c4126e177e008e3a322d32006a9a7635d1d8c076244578338186d",
+  "observed": [
+    "Source quotation and reader note saved",
+    "Two cards selected and connected",
+    "Accessible increment moved source card; Undo move appeared",
+    "Source return and sheet closure restored focus to Knowledge toolbar button",
+    "QA process quit, confirmed procNotFound"
+  ],
+  "audio": "No speech action was invoked; no sound enabled."
+}

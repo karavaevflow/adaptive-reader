@@ -31,6 +31,7 @@ Smart Back/Forward returns to the source after a footnote, search result or comm
 | ⇧⌘F / Escape | Enter / leave Focus |
 | ⇧⌘K | Toggle Keep Awake |
 | ⌘K | Command Center |
+| ⇧⌘J | Knowledge workspace |
 | ⌘[ / ⌘] | Smart Back / Forward |
 | ⌘⌥↑ / ⌘⌥↓ | Previous / next text block |
 | ⌥↑ / ⌥↓ | Move enabled Spotlight in the document |
@@ -48,3 +49,7 @@ To connect later, open **View → AI Companion → AI settings**. Local mode exp
 Phase 0, the v0.1 offline PDF workflow and v0.2 daily reading have passed acceptance. The v0.2 report includes the real 25-minute Release session, final-source CI and the precise local automation limitation. v0.3 adds the optional AI integration; connecting a real model and judging its answers are deferred by the owner. See [acceptance evidence](docs/phase-0.md) and the [release gates](docs/release-gates.md) for all milestones. The first UI-test run may require confirming macOS “Enable UI Automation”.
 
 The [v0.4 report](docs/v0.4.md) records EPUB, study and local speech verification. EPUB typography lives in Appearance, separately from the shell theme. View → Study (`⇧⌘L`) opens editable notes, persistent highlights, cards, optional Recall and Listen & Read. Markdown export and portable card JSON are under Study → More; imports keep existing cards and require the exact source revision. `⌥⌘L` pauses/continues speech. Listening position survives restart, and closing the source stops playback. macOS speech uses installed on-device voices; a real AI model remains optional and deferred. Sources are not rewritten. The sandbox permits user-selected Read/Write for native export; retained source-reference bookmarks remain read-only.
+
+The [v0.5 report](docs/v0.5.md) tracks connected knowledge. **View → Knowledge workspace** opens Memory, cross-book search, Canvas, Timeline and reading paths. Save a selected/current passage or write a source-linked reader note; cards distinguish author quotations, reader text and model inferences. Add cards to boards, select two to connect, name clusters, pan/zoom and move cards by dragging or accessible commands. JSON/Markdown export and index reset are under More. Imports keep existing edits and show unavailable sources explicitly; JSON does not contain the original book assets.
+
+Search is local, cancellable and filtered by books, title, author and collection. Author/collection can be edited in Timeline. Installed macOS semantic models improve saved-card search when available; otherwise text search remains usable. Compare selected source excerpts offline, save your connection, or explicitly ask the configured AI provider. Library AI cannot execute reader actions and cited comparisons must refer to both books. Reading paths are suggestions from matching available excerpts: edit, reorder and mark steps completed. Timeline contains real chapters/outlines and saved ideas, never invented events. No additional model is installed or enabled.
