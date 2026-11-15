@@ -350,7 +350,14 @@ final class OfflineReaderTests: XCTestCase {
         bar.click()
         let item = bar.menuItems[command].firstMatch
         XCTAssertTrue(item.isEnabled, "Command must remain enabled: \(command)")
-        item.click()
+        if group == "View" && command == "Command Center" {
+            // Native SwiftUI menu items share `menuAction:`. XCTest can re-resolve
+            // that identifier to a different item after hovering. Availability is
+            // checked above; use the documented shortcut for the command action.
+            app.typeKey(.escape, modifierFlags: [])
+            app.typeKey("k", modifierFlags: [.command])
+            XCTAssertTrue(app.textFields["command.query"].firstMatch.waitForExistence(timeout: 10))
+        } else { item.click() }
     }
     @MainActor private func snapshot(_ app: XCUIApplication, _ name: String) {
         let shot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
