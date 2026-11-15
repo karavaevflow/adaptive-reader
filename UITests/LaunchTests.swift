@@ -598,6 +598,11 @@ final class OfflineReaderTests: XCTestCase {
         app.terminate()
     }
 
+    @MainActor private func expectKnowledgeCount(_ query: XCUIElementQuery, _ expected: Int) {
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in query.count == expected }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed)
+        XCTAssertEqual(query.count, expected)
+    }
     @MainActor private func knowledgeTab(_ app: XCUIApplication, _ title: String) {
         let item = app.radioButtons[title].firstMatch
         XCTAssertTrue(item.waitForExistence(timeout: 5)); item.click()
@@ -622,7 +627,7 @@ final class OfflineReaderTests: XCTestCase {
         knowledgeTab(app, "Memory"); saveKnowledgePassage(app, title: "EPUB concept")
         app.buttons.matching(identifier: "knowledge.card.canvas").element(boundBy: 1).click()
         let nodes = app.buttons.matching(identifier: "knowledge.node.select")
-        XCTAssertEqual(nodes.count, 2); nodes.element(boundBy: 0).click(); nodes.element(boundBy: 1).click()
+        expectKnowledgeCount(nodes, 2); nodes.element(boundBy: 0).click(); nodes.element(boundBy: 1).click()
         paste("Shared source anchors", into: app.textFields["knowledge.connection.label"], app: app)
         app.buttons["knowledge.connect"].click()
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Shared source anchors")).firstMatch.waitForExistence(timeout: 5))
@@ -641,7 +646,7 @@ final class OfflineReaderTests: XCTestCase {
         XCTAssertTrue(app.buttons["knowledge.compare"].isEnabled); app.buttons["knowledge.compare"].click()
         let verification = app.buttons.matching(NSPredicate(format: "label == %@", "Verify source"))
         XCTAssertTrue(verification.firstMatch.waitForExistence(timeout: 10))
-        XCTAssertEqual(verification.count, 2); verification.element(boundBy: 0).click()
+        expectKnowledgeCount(verification, 2); verification.element(boundBy: 0).click()
         XCTAssertTrue(app.sheets.firstMatch.waitForNonExistence(timeout: 10))
         XCTAssertTrue(app.windows["reflow"].waitForExistence(timeout: 5))
         app.buttons["knowledge.toggle"].firstMatch.click(); app.buttons["knowledge.compare"].click()
@@ -655,11 +660,11 @@ final class OfflineReaderTests: XCTestCase {
         app.buttons["knowledge.relation.save"].click()
         XCTAssertTrue(app.staticTexts["Both books preserve stable source anchors."].firstMatch.waitForExistence(timeout: 5))
         app.buttons.matching(identifier: "knowledge.card.canvas").element(boundBy: 2).click()
-        XCTAssertEqual(app.buttons.matching(identifier: "knowledge.node.select").count, 3)
+        expectKnowledgeCount(app.buttons.matching(identifier: "knowledge.node.select"), 3)
         snapshot(app, "v05-canvas-flow")
         let canvasQuery = app.textFields["knowledge.canvas.query"]
         paste("EPUB", into: canvasQuery, app: app); canvasQuery.typeKey(.return, modifierFlags: [])
-        XCTAssertEqual(app.buttons.matching(identifier: "knowledge.node.select").count, 1)
+        expectKnowledgeCount(app.buttons.matching(identifier: "knowledge.node.select"), 1)
         knowledgeTab(app, "Library search"); app.buttons["knowledge.path.suggest"].click()
         let goal = app.textFields["knowledge.path.goal"].firstMatch
         XCTAssertTrue(goal.waitForExistence(timeout: 5)); paste("My source reading route", into: goal, app: app)
@@ -674,7 +679,7 @@ final class OfflineReaderTests: XCTestCase {
         let restored = launch(id, specimen: false)
         restored.buttons["knowledge.toggle"].firstMatch.click(); knowledgeTab(restored, "Canvas")
         XCTAssertTrue(restored.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Shared source anchors")).firstMatch.waitForExistence(timeout: 5))
-        XCTAssertEqual(restored.buttons.matching(identifier: "knowledge.node.select").count, 3)
+        expectKnowledgeCount(restored.buttons.matching(identifier: "knowledge.node.select"), 3)
         restored.buttons.matching(identifier: "knowledge.node.select").firstMatch.click()
         restored.buttons["knowledge.board.new"].click()
         XCTAssertTrue(restored.buttons.matching(identifier: "knowledge.node.select").firstMatch.waitForNonExistence(timeout: 5))
