@@ -6354,6 +6354,23 @@
           }
         }
       }
+    },
+    "Press Return to reveal the first matching card.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Press Return to reveal the first matching card."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажмите Return, чтобы перейти к первой подходящей карточке."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

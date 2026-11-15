@@ -144,6 +144,8 @@ struct KnowledgeView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
                                 Toggle(isOn: Binding(get: { model.selectedHits.contains(hit.id) }, set: { if $0 { model.selectedHits.insert(hit.id) } else { model.selectedHits.remove(hit.id) } })) { Label(hit.kind.label, systemImage: hit.kind.symbol).font(.caption) }.toggleStyle(.checkbox)
+                                    .accessibilityLabel(Text(hit.kind.label) + Text(" · " + hit.source.bookTitle + " · " + hit.source.location))
+                                    .accessibilityIdentifier("knowledge.hit.select." + hit.id)
                                 Spacer(); Button("Save card") { model.saveHit(hit) }.accessibilityIdentifier("knowledge.hit.save")
                             }
                             Text(hit.text).textSelection(.enabled).lineLimit(6).accessibilityIdentifier("knowledge.hit.text")
@@ -152,7 +154,7 @@ struct KnowledgeView: View {
                     }
                     ForEach(Array(model.issues.enumerated()), id: \.offset) { _, issue in Label(issue, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(Adaptive.secondary) }
                 }
-            }
+            }.accessibilityElement(children: .contain).accessibilityIdentifier("knowledge.search.results")
         }.padding(16)
     }
     private var timeline: some View {
@@ -266,8 +268,9 @@ private struct KnowledgeCanvas: View {
                 Picker("Board", selection: $model.boardID) { ForEach(model.memory.boards) { Text($0.title).tag(Optional($0.id)) } }.frame(maxWidth: 200)
                 Button("New board") { Task { await model.newBoard() } }.accessibilityIdentifier("knowledge.board.new")
                 TextField("Find cards", text: $query).textFieldStyle(.roundedBorder).frame(maxWidth: 180)
+                    .onSubmit { revealFirstMatch() }.help("Press Return to reveal the first matching card.").accessibilityIdentifier("knowledge.canvas.query")
                 Spacer()
-                if let undo = model.undoMovement { Button("Undo move") { Task { if await model.perform(.placeNode(board: undo.0, node: undo.1)) { model.undoMovement = nil } } } }
+                if let undo = model.undoMovement, undo.0 == model.boardID { Button("Undo move") { Task { if await model.perform(.placeNode(board: undo.0, node: undo.1)) { model.undoMovement = nil } } } }
                 Button { zoom = max(0.25, zoom / 1.2); zoomStart = zoom } label: { Image(systemName: "minus.magnifyingglass") }.accessibilityLabel("Zoom out")
                 Text(zoom, format: .percent.precision(.fractionLength(0))).monospacedDigit().font(.caption)
                 Button { zoom = min(2, zoom * 1.2); zoomStart = zoom } label: { Image(systemName: "plus.magnifyingglass") }.accessibilityLabel("Zoom in")
@@ -320,6 +323,18 @@ private struct KnowledgeCanvas: View {
                     ScrollView(.horizontal) { HStack { ForEach(board.edges) { edge in Button { Task { _ = await model.perform(.disconnect(board: board.id, edge: edge.id)) } } label: { Label(edge.label, systemImage: "xmark.circle") }.accessibilityLabel(Text("Remove connection") + Text(": " + edge.label)) } }.padding(8) }.frame(height: 42)
                 }
             } else { ContentUnavailableView("No boards", systemImage: "square.grid.2x2", description: Text("Add saved cards to a board, then select two to connect them.")) }
+        }
+        .onChange(of: model.boardID) { model.selectedNodes = []; pan = .init(width: 40, height: 50); panStart = pan }
+        .onChange(of: query) { model.selectedNodes = [] }
+    }
+    private func revealFirstMatch() {
+        guard !query.isEmpty, let board = model.board else { return }
+        let cards = Dictionary(model.memory.cards.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        if let node = board.nodes.first(where: { node in
+            guard let card = cards[node.id] else { return false }
+            return KnowledgeSearchIndex.matches(query, card.title + " " + card.text + " " + node.cluster)
+        }) {
+            pan = .init(width: 40 - node.point.x * zoom, height: 50 - node.point.y * zoom); panStart = pan
         }
     }
     private func canvasCard(_ card: KnowledgeCard, node: CanvasNode) -> some View {

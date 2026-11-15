@@ -127,7 +127,11 @@ final class KnowledgeModel {
         if await perform(.restoreCard(card, boards: deleted.boards)) { self.deleted = nil }
     }
     func newBoard() async {
-        let board = KnowledgeBoard(title: NSLocalizedString("Reading Canvas", comment: "Board"))
+        let base = NSLocalizedString("Reading Canvas", comment: "Board")
+        let names = Set(memory.boards.map(\.title))
+        var title = base, suffix = 2
+        while names.contains(title) { title = base + " " + String(suffix); suffix += 1 }
+        let board = KnowledgeBoard(title: title)
         if await perform(.saveBoard(board)) { boardID = board.id; tab = "canvas" }
     }
     func addToBoard(_ card: KnowledgeCard) async {

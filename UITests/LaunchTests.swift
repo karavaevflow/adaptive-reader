@@ -621,18 +621,24 @@ final class OfflineReaderTests: XCTestCase {
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Shared source anchors")).firstMatch.waitForExistence(timeout: 5))
         knowledgeTab(app, "Library search")
         paste("stable", into: app.textFields["knowledge.search.query"], app: app); app.buttons["knowledge.search.run"].click()
-        let checks = app.checkBoxes.matching(NSPredicate(format: "label == %@", "Author quotation"))
-        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in checks.count >= 9 }, object: nil)
-        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 30), .completed)
-        checks.element(boundBy: 0).click(); checks.element(boundBy: 8).click()
+        let epubCheck = app.checkBoxes.matching(NSPredicate(format: "label CONTAINS %@", " · reflow · ")).firstMatch
+        XCTAssertTrue(epubCheck.waitForExistence(timeout: 30)); epubCheck.click()
+        let pdfCheck = app.checkBoxes.matching(NSPredicate(format: "label CONTAINS %@", " · text · ")).firstMatch
+        let results = app.scrollViews["knowledge.search.results"].firstMatch
+        XCTAssertTrue(results.waitForExistence(timeout: 5))
+        for _ in 0..<16 {
+            if pdfCheck.exists && pdfCheck.isHittable { break }
+            results.scroll(byDeltaX: 0, deltaY: -500)
+        }
+        XCTAssertTrue(pdfCheck.exists && pdfCheck.isHittable); pdfCheck.click()
         XCTAssertTrue(app.buttons["knowledge.compare"].isEnabled); app.buttons["knowledge.compare"].click()
         let verification = app.buttons.matching(NSPredicate(format: "label == %@", "Verify source"))
         XCTAssertEqual(verification.count, 2); verification.element(boundBy: 0).click()
-        XCTAssertTrue(app.buttons["knowledge.close"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.sheets.firstMatch.waitForNonExistence(timeout: 10))
         XCTAssertTrue(app.windows["reflow"].waitForExistence(timeout: 5))
         app.buttons["knowledge.toggle"].firstMatch.click(); app.buttons["knowledge.compare"].click()
         app.buttons.matching(NSPredicate(format: "label == %@", "Verify source")).element(boundBy: 1).click()
-        XCTAssertTrue(app.buttons["knowledge.close"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.sheets.firstMatch.waitForNonExistence(timeout: 10))
         XCTAssertTrue(app.windows["text"].waitForExistence(timeout: 5))
         app.buttons["knowledge.toggle"].firstMatch.click(); app.buttons["knowledge.compare"].click()
         let relation = app.descendants(matching: .any)["knowledge.relation.text"].firstMatch
@@ -643,6 +649,9 @@ final class OfflineReaderTests: XCTestCase {
         app.buttons.matching(identifier: "knowledge.card.canvas").element(boundBy: 2).click()
         XCTAssertEqual(app.buttons.matching(identifier: "knowledge.node.select").count, 3)
         snapshot(app, "v05-canvas-flow")
+        let canvasQuery = app.textFields["knowledge.canvas.query"]
+        paste("EPUB", into: canvasQuery, app: app); canvasQuery.typeKey(.return, modifierFlags: [])
+        XCTAssertEqual(app.buttons.matching(identifier: "knowledge.node.select").count, 1)
         knowledgeTab(app, "Library search"); app.buttons["knowledge.path.suggest"].click()
         let goal = app.textFields["knowledge.path.goal"].firstMatch
         XCTAssertTrue(goal.waitForExistence(timeout: 5)); paste("My source reading route", into: goal, app: app)
@@ -651,13 +660,18 @@ final class OfflineReaderTests: XCTestCase {
         XCTAssertTrue(app.links.matching(identifier: "knowledge.source").firstMatch.waitForExistence(timeout: 20))
         snapshot(app, "v05-timeline-flow")
         app.links.matching(identifier: "knowledge.source").firstMatch.click()
-        XCTAssertTrue(app.buttons["knowledge.close"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.sheets.firstMatch.waitForNonExistence(timeout: 10))
         app.menuBars.menuBarItems.element(boundBy: 1).click(); app.menuItems["Quit AdaptiveReader"].firstMatch.click()
         XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
         let restored = launch(id, specimen: false)
         restored.buttons["knowledge.toggle"].firstMatch.click(); knowledgeTab(restored, "Canvas")
         XCTAssertTrue(restored.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Shared source anchors")).firstMatch.waitForExistence(timeout: 5))
         XCTAssertEqual(restored.buttons.matching(identifier: "knowledge.node.select").count, 3)
+        restored.buttons.matching(identifier: "knowledge.node.select").firstMatch.click()
+        restored.buttons["knowledge.board.new"].click()
+        XCTAssertTrue(restored.buttons.matching(identifier: "knowledge.node.select").firstMatch.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(restored.buttons.matching(identifier: "knowledge.node.select").count, 0)
+        XCTAssertFalse(restored.buttons["knowledge.connect"].isEnabled)
         knowledgeTab(restored, "Reading paths")
         XCTAssertEqual(restored.textFields["knowledge.path.goal"].firstMatch.value as? String, "My source reading route")
         snapshot(restored, "v05-restored-flow"); restored.terminate()
