@@ -633,6 +633,7 @@ final class OfflineReaderTests: XCTestCase {
         XCTAssertTrue(pdfCheck.exists && pdfCheck.isHittable); pdfCheck.click()
         XCTAssertTrue(app.buttons["knowledge.compare"].isEnabled); app.buttons["knowledge.compare"].click()
         let verification = app.buttons.matching(NSPredicate(format: "label == %@", "Verify source"))
+        XCTAssertTrue(verification.firstMatch.waitForExistence(timeout: 10))
         XCTAssertEqual(verification.count, 2); verification.element(boundBy: 0).click()
         XCTAssertTrue(app.sheets.firstMatch.waitForNonExistence(timeout: 10))
         XCTAssertTrue(app.windows["reflow"].waitForExistence(timeout: 5))
