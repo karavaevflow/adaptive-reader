@@ -164,8 +164,12 @@ struct KnowledgeView: View {
             Text("Actual source chapters and your saved events or ideas. No invented events.").font(.caption).foregroundStyle(Adaptive.secondary)
             if let id = model.timelineBook { KnowledgeMetadataEditor(model: model, bookID: id).id(id) }
             if !model.busy && model.timeline.isEmpty { Text("This book has no available outline or saved events yet.").font(.caption).foregroundStyle(Adaptive.secondary) }
-            List(model.timeline) { step in
-                VStack(alignment: .leading, spacing: 4) { Text(step.title).font(.headline); sourceButton(step.source) }.padding(.vertical, 4)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 12) {
+                    ForEach(model.timeline) { step in
+                        VStack(alignment: .leading, spacing: 4) { Text(step.title).font(.headline); sourceButton(step.source) }.padding(.vertical, 4)
+                    }
+                }.frame(maxWidth: .infinity, alignment: .leading)
             }.accessibilityElement(children: .contain).accessibilityIdentifier("knowledge.timeline")
         }.padding(16)
     }
