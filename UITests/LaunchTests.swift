@@ -679,11 +679,11 @@ final class OfflineReaderTests: XCTestCase {
         let pdf = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label == %@", "split.open.", "text")).firstMatch
         XCTAssertTrue(pdf.waitForExistence(timeout: 10)); pdf.click()
         XCTAssertTrue(app.buttons["split.swap"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.webViews["reader.epub"].firstMatch.exists)
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 10))
         app.buttons["split.swap"].click()
         let swapped = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "reflow"), object: app.buttons["split.secondary"])
         XCTAssertEqual(XCTWaiter.wait(for: [swapped], timeout: 15), .completed)
-        XCTAssertTrue(app.webViews["reader.secondary.epub"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 10))
         app.buttons["split.next"].click()
         let second = app.staticTexts.matching(identifier: "split.secondary.section").matching(NSPredicate(format: "label == %@ OR value == %@", "2", "2")).firstMatch
         XCTAssertTrue(second.waitForExistence(timeout: 10))

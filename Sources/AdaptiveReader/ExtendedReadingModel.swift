@@ -115,7 +115,7 @@ final class ExtendedReadingModel {
         saveTask?.cancel(); saveTask = nil
         if let pane = secondary, let anchor = try? pane.engine.currentAnchor() {
             let position = SplitPosition(anchor: anchor, palette: pane.engine.palette)
-            Task { await perform(.saveSplit(position)) }
+            saveTask = Task { await perform(.saveSplit(position)) }
         }
         secondary?.close(); secondary = nil; activePane = "primary"; syncPositions = false; lastSecondaryAnchor = nil
     }
@@ -129,6 +129,7 @@ final class ExtendedReadingModel {
             session.navigate(to: right); startSplit(primary, anchor: left)
         }
     }
+    func flush() async { await saveTask?.value }
     func primaryMoved() {
         guard let anchor = try? session?.engine?.currentAnchor() else { return }
         if lastAnchor != anchor { record(.navigation, anchor: anchor); lastAnchor = anchor }

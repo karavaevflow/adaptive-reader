@@ -468,6 +468,7 @@ final class ReaderSession {
     func flush() async {
         await study.flush()
         await flushPreferences()
+        await extended.flush()
         guard let engine, let commands, let record else { return }
         if !mounted {
             if let pendingState { do { try await store.save(pendingState, for: record) } catch { report(error) } }
