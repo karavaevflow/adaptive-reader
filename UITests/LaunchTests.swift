@@ -717,7 +717,7 @@ final class OfflineReaderTests: XCTestCase {
             XCTAssertEqual(XCTWaiter.wait(for: [visibleChapter], timeout: 8), .completed)
             app.buttons["split.next"].click()
             XCTAssertTrue(app.staticTexts.matching(identifier: "split.secondary.section").matching(NSPredicate(format: "value == %@ OR label == %@", "2", "2")).firstMatch.waitForExistence(timeout: 8))
-            XCTAssertEqual(app.staticTexts["split.primary.section"].label, "1")
+            XCTAssertTrue(app.staticTexts.matching(identifier: "split.primary.section").matching(NSPredicate(format: "label == %@ OR value == %@", "1", "1")).firstMatch.exists)
             XCTAssertTrue(primaryViewport.frame.intersects(primaryChapter.frame), "Second-pane navigation must preserve the visible primary chapter")
             snapshot(app, "v06-Split-\(language)-\(width)-\(theme)")
             app.buttons["split.close"].click()
