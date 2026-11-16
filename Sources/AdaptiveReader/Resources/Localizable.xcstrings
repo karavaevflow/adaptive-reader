@@ -6371,6 +6371,596 @@
           }
         }
       }
+    },
+    "Extended reading": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Расширенное чтение"
+          }
+        }
+      }
+    },
+    "Tools": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Инструменты"
+          }
+        }
+      }
+    },
+    "Split": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Два окна"
+          }
+        }
+      }
+    },
+    "Bilingual": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перевод"
+          }
+        }
+      }
+    },
+    "Replay": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "История"
+          }
+        }
+      }
+    },
+    "Insights": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Статистика"
+          }
+        }
+      }
+    },
+    "Two independent readers": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Две независимые панели"
+          }
+        }
+      }
+    },
+    "Open another book or a second position in this book. Each pane has its own scroll, palette and navigation. Application menus control the primary pane.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Откройте другую книгу или вторую позицию текущей. У каждой панели своя прокрутка, палитра и навигация. Меню приложения управляют основной панелью."
+          }
+        }
+      }
+    },
+    "Open a book first.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сначала откройте книгу."
+          }
+        }
+      }
+    },
+    "Opening second pane": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открываем вторую панель"
+          }
+        }
+      }
+    },
+    "Close second pane": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрыть вторую панель"
+          }
+        }
+      }
+    },
+    "Aligned fragments": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сопоставленные фрагменты"
+          }
+        }
+      }
+    },
+    "Capture a source fragment and add your translation and context explanation. Alignment belongs to this fragment; arbitrary editions are not automatically aligned. No model is contacted.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохраните исходный фрагмент, добавьте свой перевод и пояснение контекста. Связь действует для этого фрагмента: произвольные издания не сопоставляются автоматически. Модель не вызывается."
+          }
+        }
+      }
+    },
+    "Capture current passage": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Взять текущий фрагмент"
+          }
+        }
+      }
+    },
+    "Translation language": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Язык перевода"
+          }
+        }
+      }
+    },
+    "Your translation": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваш перевод"
+          }
+        }
+      }
+    },
+    "Idiom or context explanation": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пояснение выражения или контекста"
+          }
+        }
+      }
+    },
+    "Save aligned fragment": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить фрагмент с переводом"
+          }
+        }
+      }
+    },
+    "Show original": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать оригинал"
+          }
+        }
+      }
+    },
+    "Save a word from this fragment": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить слово из фрагмента"
+          }
+        }
+      }
+    },
+    "Word or idiom": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слово или выражение"
+          }
+        }
+      }
+    },
+    "Meaning in this context": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Значение в контексте"
+          }
+        }
+      }
+    },
+    "Save word": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить слово"
+          }
+        }
+      }
+    },
+    "Recognize this PDF page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Распознать страницу PDF"
+          }
+        }
+      }
+    },
+    "Local Vision OCR. One page at a time, with no upload or change to the PDF. Tables, formulas and reading order may need review; confidence is a model score, not a guarantee.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Локальное распознавание Vision: по одной странице, без отправки данных и изменения PDF. Таблицы, формулы и порядок чтения требуют проверки. Оценка уверенности модели не гарантирует правильность."
+          }
+        }
+      }
+    },
+    "Recognize current page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Распознать текущую страницу"
+          }
+        }
+      }
+    },
+    "Cancel recognition": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить распознавание"
+          }
+        }
+      }
+    },
+    "Find in recognized text": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Найти в распознанном тексте"
+          }
+        }
+      }
+    },
+    "No text found. Try a clearer scan or use Original.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Текст не найден. Попробуйте более чёткий скан или вернитесь к оригиналу."
+          }
+        }
+      }
+    },
+    "Show scan": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать скан"
+          }
+        }
+      }
+    },
+    "Record Reading Replay": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вести историю чтения"
+          }
+        }
+      }
+    },
+    "Only Adaptive reading actions are stored locally: source locations, notes and question events. No screen recording, question text or activity outside Adaptive. Disabling stops new records; clearing removes saved events.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Локально сохраняются только действия при чтении в Adaptive: позиции в книгах, создание заметок и обращения с вопросами. Без записи экрана, текста вопросов и действий в других приложениях. Отключение останавливает запись, очистка удаляет сохранённые события."
+          }
+        }
+      }
+    },
+    "Clear Replay": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Очистить историю"
+          }
+        }
+      }
+    },
+    "Return to fragment": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуться к фрагменту"
+          }
+        }
+      }
+    },
+    "Track Reading Insights": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Собирать статистику чтения"
+          }
+        }
+      }
+    },
+    "Time counts only while this reading window is visible and active, for up to 60 seconds after interaction. Time is an estimate, not a measure of comprehension. Chapter completion is marked by you. Data stays on this Mac.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Время учитывается только в видимом активном окне, до 60 секунд после взаимодействия. Это приблизительная длительность, а не оценка понимания. Прочитанные главы отмечаете вы. Данные остаются на этом Mac."
+          }
+        }
+      }
+    },
+    "Mark chapter or page completed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отметить главу или страницу прочитанной"
+          }
+        }
+      }
+    },
+    "Clear Insights": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Очистить статистику"
+          }
+        }
+      }
+    },
+    "Unavailable book": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Книга недоступна"
+          }
+        }
+      }
+    },
+    "Swap panes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поменять панели местами"
+          }
+        }
+      }
+    },
+    "Sync positions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Связать позиции"
+          }
+        }
+      }
+    },
+    "Next page or chapter": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Следующая страница или глава"
+          }
+        }
+      }
+    },
+    "Page %lld · %lld recognized lines": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница %lld · строк распознано: %lld"
+          }
+        }
+      }
+    },
+    "Check recognition · %lld%%": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверьте распознавание · %lld%%"
+          }
+        }
+      }
+    },
+    "%lld events": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Событий: %lld"
+          }
+        }
+      }
+    },
+    "%lld min · %lld notes · %lld completed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld мин · заметок: %lld · прочитано: %lld"
+          }
+        }
+      }
+    },
+    "opened": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Книга открыта"
+          }
+        }
+      }
+    },
+    "navigation": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переход"
+          }
+        }
+      }
+    },
+    "noteCreated": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заметка создана"
+          }
+        }
+      }
+    },
+    "questionAsked": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Задан вопрос"
+          }
+        }
+      }
+    },
+    "chapterCompleted": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Глава или страница прочитана"
+          }
+        }
+      }
+    },
+    "Explain in AI Companion": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Объяснить в AI Companion"
+          }
+        }
+      }
+    },
+    "AI uses your configured provider only after you press Ask. Review the answer before saving your translation.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ИИ использует настроенного провайдера только после нажатия «Спросить». Проверьте ответ перед сохранением перевода."
+          }
+        }
+      }
+    },
+    "Translate the selected fragment into %@ and explain idioms and word meanings in context. Cite the original. Label any uncertain interpretation.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переведи выбранный фрагмент на язык «%@», объясни выражения и значения слов в контексте. Дай ссылку на оригинал. Отметь неуверенные толкования."
+          }
+        }
+      }
+    },
+    "Primary pane": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Основная панель"
+          }
+        }
+      }
+    },
+    "Secondary pane": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вторая панель"
+          }
+        }
+      }
+    },
+    "Active": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Активна"
+          }
+        }
+      }
+    },
+    "Inactive": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Неактивна"
+          }
+        }
+      }
+    },
+    "Second pane palette": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Палитра второй панели"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

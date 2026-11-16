@@ -56,11 +56,23 @@ public final class PDFReaderEngine: ReaderEngine {
     }
 
     public private(set) var hasText = false
+    public private(set) var recognizedPages: [Int: OCRPage] = [:]
+    public func installRecognizedPage(_ page: OCRPage) throws {
+        try page.validate()
+        guard document.allowsCopying, page.bookID == bookID, page.revision == sourceRevision,
+              let source = document.page(at: page.pageIndex) else { throw ReaderError.sourceChanged }
+        let box = source.bounds(for: .cropBox)
+        guard page.lines.allSatisfy({ box.insetBy(dx: -1, dy: -1).contains($0.bounds) }) else { throw ReaderError.invalidAnchor }
+        recognizedPages[page.pageIndex] = page
+        // The revision-keyed disk cache remains authoritative. Retain a bounded working set.
+        if recognizedPages.count > 16, let victim = recognizedPages.keys.filter({ $0 != page.pageIndex }).min() { recognizedPages[victim] = nil }
+    }
     public func updateTextAvailability(_ available: Bool) { hasText = available }
 
     public var capabilities: Set<ReaderCapability> {
         var result: Set<ReaderCapability> = [.pageNavigation, .pagePalette, .zoom, .readingFocus, .continuousScroll]
         if document.allowsCopying && hasText { result.formUnion([.search, .textSelection, .passageNavigation, .readAloud]) }
+        if document.allowsCopying && recognizedPages.values.contains(where: { !$0.lines.isEmpty }) { result.formUnion([.search, .recognizedText]) }
         return result
     }
 
@@ -68,6 +80,7 @@ public final class PDFReaderEngine: ReaderEngine {
     @ObservationIgnored private var searchContinuation: AsyncThrowingStream<ReaderSearchMatch, Error>.Continuation?
     @ObservationIgnored private var searchSelections: [UUID: PDFSelection] = [:]
     @ObservationIgnored private var searchToken = UUID()
+    @ObservationIgnored private var searchResultCount = 0
 
     public func search(_ query: String) throws -> AsyncThrowingStream<ReaderSearchMatch, Error> {
         guard capabilities.contains(.search) else { throw ReaderError.unsupportedCommand }
@@ -79,6 +92,17 @@ public final class PDFReaderEngine: ReaderEngine {
             pair.continuation.finish(); return pair.stream
         }
         searchContinuation = pair.continuation
+        var recognizedCount = 0
+        for page in recognizedPages.values.sorted(by: { $0.pageIndex < $1.pageIndex }) {
+            // Search explicitly recognized pages consistently, even if PDFKit's asynchronous
+            // Live Text appears between capability detection and this request.
+            for line in page.lines.filter({ $0.text.localizedCaseInsensitiveContains(query) }).prefix(1000 - recognizedCount) {
+                pair.continuation.yield(ReaderSearchMatch(anchor: line.anchor, snippet: String(line.text.prefix(180))))
+                recognizedCount += 1
+            }
+        }
+        searchResultCount = recognizedCount
+        if !hasText || recognizedCount >= 1000 { pair.continuation.finish(); searchContinuation = nil; return pair.stream }
         pair.continuation.onTermination = { [weak self] reason in
             if case .cancelled = reason {
                 Task { @MainActor in if self?.searchToken == token { self?.cancelSearch() } }
@@ -87,9 +111,10 @@ public final class PDFReaderEngine: ReaderEngine {
         let center = NotificationCenter.default
         center.publisher(for: .PDFDocumentDidFindMatch, object: document).receive(on: RunLoop.main).sink { [weak self] notification in
             MainActor.assumeIsolated {
-                guard let self, self.searchToken == token, self.searchContinuation != nil, self.searchSelections.count < 1000,
+                guard let self, self.searchToken == token, self.searchContinuation != nil, self.searchResultCount < 1000,
                       let selection = notification.userInfo?[PDFDocumentFoundSelectionKey] as? PDFSelection,
                       let page = selection.pages.first else { return }
+                guard self.recognizedPages[self.document.index(for: page)] == nil else { return }
                 let box = page.bounds(for: .cropBox), bounds = selection.bounds(for: page)
                 guard bounds.minY.isFinite, bounds.maxY.isFinite else { return }
                 let anchor = SourceAnchor(bookID: self.bookID, sourceRevision: self.sourceRevision,
@@ -99,9 +124,10 @@ public final class PDFReaderEngine: ReaderEngine {
                 let snippet = String((context?.string ?? selection.string ?? query).prefix(180))
                     .split(whereSeparator: \.isWhitespace).joined(separator: " ")
                 let match = ReaderSearchMatch(anchor: anchor, snippet: snippet)
+                self.searchResultCount += 1
                 self.searchSelections[match.id] = selection
                 self.searchContinuation?.yield(match)
-                if self.searchSelections.count >= 1000 {
+                if self.searchResultCount >= 1000 {
                     self.searchContinuation?.finish(); self.searchContinuation = nil
                     self.document.cancelFindString()
                 }

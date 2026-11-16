@@ -77,6 +77,7 @@ final class CompanionModel {
     @ObservationIgnored private var setupTask: Task<Void, Never>?
     @ObservationIgnored private var generation = UUID()
     @ObservationIgnored private var lastRequest: CompanionRequest?
+    @ObservationIgnored var onQuestion: (@MainActor () -> Void)?
     @ObservationIgnored var onSettingsChanged: (@MainActor () -> Void)?
     var fixtureMode: Bool {
         #if DEBUG || FOUNDATION_BENCHMARK
@@ -203,6 +204,7 @@ final class CompanionModel {
                 provider = CompanionHTTPProvider(settings: settings, apiKey: apiKey)
                 #endif
                 var response = ""
+                self.onQuestion?()
                 for try await chunk in provider.response(to: request) {
                     try Task.checkCancellation(); guard self.generation == token else { return }
                     response += chunk; self.receivedCharacters = response.count

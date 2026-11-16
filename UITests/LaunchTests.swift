@@ -614,6 +614,73 @@ final class OfflineReaderTests: XCTestCase {
         app.buttons["knowledge.editor.save"].firstMatch.click()
         XCTAssertTrue(app.staticTexts[title].firstMatch.waitForExistence(timeout: 5))
     }
+    @MainActor func testExtendedReadingBilingualOCRTrackingAndRestart() throws {
+        let id = UUID().uuidString, app = launch(id, specimen: true)
+        app.typeKey("e", modifierFlags: [.command, .shift])
+        XCTAssertTrue(app.buttons["extended.done"].waitForExistence(timeout: 8))
+        knowledgeTab(app, "Bilingual")
+        app.buttons["bilingual.capture"].click()
+        let translation = app.descendants(matching: .any)["bilingual.translation"].firstMatch
+        XCTAssertTrue(translation.waitForExistence(timeout: 5))
+        paste("Учимся читать внимательно", into: translation, app: app)
+        app.buttons["bilingual.save"].click()
+        XCTAssertTrue(app.staticTexts["Учимся читать внимательно"].firstMatch.waitForExistence(timeout: 8))
+        knowledgeTab(app, "OCR")
+        app.buttons["ocr.start"].click()
+        XCTAssertTrue(app.staticTexts["ocr.result"].waitForExistence(timeout: 30))
+        XCTAssertTrue(app.links["ocr.source"].firstMatch.exists)
+        snapshot(app, "v06-OCR-flow")
+        knowledgeTab(app, "Replay")
+        XCTAssertEqual(app.checkBoxes["replay.enabled"].value as? Int, 0)
+        app.checkBoxes["replay.enabled"].click()
+        knowledgeTab(app, "Insights")
+        XCTAssertEqual(app.checkBoxes["insights.enabled"].value as? Int, 0)
+        app.checkBoxes["insights.enabled"].click()
+        app.buttons["insights.complete"].click()
+        knowledgeTab(app, "Replay")
+        XCTAssertTrue(app.staticTexts["chapterCompleted"].firstMatch.waitForExistence(timeout: 8))
+        app.checkBoxes["replay.enabled"].click()
+        app.buttons["replay.clear"].click()
+        XCTAssertTrue(app.staticTexts["0 events"].firstMatch.waitForExistence(timeout: 8))
+        knowledgeTab(app, "Insights")
+        app.checkBoxes["insights.enabled"].click(); app.buttons["insights.clear"].click()
+        app.buttons["extended.done"].click(); app.terminate()
+        let restored = launch(id, specimen: false)
+        restored.typeKey("e", modifierFlags: [.command, .shift])
+        knowledgeTab(restored, "Bilingual")
+        XCTAssertTrue(restored.staticTexts["Учимся читать внимательно"].firstMatch.waitForExistence(timeout: 8))
+        knowledgeTab(restored, "Replay")
+        XCTAssertEqual(restored.checkBoxes["replay.enabled"].value as? Int, 0)
+        XCTAssertTrue(restored.staticTexts["0 events"].firstMatch.exists)
+        knowledgeTab(restored, "Insights")
+        XCTAssertEqual(restored.checkBoxes["insights.enabled"].value as? Int, 0)
+        snapshot(restored, "v06-Privacy-flow")
+        restored.buttons["extended.done"].click(); restored.terminate()
+    }
+    @MainActor func testExtendedSplitIndependentScrollAndVisualMatrix() throws {
+        for language in ["en", "ru"] { for width in [800, 1440] { for theme in ["light", "dark"] {
+            let app = launch(UUID().uuidString, specimen: true, additionalArguments: ["-extendedReview"], width: width, theme: theme, language: language)
+            app.typeKey("e", modifierFlags: [.command, .shift])
+            XCTAssertTrue(app.buttons["extended.done"].waitForExistence(timeout: 8))
+            let open = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "split.open.")).firstMatch
+            XCTAssertTrue(open.waitForExistence(timeout: 8)); open.click()
+            XCTAssertTrue(app.buttons["split.close"].waitForExistence(timeout: 10))
+            XCTAssertTrue(app.buttons["split.primary"].exists && app.buttons["split.secondary"].exists)
+            app.buttons["split.next"].click()
+            XCTAssertTrue(app.staticTexts.matching(identifier: "split.secondary.section").matching(NSPredicate(format: "value == %@ OR label == %@", "2", "2")).firstMatch.waitForExistence(timeout: 8))
+            XCTAssertEqual(app.staticTexts["split.primary.section"].label, "1")
+            snapshot(app, "v06-Split-\(language)-\(width)-\(theme)")
+            app.buttons["split.close"].click()
+            app.typeKey("e", modifierFlags: [.command, .shift])
+            let labels = language == "ru" ? ["Два окна", "Перевод", "OCR", "История", "Статистика"] : ["Split", "Bilingual", "OCR", "Replay", "Insights"]
+            for (index, label) in labels.enumerated() {
+                knowledgeTab(app, label)
+                snapshot(app, "v06-Tools\(index)-\(language)-\(width)-\(theme)")
+            }
+            app.buttons["extended.done"].click(); app.terminate()
+        } } }
+    }
+
     @MainActor func testKnowledgeGraphComparisonTimelinePathAndRestart() throws {
         let id = UUID().uuidString, app = launch(id, specimen: false)
         app.buttons["reader.open"].firstMatch.click(); choosePDF(app, relativePath: "Research/Fixtures/text.pdf")
