@@ -725,6 +725,8 @@ final class OfflineReaderTests: XCTestCase {
             let labels = language == "ru" ? ["Два окна", "Перевод", "OCR", "История", "Статистика"] : ["Split", "Bilingual", "OCR", "Replay", "Insights"]
             for (index, label) in labels.enumerated() {
                 knowledgeTab(app, label)
+                if index == 1 { XCTAssertTrue(app.staticTexts["Тихое место для чтения. Книга открывает пространство для мысли."].firstMatch.waitForExistence(timeout: 10)) }
+                if index == 2 { XCTAssertTrue(app.staticTexts["Visual OCR fixture: check this uncertain word"].firstMatch.waitForExistence(timeout: 10)) }
                 snapshot(app, "v06-Tools\(index)-\(language)-\(width)-\(theme)")
             }
             app.buttons["extended.done"].click(); app.terminate()

@@ -59,9 +59,10 @@ final class ExtendedReadingModel {
             #if DEBUG || FOUNDATION_BENCHMARK
             let args = ProcessInfo.processInfo.arguments
             let isolated = args.firstIndex(of: "-phase0Store").flatMap { i in args.indices.contains(i + 1) ? UUID(uuidString: args[i + 1]) : nil } != nil
-            if args.contains("-extendedReview"), isolated, !reviewSeeded, let session, let book = session.record {
+            if args.contains("-extendedReview"), isolated, !reviewSeeded, let session, let book = session.record,
+               session.surfaceView?.window != nil, let seed = try? session.study.source() {
                 reviewSeeded = true
-                let (anchor, text) = try session.study.source()
+                let (anchor, text) = seed
                 let source = KnowledgeSource(anchor: anchor, bookTitle: book.title, location: "1", quotation: String(text.prefix(1600)))
                 let fragment = BilingualFragment(source: source, translation: "Тихое место для чтения. Книга открывает пространство для мысли.", language: "Русский", explanation: "A quiet place — тихое место; reader-authored visual fixture.")
                 snapshot = try await store.performExtended(.saveFragment(fragment))
