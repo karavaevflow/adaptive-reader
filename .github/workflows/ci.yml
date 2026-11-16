@@ -2,29 +2,62 @@ name: macOS
 on: [push, pull_request]
 permissions:
   contents: read
+concurrency:
+  group: macos-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 jobs:
   foundation:
-    runs-on: macos-15
+    runs-on: macos-15-intel
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - name: Toolchain
         run: xcodebuild -version
       - name: Core contracts
-        run: swift test
+        timeout-minutes: 10
+        run: |
+          set -o pipefail
+          NSUnbufferedIO=YES swift test --no-parallel 2>&1 | tee CoreTests.log
       - name: Build application
         run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination 'platform=macOS' build
       - name: Universal Release
         run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -configuration Release -destination 'generic/platform=macOS' ONLY_ACTIVE_ARCH=NO 'ARCHS=arm64 x86_64' build
       - name: Configure visual test desktop
         run: swift scripts/configure-ci-display.swift
-      - name: Knowledge and scheduled-palette UI acceptance
-        run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination 'platform=macOS' -resultBundlePath KnowledgeTests.xcresult -only-testing:AdaptiveReaderUITests/OfflineReaderTests/testDailyScheduledPaletteHonorsManualOverrideUntilBoundary -only-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeGraphComparisonTimelinePathAndRestart -only-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeVisualMatrix -only-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeMarkdownNativeExport test
       - name: UI tests
-        run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination 'platform=macOS' -resultBundlePath TestResults.xcresult -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testDailyScheduledPaletteHonorsManualOverrideUntilBoundary -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeGraphComparisonTimelinePathAndRestart -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeVisualMatrix -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeMarkdownNativeExport test
+        run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination 'platform=macOS' -resultBundlePath TestResults.xcresult -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testSplitPDFAndEPUBSwapAndRestart -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testExtendedReadingBilingualOCRTrackingAndRestart -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testExtendedSplitIndependentScrollAndVisualMatrix -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testDailyScheduledPaletteHonorsManualOverrideUntilBoundary -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeGraphComparisonTimelinePathAndRestart -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeVisualMatrix -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeMarkdownNativeExport test
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results
           path: |
             TestResults.xcresult
-            KnowledgeTests.xcresult
+            CoreTests.log
+  knowledge:
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure visual test desktop
+        run: swift scripts/configure-ci-display.swift
+      - name: Knowledge and scheduled-palette UI acceptance
+        run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination 'platform=macOS' -resultBundlePath KnowledgeTests.xcresult -only-testing:AdaptiveReaderUITests/OfflineReaderTests/testDailyScheduledPaletteHonorsManualOverrideUntilBoundary -only-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeGraphComparisonTimelinePathAndRestart -only-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeVisualMatrix -only-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeMarkdownNativeExport test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: knowledge-results
+          path: KnowledgeTests.xcresult
+  extended:
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure visual test desktop
+        run: swift scripts/configure-ci-display.swift
+      - name: Extended reading UI acceptance
+        run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination 'platform=macOS' -resultBundlePath ExtendedTests.xcresult -only-testing:AdaptiveReaderUITests/OfflineReaderTests/testSplitPDFAndEPUBSwapAndRestart -only-testing:AdaptiveReaderUITests/OfflineReaderTests/testExtendedReadingBilingualOCRTrackingAndRestart -only-testing:AdaptiveReaderUITests/OfflineReaderTests/testExtendedSplitIndependentScrollAndVisualMatrix test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: extended-results
+          path: ExtendedTests.xcresult

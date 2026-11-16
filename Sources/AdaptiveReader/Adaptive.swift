@@ -40,6 +40,8 @@ enum Adaptive {
         static let inspector: CGFloat = 260
         static let sidebarThreshold: CGFloat = 1000
         static let inspectorThreshold: CGFloat = 1200
+        static let splitInspectorThreshold: CGFloat = 1440
+        static let splitSidebarSearchThreshold: CGFloat = 1100
     }
     enum Motion {
         static let panel = Animation.easeInOut(duration: 0.22)

@@ -1,0 +1,199 @@
+{
+  "applicationSource": "d42b72bb7dfea8e6ec1b8ee1ded79d41a3973e7a",
+  "runID": 43908512725,
+  "url": "https://github.com/karavaevflow/adaptive-reader/actions/runs/43908512725",
+  "conclusion": "success",
+  "coreTests": 70,
+  "uiPassed": 32,
+  "uiSkipped": 5,
+  "uiFailed": 0,
+  "partitions": [
+    {
+      "name": "foundation",
+      "jobID": 133443960730,
+      "passedTests": 25,
+      "skippedTests": 5,
+      "failedTests": 0,
+      "passed": [
+        {
+          "test": "AdaptiveReaderUITests.LaunchTests testAccessibilityDescriptions",
+          "seconds": 14.277
+        },
+        {
+          "test": "AdaptiveReaderUITests.LaunchTests testCompanionVisualMatrix",
+          "seconds": 156.038
+        },
+        {
+          "test": "AdaptiveReaderUITests.LaunchTests testComponentCatalog",
+          "seconds": 58.563
+        },
+        {
+          "test": "AdaptiveReaderUITests.LaunchTests testDailyReadingVisualMatrix",
+          "seconds": 186.627
+        },
+        {
+          "test": "AdaptiveReaderUITests.LaunchTests testOfflineLibraryVisualMatrix",
+          "seconds": 100.812
+        },
+        {
+          "test": "AdaptiveReaderUITests.LaunchTests testReaderSessionRestoresAfterQuit",
+          "seconds": 36.592
+        },
+        {
+          "test": "AdaptiveReaderUITests.LaunchTests testVisualAcceptanceMatrix",
+          "seconds": 218.211
+        },
+        {
+          "test": "AdaptiveReaderUITests.LaunchTests testWindowAndAppearancePopover",
+          "seconds": 16.647
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testCompanionCancellationAndScanWithoutText",
+          "seconds": 50.31
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testCompanionCloudConsentIsExplicit",
+          "seconds": 29.805
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testCompanionEvidenceActionsAndNoteUndo",
+          "seconds": 38.986
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testDailyClosingMainWindowClosesMiniAndStopsActivity",
+          "seconds": 22.735
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testDailyCommandCenterAndSmartBack",
+          "seconds": 39.758
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testDailyMiniReaderTransfersPositionAndCommands",
+          "seconds": 28.15
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testDailyPhysicalFootnoteLinkReturnsToSource",
+          "seconds": 38.33
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testDailyTimerAndManualScrollCancellation",
+          "seconds": 33.487
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testEPUBSearchReflowBookmarkAndRestore",
+          "seconds": 89.042
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testLargeDocumentCommandsDuringSearch",
+          "seconds": 114.077
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testLinkedImportSurvivesQuit",
+          "seconds": 42.069
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testMagicSelectionKeepsSourceVisible",
+          "seconds": 15.027
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testNativeListenPauseResumeRestartAndClose",
+          "seconds": 70.32
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testOfflineReadingRoundTrip",
+          "seconds": 54.443
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testStudyCardsNotesRecallAndHighlightsSurviveReflowAndRestart",
+          "seconds": 164.699
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testStudyMarkdownExportThroughNativeSavePanel",
+          "seconds": 35.445
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testStudyVisualMatrix",
+          "seconds": 491.99
+        }
+      ],
+      "skipped": [
+        "AdaptiveReaderUITests.LaunchTests testPhase0ReleaseMeasurements",
+        "AdaptiveReaderUITests.LaunchTests testReducedAccessibilityAndFocus",
+        "AdaptiveReaderUITests.LaunchTests testVoiceOverRuntime",
+        "AdaptiveReaderUITests.OfflineReaderTests testComfortTwentyFiveMinuteReleaseSession",
+        "AdaptiveReaderUITests.OfflineReaderTests testLargeDocumentReleaseMeasurements"
+      ],
+      "failed": []
+    },
+    {
+      "name": "knowledge",
+      "jobID": 133443960765,
+      "passedTests": 4,
+      "skippedTests": 0,
+      "failedTests": 0,
+      "passed": [
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testDailyScheduledPaletteHonorsManualOverrideUntilBoundary",
+          "seconds": 94.149
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testKnowledgeGraphComparisonTimelinePathAndRestart",
+          "seconds": 206.631
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testKnowledgeMarkdownNativeExport",
+          "seconds": 33.115
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testKnowledgeVisualMatrix",
+          "seconds": 200.766
+        }
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "name": "extended",
+      "jobID": 133443960147,
+      "passedTests": 3,
+      "skippedTests": 0,
+      "failedTests": 0,
+      "passed": [
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testExtendedReadingBilingualOCRTrackingAndRestart",
+          "seconds": 85.934
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testExtendedSplitIndependentScrollAndVisualMatrix",
+          "seconds": 260.281
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testSplitPDFAndEPUBSwapAndRestart",
+          "seconds": 83.381
+        }
+      ],
+      "skipped": [],
+      "failed": []
+    }
+  ],
+  "builds": [
+    {
+      "name": "Core contracts",
+      "conclusion": "success"
+    },
+    {
+      "name": "Build application",
+      "conclusion": "success"
+    },
+    {
+      "name": "Universal Release",
+      "conclusion": "success"
+    },
+    {
+      "name": "UI tests",
+      "conclusion": "success"
+    }
+  ],
+  "archiveSHA256": "b4989b72e23f71868d003a0a1d81554943e3d255046d059123f4a9921d58213a",
+  "signature": "local ad-hoc; no Developer ID or notarization"
+}

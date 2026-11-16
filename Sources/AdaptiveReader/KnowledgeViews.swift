@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import UniformTypeIdentifiers
 import ReaderCore
 
@@ -288,23 +289,9 @@ private struct KnowledgeCanvas: View {
                     let layout = KnowledgeCanvasLayout(board: board, cards: model.memory.cards, origin: .init(x: pan.width, y: pan.height), zoom: zoom, viewport: .init(x: geometry.size.width, y: geometry.size.height), query: query, translations: translations)
                     ZStack(alignment: .topLeading) {
                         Adaptive.surface.opacity(0.5).contentShape(Rectangle()).gesture(DragGesture().onChanged { pan = .init(width: panStart.width + $0.translation.width, height: panStart.height + $0.translation.height) }.onEnded { _ in panStart = pan })
-                        Canvas { context, _ in
-                            let groups = Dictionary(grouping: layout.visibleNodes.filter { !$0.cluster.isEmpty }, by: \.cluster)
-                            for (name, nodes) in groups {
-                                let points = nodes.compactMap { layout.centers[$0.id] }
-                                if let x = points.map(\.x).min(), let y = points.map(\.y).min(), let maxX = points.map(\.x).max(), let maxY = points.map(\.y).max() {
-                                    let rect = CGRect(x: x - 125 * zoom - 12, y: y - 75 * zoom - 24, width: maxX - x + 250 * zoom + 24, height: maxY - y + 150 * zoom + 36)
-                                    context.fill(Path(roundedRect: rect, cornerRadius: 16), with: .color(Color.accentColor.opacity(0.04)))
-                                    context.draw(Text(name).font(.caption2).foregroundStyle(.secondary), at: CGPoint(x: rect.minX + 12, y: rect.minY + 12), anchor: .leading)
-                                }
-                            }
-                            for edge in layout.connections {
-                                let a = CGPoint(x: edge.start.x, y: edge.start.y), b = CGPoint(x: edge.end.x, y: edge.end.y)
-                                var line = Path(); line.move(to: a); line.addLine(to: b)
-                                context.stroke(line, with: .color(.secondary.opacity(0.6)), lineWidth: 1.5)
-                                context.draw(Text(edge.label).font(.caption).foregroundStyle(.secondary), at: .init(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2))
-                            }
-                        }.allowsHitTesting(false)
+                        KnowledgeConnectionsView(layout: layout, zoom: zoom)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .allowsHitTesting(false).accessibilityHidden(true)
                         ForEach(layout.visibleNodes) { node in
                             if let card = layout.cards[node.id], let center = layout.centers[node.id] {
                                 let point = CGPoint(x: center.x, y: center.y)
@@ -359,6 +346,50 @@ private struct KnowledgeCanvas: View {
             Button("Move up") { Task { await model.move(node, to: .init(x: node.point.x, y: node.point.y - 40)) } }
             Button("Move down") { Task { await model.move(node, to: .init(x: node.point.x, y: node.point.y + 40)) } }
         }
+    }
+}
+
+/// AppKit keeps simple vector edges usable on Macs without a working Metal
+/// device (including hosted Intel desktops). Interactive cards remain SwiftUI.
+private struct KnowledgeConnectionsView: NSViewRepresentable {
+    let layout: KnowledgeCanvasLayout
+    let zoom: Double
+    func makeNSView(context: Context) -> KnowledgeConnectionsSurface { KnowledgeConnectionsSurface() }
+    func updateNSView(_ view: KnowledgeConnectionsSurface, context: Context) {
+        view.layout = layout; view.zoom = zoom
+        view.appearance = NSAppearance(named: context.environment.colorScheme == .dark ? .darkAqua : .aqua)
+        view.needsDisplay = true
+    }
+}
+private final class KnowledgeConnectionsSurface: NSView {
+    var layout: KnowledgeCanvasLayout?
+    var zoom = 1.0
+    override var isFlipped: Bool { true }
+    override var isOpaque: Bool { false }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    override init(frame: NSRect) { super.init(frame: frame); setAccessibilityElement(false) }
+    required init?(coder: NSCoder) { fatalError("Programmatic connections surface") }
+    override func draw(_ dirtyRect: NSRect) {
+        guard let layout else { return }
+        let groups = Dictionary(grouping: layout.visibleNodes.filter { !$0.cluster.isEmpty }, by: \.cluster)
+        for (name, nodes) in groups {
+            let points = nodes.compactMap { layout.centers[$0.id] }
+            guard let x = points.map(\.x).min(), let y = points.map(\.y).min(), let maxX = points.map(\.x).max(), let maxY = points.map(\.y).max() else { continue }
+            let rect = CGRect(x: x - 125 * zoom - 12, y: y - 75 * zoom - 24, width: maxX - x + 250 * zoom + 24, height: maxY - y + 150 * zoom + 36)
+            NSColor.controlAccentColor.withAlphaComponent(0.04).setFill()
+            NSBezierPath(roundedRect: rect, xRadius: 16, yRadius: 16).fill()
+            drawText(name, at: CGPoint(x: rect.minX + 12, y: rect.minY + 12), centered: false, size: 10)
+        }
+        NSColor.secondaryLabelColor.withAlphaComponent(0.6).setStroke()
+        for edge in layout.connections {
+            let line = NSBezierPath(); line.move(to: .init(x: edge.start.x, y: edge.start.y)); line.line(to: .init(x: edge.end.x, y: edge.end.y)); line.lineWidth = 1.5; line.stroke()
+            drawText(edge.label, at: .init(x: (edge.start.x + edge.end.x) / 2, y: (edge.start.y + edge.end.y) / 2), centered: true, size: 11)
+        }
+    }
+    private func drawText(_ text: String, at point: CGPoint, centered: Bool, size: CGFloat) {
+        let attributes: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: size), .foregroundColor: NSColor.secondaryLabelColor]
+        let value = text as NSString, measured = value.size(withAttributes: attributes)
+        value.draw(at: .init(x: point.x - (centered ? measured.width / 2 : 0), y: point.y - measured.height / 2), withAttributes: attributes)
     }
 }
 

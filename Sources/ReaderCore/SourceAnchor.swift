@@ -54,7 +54,7 @@ public enum ReaderError: Error, Equatable {
 }
 
 public enum ReaderCapability: String, Codable, Sendable {
-    case textSelection, search, pageNavigation, reflow, pagePalette, zoom, readingFocus, continuousScroll, passageNavigation, readAloud
+    case textSelection, recognizedText, search, pageNavigation, reflow, pagePalette, zoom, readingFocus, continuousScroll, passageNavigation, readAloud
 }
 
 @MainActor
