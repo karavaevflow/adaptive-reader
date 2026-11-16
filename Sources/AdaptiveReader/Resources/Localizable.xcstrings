@@ -6839,6 +6839,12 @@
             "state": "translated",
             "value": "Книга открыта"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book opened"
+          }
         }
       }
     },
@@ -6848,6 +6854,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Переход"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Navigation"
           }
         }
       }
@@ -6859,6 +6871,12 @@
             "state": "translated",
             "value": "Заметка создана"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note created"
+          }
         }
       }
     },
@@ -6869,6 +6887,12 @@
             "state": "translated",
             "value": "Задан вопрос"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Question asked"
+          }
         }
       }
     },
@@ -6878,6 +6902,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Глава или страница прочитана"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapter or page completed"
           }
         }
       }

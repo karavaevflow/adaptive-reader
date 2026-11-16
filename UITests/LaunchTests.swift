@@ -651,7 +651,7 @@ final class OfflineReaderTests: XCTestCase {
         app.checkBoxes["insights.enabled"].click()
         app.buttons["insights.complete"].click()
         knowledgeTab(app, "Replay")
-        XCTAssertTrue(app.staticTexts["chapterCompleted"].firstMatch.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["Chapter or page completed"].firstMatch.waitForExistence(timeout: 8))
         app.checkBoxes["replay.enabled"].click()
         app.buttons["replay.clear"].click()
         XCTAssertTrue(app.staticTexts["0 events"].firstMatch.waitForExistence(timeout: 8))
