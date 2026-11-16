@@ -624,7 +624,12 @@ final class OfflineReaderTests: XCTestCase {
         XCTAssertTrue(translation.waitForExistence(timeout: 5))
         paste("Учимся читать внимательно", into: translation, app: app)
         app.buttons["bilingual.save"].click()
-        XCTAssertTrue(app.staticTexts["Учимся читать внимательно"].firstMatch.waitForExistence(timeout: 8))
+        let savedTranslation = app.staticTexts["Учимся читать внимательно"].firstMatch
+        for _ in 0..<5 {
+            if savedTranslation.exists && savedTranslation.isHittable { break }
+            app.scrollViews["extended.content"].firstMatch.scroll(byDeltaX: 0, deltaY: -380)
+        }
+        XCTAssertTrue(savedTranslation.waitForExistence(timeout: 8))
         paste("quiet", into: app.textFields["bilingual.word"], app: app)
         paste("тихий", into: app.textFields["Meaning in this context"], app: app)
         app.buttons["Save word"].click()
@@ -666,6 +671,33 @@ final class OfflineReaderTests: XCTestCase {
         snapshot(restored, "v06-Privacy-flow")
         restored.buttons["extended.done"].click(); restored.terminate()
     }
+    @MainActor func testSplitPDFAndEPUBSwapAndRestart() throws {
+        let id = UUID().uuidString, app = launch(id, specimen: false)
+        app.buttons["reader.open"].firstMatch.click(); choosePDF(app, relativePath: "Research/Fixtures/text.pdf")
+        app.buttons["reader.open"].firstMatch.click(); choosePDF(app, relativePath: "Research/Fixtures/EPUB/reflow.epub")
+        app.typeKey("e", modifierFlags: [.command, .shift])
+        let pdf = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label == %@", "split.open.", "text")).firstMatch
+        XCTAssertTrue(pdf.waitForExistence(timeout: 10)); pdf.click()
+        XCTAssertTrue(app.buttons["split.swap"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.webViews["reader.epub"].firstMatch.exists)
+        app.buttons["split.swap"].click()
+        let swapped = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "reflow"), object: app.buttons["split.secondary"])
+        XCTAssertEqual(XCTWaiter.wait(for: [swapped], timeout: 15), .completed)
+        XCTAssertTrue(app.webViews["reader.secondary.epub"].firstMatch.waitForExistence(timeout: 10))
+        app.buttons["split.next"].click()
+        let second = app.staticTexts.matching(identifier: "split.secondary.section").matching(NSPredicate(format: "label == %@ OR value == %@", "2", "2")).firstMatch
+        XCTAssertTrue(second.waitForExistence(timeout: 10))
+        snapshot(app, "v06-CrossFormat-flow")
+        app.buttons["split.close"].click()
+        app.terminate()
+        let restored = launch(id, specimen: false)
+        restored.typeKey("e", modifierFlags: [.command, .shift])
+        let epub = restored.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label == %@", "split.open.", "reflow")).firstMatch
+        XCTAssertTrue(epub.waitForExistence(timeout: 10)); epub.click()
+        XCTAssertTrue(restored.staticTexts.matching(identifier: "split.secondary.section").matching(NSPredicate(format: "label == %@ OR value == %@", "2", "2")).firstMatch.waitForExistence(timeout: 10))
+        restored.buttons["split.close"].click(); restored.terminate()
+    }
+
     @MainActor func testExtendedSplitIndependentScrollAndVisualMatrix() throws {
         for language in ["en", "ru"] { for width in [800, 1440] { for theme in ["light", "dark"] {
             let app = launch(UUID().uuidString, specimen: true, additionalArguments: ["-extendedReview"], width: width, theme: theme, language: language)

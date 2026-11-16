@@ -30,7 +30,7 @@ struct ExtendedReadingView: View {
                     default: insights
                     }
                 }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            }
+            }.accessibilityElement(children: .contain).accessibilityIdentifier("extended.content").id(model.tab)
         }.background(.background).accessibilityElement(children: .contain).accessibilityIdentifier("extended.workspace")
             .task { await model.reload() }
     }
@@ -49,7 +49,7 @@ struct ExtendedReadingView: View {
         }
     }
     private var bilingual: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        LazyVStack(alignment: .leading, spacing: 16) {
             Text("Aligned fragments").font(.headline)
             Text("Capture a source fragment and add your translation and context explanation. Alignment belongs to this fragment; arbitrary editions are not automatically aligned. No model is contacted.").foregroundStyle(.secondary)
             Button("Capture current passage") { model.capture() }.disabled(session.engine == nil).accessibilityIdentifier("bilingual.capture")
@@ -111,7 +111,7 @@ struct ExtendedReadingView: View {
         }
     }
     private var replay: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        LazyVStack(alignment: .leading, spacing: 16) {
             Toggle("Record Reading Replay", isOn: Binding(get: { model.snapshot.replayEnabled }, set: { enabled in Task { await model.perform(.setTracking(replay: enabled, insights: model.snapshot.insightsEnabled)) } })).accessibilityIdentifier("replay.enabled")
             Text("Only Adaptive reading actions are stored locally: source locations, notes and question events. No screen recording, question text or activity outside Adaptive. Disabling stops new records; clearing removes saved events.").foregroundStyle(.secondary)
             Button("Clear Replay") { Task { await model.perform(.clearReplay) } }.accessibilityIdentifier("replay.clear")
@@ -122,11 +122,11 @@ struct ExtendedReadingView: View {
         }
     }
     private var insights: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        LazyVStack(alignment: .leading, spacing: 16) {
             Toggle("Track Reading Insights", isOn: Binding(get: { model.snapshot.insightsEnabled }, set: { enabled in Task { await model.perform(.setTracking(replay: model.snapshot.replayEnabled, insights: enabled)) } })).accessibilityIdentifier("insights.enabled")
             Text("Time counts only while this reading window is visible and active, for up to 60 seconds after interaction. Time is an estimate, not a measure of comprehension. Chapter completion is marked by you. Data stays on this Mac.").foregroundStyle(.secondary)
             HStack {
-                Button("Mark chapter or page completed") { model.record(.chapterCompleted) }.disabled(session.engine == nil || !model.snapshot.insightsEnabled).accessibilityIdentifier("insights.complete")
+                Button("Mark chapter or page completed") { model.record(.chapterCompleted, anchor: model.activeAnchor) }.disabled(session.engine == nil || !model.snapshot.insightsEnabled).accessibilityIdentifier("insights.complete")
                 Button("Clear Insights") { Task { await model.perform(.clearInsights) } }.accessibilityIdentifier("insights.clear")
             }
             ForEach(model.snapshot.metrics) { metric in

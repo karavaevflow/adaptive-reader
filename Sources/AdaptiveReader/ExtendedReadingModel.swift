@@ -36,9 +36,15 @@ final class ExtendedReadingModel {
     @ObservationIgnored private var lastAnchor: SourceAnchor?
     @ObservationIgnored private var lastInteraction = ProcessInfo.processInfo.systemUptime
     @ObservationIgnored private var pendingSeconds = 0.0
+    @ObservationIgnored private var pendingBook: UUID?
+    @ObservationIgnored private var lastSecondaryAnchor: SourceAnchor?
     @ObservationIgnored private var pendingExplanation: KnowledgeSource?
     @ObservationIgnored private var reviewSeeded = false
     var trackingTime: Bool { snapshot.insightsEnabled }
+    var activeAnchor: SourceAnchor? {
+        if activePane == "secondary", let secondary { return try? secondary.engine.currentAnchor() }
+        return try? session?.engine?.currentAnchor()
+    }
 
     func configure(store: LibraryStore, session: ReaderSession) { self.store = store; self.session = session }
     func show() {
@@ -78,7 +84,7 @@ final class ExtendedReadingModel {
         guard let store else { return }
         switch command {
         case .clearInsights, .clearReplay, .setTracking:
-            pendingSeconds = 0; eventTask?.cancel(); eventTask = nil
+            pendingSeconds = 0; pendingBook = nil; eventTask?.cancel(); eventTask = nil
         default: break
         }
         do { snapshot = try await store.performExtended(command); errorMessage = nil; session?.refreshExtendedActivity() }
@@ -110,7 +116,7 @@ final class ExtendedReadingModel {
             let position = SplitPosition(anchor: anchor, palette: pane.engine.palette)
             Task { await perform(.saveSplit(position)) }
         }
-        secondary?.close(); secondary = nil; activePane = "primary"; syncPositions = false
+        secondary?.close(); secondary = nil; activePane = "primary"; syncPositions = false; lastSecondaryAnchor = nil
     }
     func swap() {
         guard let session, let pane = secondary, let primary = session.record,
@@ -130,6 +136,7 @@ final class ExtendedReadingModel {
     }
     private func secondaryMoved() {
         guard let pane = secondary, let anchor = try? pane.engine.currentAnchor() else { return }
+        if activePane == "secondary", lastSecondaryAnchor != anchor { record(.navigation, anchor: anchor); lastSecondaryAnchor = anchor }
         saveTask?.cancel()
         let position = SplitPosition(anchor: anchor, palette: pane.engine.palette)
         saveTask = Task { [weak self] in
@@ -219,17 +226,23 @@ final class ExtendedReadingModel {
     func interaction() { lastInteraction = ProcessInfo.processInfo.systemUptime }
     func primaryInteraction() { activePane = "primary"; interaction() }
     func tick(delta: Double, now: Double) {
-        guard snapshot.insightsEnabled, let session, let book = session.record,
+        guard snapshot.insightsEnabled, let session, let anchor = activeAnchor,
               NSApp.isActive, session.surfaceView?.window?.isKeyWindow == true,
               session.surfaceView?.window?.occlusionState.contains(.visible) == true,
               !visible, now - lastInteraction < 60 else { return }
+        if let pendingBook, pendingBook != anchor.bookID { checkpointTime() }
+        pendingBook = anchor.bookID
         pendingSeconds += min(max(delta, 0), 2)
-        if pendingSeconds >= 15 {
-            let seconds = min(pendingSeconds, 60), generation = snapshot.generation; pendingSeconds = 0
-            Task { await perform(.activeTime(book: book.id, seconds: seconds, generation: generation)) }
-        }
+        if pendingSeconds >= 15 { checkpointTime() }
+    }
+    private func checkpointTime() {
+        guard let book = pendingBook, pendingSeconds > 0 else { return }
+        let seconds = min(pendingSeconds, 60), generation = snapshot.generation
+        pendingSeconds = 0; pendingBook = nil
+        Task { await perform(.activeTime(book: book, seconds: seconds, generation: generation)) }
     }
     func stop() {
+        checkpointTime()
         cancelOCR(); openToken = UUID(); openTask?.cancel(); openTask = nil; busy = false
         eventTask?.cancel(); eventTask = nil; closeSplit(); lastAnchor = nil; pendingSeconds = 0
         capturedSource = nil; ocrPage = nil; translation = ""; explanation = ""; selectedFragment = nil

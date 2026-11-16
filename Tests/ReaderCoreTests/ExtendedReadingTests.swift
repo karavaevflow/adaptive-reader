@@ -51,6 +51,20 @@ private func extendedBook() async throws -> (LibraryStore, BookRecord, SourceAnc
     let future = try JSONDecoder().decode(ExtendedReadingSnapshot.self, from: JSONSerialization.data(withJSONObject: object))
     #expect(throws: ReaderError.unsupportedAnchorVersion) { try future.validate() }
 }
+@Test func extendedInsightsKeepBooksSeparateAndRejectClearedEpoch() async throws {
+    let (store, first, _) = try await extendedBook(), data = try extendedFixture()
+    let second = try await store.importBook(data: data, id: UUID(), title: "Second book", revision: PDFReaderEngine.revision(data))
+    let enabled = try await store.performExtended(.setTracking(replay: false, insights: true))
+    try await store.performExtended(.activeTime(book: first.id, seconds: 10, generation: enabled.generation))
+    try await store.performExtended(.activeTime(book: second.id, seconds: 15, generation: enabled.generation))
+    let value = try await store.extendedReading()
+    #expect(value.events.isEmpty)
+    #expect(value.metrics.first { $0.bookID == first.id }?.activeSeconds == 10)
+    #expect(value.metrics.first { $0.bookID == second.id }?.activeSeconds == 15)
+    try await store.performExtended(.clearInsights)
+    try await store.performExtended(.activeTime(book: second.id, seconds: 2, generation: enabled.generation))
+    #expect(try await store.extendedReading().metrics.isEmpty)
+}
 @Test @MainActor func extendedSplitEnginesHaveIndependentPositionsAndCommands() async throws {
     let data = try extendedFixture(), id = UUID()
     let first = try await ReaderEngineFactory.open(data: data, format: .pdf, bookID: id)

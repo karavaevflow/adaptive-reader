@@ -51,7 +51,7 @@ if args.release == "v05-flows":
 if args.release == "v06":
     expected = {f"v06-{screen}-{language}-{width}-{theme}" for screen in ("Split", "Tools0", "Tools1", "Tools2", "Tools3", "Tools4") for language in ("en", "ru") for width in (800, 1440) for theme in ("light", "dark")}
 if args.release == "v06-flows":
-    expected = {"v06-OCR-flow", "v06-Privacy-flow"}
+    expected = {"v06-OCR-flow", "v06-Privacy-flow", "v06-CrossFormat-flow"}
 with tempfile.TemporaryDirectory(prefix="adaptive-design-") as temporary:
     directory = Path(temporary)
     subprocess.run([
