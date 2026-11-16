@@ -1,38 +1,49 @@
 # v0.6 Release measurements
 
-Same control Mac as v0.5: MacBookAir10,1 / M1 / 8 GiB, macOS 15.8.3, 1440×900 pt / 2880×1800 px, 60 Hz. See `control-mac.json`. Source: `a838d9727f93b86f47f3407218269962237bdebb`. Raw `performance.json` includes all Swift source fingerprints and corpus SHA-256 values.
+Control Mac: MacBookAir10,1 / M1 / 8 GiB, macOS 15.8.3, 1440×900 pt / 2880×1800 px, 60 Hz. See `control-mac.json`. Measured source: `5f0ebcde94c454bde98ba93b078a9d320754dbf5`. Final application source `d42b72bb7dfea8e6ec1b8ee1ded79d41a3973e7a` changes only English Replay labels and the matching UI assertion; all ReaderCore/harness source fingerprints remain unchanged. `performance-cpu-final.json` records source fingerprints, corpus checksums and five independent Release processes per scenario. Earlier measurements remain available; no slower dataset was discarded.
 
-Five independent Release processes for every scenario. A large PDF on the left, scan PDF or reflowable EPUB on the right, 120 real PDFKit scroll/display calls per run. OCR uses real local Vision concurrently; cancellation is requested after six frames. No speech player or AI provider is initialized. The harness calls production ReaderEngineFactory and engines; it measures native surfaces, not the SwiftUI shell.
+The harness opens a large PDF on the left and a scan PDF or reflowable EPUB on the right, making 120 real PDFKit scroll/display calls per process. Real local Vision OCR runs concurrently; cancellation is requested after six frames. Production OCR explicitly selects a supported CPU compute device for each Vision stage and requests background processing. No speech player or AI provider is initialized. The harness uses production ReaderEngineFactory/engines and native surfaces, not the SwiftUI shell or Insights rendering.
 
 | Pair / workload | Open, ms | Peak client RSS, MiB | CPU frame, ms | OCR, ms | Cancel, ms | OCR overlap frames |
 |---|---:|---:|---:|---:|---:|---:|
-| pdf-pdf / idle | 54.93 | 78.8 | 1.402 | 0.00 | 0.00 | 0 |
-| pdf-pdf / ocr | 53.81 | 174.1 | 1.394 | 525.55 | 0.00 | 29 |
-| pdf-pdf / cancel | 52.36 | 137.0 | 1.406 | 173.70 | 65.17 | 10 |
-| pdf-epub / idle | 257.55 | 86.8 | 1.405 | 0.00 | 0.00 | 0 |
-| pdf-epub / ocr | 258.20 | 179.7 | 1.373 | 501.88 | 0.00 | 27 |
-| pdf-epub / cancel | 261.00 | 146.2 | 1.388 | 171.55 | 63.57 | 10 |
+| pdf-pdf / idle | 56.53 | 78.7 | 1.420 | 0.00 | 0.00 | 0 |
+| pdf-pdf / ocr | 53.59 | 177.5 | 1.419 | 430.85 | 0.00 | 25 |
+| pdf-pdf / cancel | 52.69 | 138.3 | 1.437 | 114.80 | 9.30 | 7 |
+| pdf-epub / idle | 268.02 | 86.2 | 1.427 | 0.00 | 0.00 | 0 |
+| pdf-epub / ocr | 257.28 | 189.2 | 1.377 | 375.46 | 0.00 | 22 |
+| pdf-epub / cancel | 248.82 | 148.1 | 1.385 | 115.07 | 11.39 | 7 |
 
-Values are medians of five processes; frame values are medians of per-process medians. Open time includes both engines and WebKit readiness. All ten complete OCR runs returned recognized lines; all ten cancellations reported cancelled. Every worker became weakly unreferenced after its task finished. Framework/model caches can remain resident: release of the request does not promise an immediate return of RSS to idle. Peak RSS is **client-process memory**, excluding WebKit/GPU helper processes. CPU frame work is not GPU completion/FPS; intervals include an explicit 16 ms sleep and scheduling overhead.
+Values are medians of five processes; frame values are medians of per-process medians. All ten complete OCR runs returned recognized lines; all ten cancellation runs reported cancelled. Every worker became weakly unreferenced after completion. Maximum final-source cancellation latency: 41.46 ms. Framework/model caches can remain resident: releasing a request does not promise RSS returns immediately to idle. Peak RSS is **client-process memory**, excluding WebKit/GPU helpers. CPU work is not GPU completion or display FPS; intervals include an explicit 16 ms sleep and scheduling overhead.
 
 ## Inherited PDF controls
 
-Thirty identical ColorResearch scenarios, compared with the frozen v0.5 report:
+Thirty final-source ColorResearch scenarios compared with the frozen v0.5 report (`performance-cpu-final.json`, `pdfIdle`):
 
 | Fixture / palette | Open change | Peak RSS change | CPU frame change | Current CPU, ms |
 |---|---:|---:|---:|---:|
-| large-text.pdf / original | +1.9% | -4.7% | -1.5% | 1.891 |
-| large-text.pdf / selected | +0.8% | -1.6% | +14.6% | 2.384 |
-| text.pdf / original | -5.5% | -3.5% | -3.3% | 0.504 |
-| text.pdf / selected | -2.1% | -1.7% | +20.2% | 0.567 |
-| scan.pdf / original | +3.6% | -1.7% | +7.3% | 0.431 |
-| scan.pdf / selected | -6.4% | -1.4% | -10.7% | 0.352 |
+| large-text.pdf / original | +3.0% | -3.6% | +0.4% | 1.927 |
+| large-text.pdf / selected | +1.2% | -1.6% | +10.7% | 2.303 |
+| text.pdf / original | -3.2% | -2.9% | +2.2% | 0.533 |
+| text.pdf / selected | -2.8% | -1.5% | +37.6% | 0.649 |
+| scan.pdf / original | +6.0% | -1.2% | +52.8% | 0.613 |
+| scan.pdf / selected | -7.0% | -1.5% | -18.7% | 0.320 |
 
 ## Threshold investigation
 
-The initial text/selected CPU median crossed 20%: 0.471 → 0.567 ms (+20.2%). A quiet five-run follow-up measured 0.619 ms; both datasets are retained. We rebuilt the accepted v0.5 source `2a244f4e55f38b2d1bfa786d9006d2c556e3f423` in an isolated package with the same current Swift toolchain. `performance-ab.json` records five interleaved old/new pairs, alternating order, on the same PDF/display, with binary checksums.
+Initial text/selected CPU work crossed 20% (0.471 → 0.567 ms); a quiet follow-up reached 0.619 ms. Earlier alternating old/new trials and the pre-CPU-backend final report remain in `performance-ab.json`, `performance-ab-final.json`, `performance-final.json` and `performance-followup.json`. Final-source historical comparisons again crossed the threshold for text/selected and scan/original, so neither was accepted without investigation.
 
-Same-session baseline median: 0.530 ms; v0.6: 0.493 ms (-7.0%). Baseline per-process medians span 0.357–0.641 ms; v0.6 spans 0.369–0.573 ms. The unchanged renderer/scroll workload does not reproduce an adverse code regression in this comparison; OCR and activity are inactive in these controls. Sub-millisecond drawing varies between sessions. No historical or slower result has been discarded. Open time and peak memory stay below the investigation threshold in all six inherited scenarios. Maximum cancellation latency: 94.84 ms.
+The accepted v0.5 source `2a244f4e55f38b2d1bfa786d9006d2c556e3f423` was rebuilt in an isolated package using the same current Swift toolchain. `performance-cpu-ab.json` first compared text/selected (0.609 vs 0.612 ms, +0.5%). `performance-all-controls-ab.json` then ran **60 alternating baseline/current processes across all six controls**, alternating order each round and recording binary checksums. Results:
+
+| Fixture / palette | Open change | Peak RSS change | CPU work change | Baseline → current CPU, ms |
+|---|---:|---:|---:|---:|
+| large-text.pdf / original | -1.1% | -1.2% | +2.2% | 1.877 → 1.917 |
+| large-text.pdf / selected | +9.6% | -1.3% | -7.7% | 2.235 → 2.064 |
+| text.pdf / original | +1.0% | -3.0% | -6.8% | 0.547 → 0.510 |
+| text.pdf / selected | +1.1% | -1.3% | +4.5% | 0.582 → 0.608 |
+| scan.pdf / original | +1.5% | -1.5% | -13.9% | 0.520 → 0.448 |
+| scan.pdf / selected | +10.1% | +0.0% | -2.1% | 0.306 → 0.299 |
+
+All paired changes stay below 20%. The adverse historical differences were not reproduced against the old implementation in the same session; sub-millisecond native rendering varied substantially between sessions. This resolves the investigation for this corpus/control Mac, without claiming all arbitrary workloads are regression-free.
 
 ## Reproduce
 
@@ -40,7 +51,7 @@ Same-session baseline median: 0.530 ms; v0.6: 0.493 ms (-7.0%). Baseline per-pro
 swift build -c release --product ExtendedResearch
 swift build -c release --product ColorResearch
 python3 scripts/benchmark-v06.py .build/release/ExtendedResearch --pdf-binary .build/release/ColorResearch --output /private/tmp/v06-performance.json
-python3 scripts/compare-v06-control.py /path/to/v05/ColorResearch .build/release/ColorResearch --output /private/tmp/v06-ab.json
+python3 scripts/compare-v06-control.py /path/to/v05/ColorResearch .build/release/ColorResearch --all-controls --output /private/tmp/v06-ab.json
 ```
 
-Run without concurrent builds/UI tests. The harness opens/closes temporary native windows. Sources remain unchanged. These results do not establish arbitrary-document OCR accuracy, total WebKit helper memory, GPU latency or real-model answer quality.
+Run without concurrent builds/UI tests. Temporary native windows open/close; source files remain unchanged. Results do not establish arbitrary-document OCR accuracy, helper-process memory, GPU latency or real-model answer quality.
