@@ -10,7 +10,10 @@ jobs:
       - name: Toolchain
         run: xcodebuild -version
       - name: Core contracts
-        run: swift test
+        timeout-minutes: 10
+        run: |
+          set -o pipefail
+          NSUnbufferedIO=YES swift test --no-parallel 2>&1 | tee CoreTests.log
       - name: Build application
         run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination 'platform=macOS' build
       - name: Universal Release
@@ -31,3 +34,4 @@ jobs:
             TestResults.xcresult
             KnowledgeTests.xcresult
             ExtendedTests.xcresult
+            CoreTests.log

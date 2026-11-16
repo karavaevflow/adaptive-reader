@@ -13,6 +13,8 @@ Phase 0 is the prerequisite for v0.1. Every release is evaluated in RU/EN, Syste
 | v0.6 Extended reading | Active split pane, bilingual alignment, low-confidence OCR marked at text | Two-book memory and scroll during OCR; cancel releases resources | Independent scrolling, OCR-to-scan navigation, disable/clear Replay and Insights |
 | v1.0 Stable public | Core workflows across languages, appearances, window sizes and accessibility | Minimum supported OS: launch, large files, search, long reading; regressions resolved | Clean-Mac install/offline use; update retains library/notes/relations; GitHub release includes binary, checksum, changelog and actual signing status |
 
-v0.4 application-source gates passed at `0c5d73c`: [acceptance report](v0.4.md), [Release measurements](../Research/v0.4/README.md), [full CI](https://github.com/karavaevflow/adaptive-reader/actions/runs/43243196440). The distributed binary is built from that revision. v0.5 has not started.
+v0.4 application-source gates passed at `0c5d73c`: [acceptance report](v0.4.md), [Release measurements](../Research/v0.4/README.md), [full CI](https://github.com/karavaevflow/adaptive-reader/actions/runs/43243196440). The distributed binary is built from that revision.
 
-v0.5 application-source gates passed at `2a244f4`, fully tested in commit `8447ef6`: [acceptance report](v0.5.md), [Release measurements](../Research/v0.5/README.md), [full CI](https://github.com/karavaevflow/adaptive-reader/actions/runs/43678749887). v0.6 has not started.
+v0.5 application-source gates passed at `2a244f4`, fully tested in commit `8447ef6`: [acceptance report](v0.5.md), [Release measurements](../Research/v0.5/README.md), [full CI](https://github.com/karavaevflow/adaptive-reader/actions/runs/43678749887).
+
+v0.6 is under acceptance: [ledger](v0.6.md), [five-run Release measurements and threshold investigation](../Research/v0.6/README.md). Pending CI/visual gates remain open; v1.0 has not started.
