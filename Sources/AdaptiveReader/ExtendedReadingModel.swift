@@ -38,6 +38,7 @@ final class ExtendedReadingModel {
     @ObservationIgnored private var pendingSeconds = 0.0
     @ObservationIgnored private var pendingBook: UUID?
     @ObservationIgnored private var lastSecondaryAnchor: SourceAnchor?
+    @ObservationIgnored private var readingClock = ActiveReadingClock()
     @ObservationIgnored private var pendingExplanation: KnowledgeSource?
     @ObservationIgnored private var reviewSeeded = false
     var trackingTime: Bool { snapshot.insightsEnabled }
@@ -84,7 +85,7 @@ final class ExtendedReadingModel {
         guard let store else { return }
         switch command {
         case .clearInsights, .clearReplay, .setTracking:
-            pendingSeconds = 0; pendingBook = nil; eventTask?.cancel(); eventTask = nil
+            pendingSeconds = 0; pendingBook = nil; readingClock.reset(); interaction(); eventTask?.cancel(); eventTask = nil
         default: break
         }
         do { snapshot = try await store.performExtended(command); errorMessage = nil; session?.refreshExtendedActivity() }
@@ -225,14 +226,14 @@ final class ExtendedReadingModel {
     }
     func interaction() { lastInteraction = ProcessInfo.processInfo.systemUptime }
     func primaryInteraction() { activePane = "primary"; interaction() }
-    func tick(delta: Double, now: Double) {
-        guard snapshot.insightsEnabled, let session, let anchor = activeAnchor,
-              NSApp.isActive, session.surfaceView?.window?.isKeyWindow == true,
-              session.surfaceView?.window?.occlusionState.contains(.visible) == true,
-              !visible, now - lastInteraction < 60 else { return }
+    func tick(now: Double) {
+        let eligible = snapshot.insightsEnabled && NSApp.isActive && session?.surfaceView?.window?.isKeyWindow == true
+            && session?.surfaceView?.window?.occlusionState.contains(.visible) == true && !visible && now - lastInteraction < 60
+        let elapsed = readingClock.sample(now: now, eligible: eligible)
+        guard elapsed > 0, let anchor = activeAnchor else { return }
         if let pendingBook, pendingBook != anchor.bookID { checkpointTime() }
         pendingBook = anchor.bookID
-        pendingSeconds += min(max(delta, 0), 2)
+        pendingSeconds += elapsed
         if pendingSeconds >= 15 { checkpointTime() }
     }
     private func checkpointTime() {
@@ -243,6 +244,7 @@ final class ExtendedReadingModel {
     }
     func stop() {
         checkpointTime()
+        readingClock.reset()
         cancelOCR(); openToken = UUID(); openTask?.cancel(); openTask = nil; busy = false
         eventTask?.cancel(); eventTask = nil; closeSplit(); lastAnchor = nil; pendingSeconds = 0
         capturedSource = nil; ocrPage = nil; translation = ""; explanation = ""; selectedFragment = nil

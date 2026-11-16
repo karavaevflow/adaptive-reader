@@ -642,7 +642,7 @@ final class ReaderSession {
         writeComfortDiagnostics(force: previous != activity.isRunning)
     }
     private func readingTick(now: TimeInterval, delta: TimeInterval, date: Date) {
-        extended.tick(delta: delta, now: now)
+        extended.tick(now: now)
         systemDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         if now >= nextSessionTick {
             nextSessionTick = now + 1

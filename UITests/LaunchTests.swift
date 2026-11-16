@@ -707,13 +707,18 @@ final class OfflineReaderTests: XCTestCase {
             XCTAssertTrue(open.waitForExistence(timeout: 8)); open.click()
             XCTAssertTrue(app.buttons["split.close"].waitForExistence(timeout: 10))
             XCTAssertTrue(app.buttons["split.primary"].exists && app.buttons["split.secondary"].exists)
-            let primaryChapter = app.scrollViews["reader.pages"].staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Chapter One")).firstMatch
-            let visibleChapter = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: primaryChapter)
+            let primaryViewport = app.scrollViews["reader.pages"].firstMatch
+            // PDFKit exposes text through AXValue on some macOS builds and provides
+            // no hit action for static PDF text. Check actual visible bounds instead.
+            let primaryChapter = primaryViewport.staticTexts.matching(NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", "Chapter One", "Chapter One")).firstMatch
+            let visibleChapter = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                primaryChapter.exists && primaryChapter.frame.width > 0 && primaryChapter.frame.height > 0 && primaryViewport.frame.intersects(primaryChapter.frame)
+            }, object: nil)
             XCTAssertEqual(XCTWaiter.wait(for: [visibleChapter], timeout: 8), .completed)
             app.buttons["split.next"].click()
             XCTAssertTrue(app.staticTexts.matching(identifier: "split.secondary.section").matching(NSPredicate(format: "value == %@ OR label == %@", "2", "2")).firstMatch.waitForExistence(timeout: 8))
             XCTAssertEqual(app.staticTexts["split.primary.section"].label, "1")
-            XCTAssertTrue(primaryChapter.isHittable, "Second-pane navigation must preserve the visible primary chapter")
+            XCTAssertTrue(primaryViewport.frame.intersects(primaryChapter.frame), "Second-pane navigation must preserve the visible primary chapter")
             snapshot(app, "v06-Split-\(language)-\(width)-\(theme)")
             app.buttons["split.close"].click()
             app.typeKey("e", modifierFlags: [.command, .shift])

@@ -12,6 +12,20 @@ private func extendedBook() async throws -> (LibraryStore, BookRecord, SourceAnc
     let book = try await store.importBook(data: data, id: UUID(), title: "Reading", revision: PDFReaderEngine.revision(data))
     return (store, book, .init(bookID: book.id, sourceRevision: book.revision, position: .pdf(.init(pageIndex: 0, x: 30, y: 500))))
 }
+@Test func extendedReadingClockCountsSlowTicksAndExcludesInactiveBoundaries() {
+    var clock = ActiveReadingClock()
+    #expect(clock.sample(now: 0, eligible: true) == 0)
+    #expect(clock.sample(now: 1, eligible: true) == 1) // The scroll driver's 0.1 s cap must not undercount reading time.
+    #expect(abs(clock.sample(now: 1.016, eligible: true) - 0.016) < 0.0001)
+    #expect(clock.sample(now: 2, eligible: false) == 0)
+    #expect(clock.sample(now: 60, eligible: true) == 0)
+    #expect(clock.sample(now: 61, eligible: true) == 1)
+    #expect(clock.sample(now: 600, eligible: true) == 2)
+    #expect(clock.sample(now: .nan, eligible: true) == 0)
+    #expect(clock.sample(now: 601, eligible: true) == 0)
+    clock.reset()
+    #expect(clock.sample(now: 602, eligible: true) == 0)
+}
 @Test func extendedTrackingIsOptInAndOldWritesCannotRestoreClearedData() async throws {
     let (store, book, anchor) = try await extendedBook(), initial = try await store.extendedReading()
     #expect(!initial.replayEnabled && !initial.insightsEnabled)
