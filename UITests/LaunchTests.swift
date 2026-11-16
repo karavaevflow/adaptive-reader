@@ -680,6 +680,10 @@ final class OfflineReaderTests: XCTestCase {
         XCTAssertTrue(pdf.waitForExistence(timeout: 10)); pdf.click()
         XCTAssertTrue(app.buttons["split.swap"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 10))
+        if app.descendants(matching: .any)["document.inspector"].firstMatch.exists { app.buttons["inspector.toggle"].firstMatch.click() }
+        app.buttons["inspector.toggle"].firstMatch.click()
+        XCTAssertTrue(app.descendants(matching: .any)["document.inspector"].firstMatch.waitForExistence(timeout: 10))
+        app.buttons["inspector.toggle"].firstMatch.click()
         app.buttons["split.swap"].click()
         let swapped = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "reflow"), object: app.buttons["split.secondary"])
         XCTAssertEqual(XCTWaiter.wait(for: [swapped], timeout: 15), .completed)

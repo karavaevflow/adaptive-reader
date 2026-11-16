@@ -68,7 +68,7 @@ struct ExtendedReadingView: View {
             }
             ForEach(model.snapshot.fragments.filter { $0.source.anchor.bookID == session.record?.id }) { fragment in
                 VStack(alignment: .leading, spacing: 10) {
-                    HStack { Text(fragment.source.bookTitle).font(.caption); Spacer(); Text(fragment.language + " · Reader translation").font(.caption).foregroundStyle(.secondary) }
+                    HStack { Text(fragment.source.bookTitle).font(.caption); Spacer(); (Text(fragment.language + " · ") + Text("Reader translation")).font(.caption).foregroundStyle(.secondary) }
                     HStack(alignment: .top, spacing: 20) {
                         Text(fragment.source.quotation).frame(maxWidth: .infinity, alignment: .leading)
                         Text(fragment.translation).frame(maxWidth: .infinity, alignment: .leading)
@@ -131,7 +131,7 @@ struct ExtendedReadingView: View {
             }
             ForEach(model.snapshot.metrics) { metric in
                 HStack {
-                    Text(model.books.first { $0.id == metric.bookID }?.title ?? "Unavailable book").font(.headline)
+                    Text(model.books.first { $0.id == metric.bookID }?.title ?? NSLocalizedString("Unavailable book", comment: "Unavailable metric source")).font(.headline)
                     Spacer()
                     Text("\(Int(metric.activeSeconds / 60)) min · \(metric.notes) notes · \(metric.completedChapters.count) completed")
                 }.padding().background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
@@ -154,14 +154,18 @@ struct SplitReadingView<Primary: View>: View {
                 VStack(spacing: 0) {
                     header(pane.record.title, primary: false)
                     HStack {
-                        Button("Back", systemImage: "chevron.left") { model.activePane = "secondary"; pane.perform(.back) }.labelStyle(.iconOnly).disabled(!pane.commands.canGoBack)
-                        Button("Next page or chapter", systemImage: "arrow.right") { model.activePane = "secondary"; pane.nextSection() }.labelStyle(.iconOnly).accessibilityIdentifier("split.next")
-                        Button("Next text block", systemImage: "chevron.down") { model.activePane = "secondary"; pane.perform(.advancePassage(1)) }.labelStyle(.iconOnly).disabled(!pane.engine.capabilities.contains(.passageNavigation))
-                        Picker("Second pane palette", selection: Binding(get: { pane.engine.palette }, set: { pane.perform(.setPalette($0)) })) { ForEach(PagePalette.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) } }.labelsHidden()
+                        Button("Next page or chapter", systemImage: "arrow.right") { model.activePane = "secondary"; pane.nextSection() }.labelStyle(.iconOnly).disabled(pane.section >= pane.sectionCount).accessibilityIdentifier("split.next")
+                        Picker("Second pane palette", selection: Binding(get: { pane.engine.palette }, set: { pane.perform(.setPalette($0)) })) { ForEach(PagePalette.allCases, id: \.self) { Text(LocalizedStringKey($0.rawValue.capitalized)).tag($0) } }.labelsHidden()
+                        Menu("Second pane tools", systemImage: "ellipsis.circle") {
+                            Button("Previous page or chapter") { model.activePane = "secondary"; pane.stepSection(-1) }.disabled(pane.section <= 1)
+                            Button("Back") { model.activePane = "secondary"; pane.perform(.back) }.disabled(!pane.commands.canGoBack)
+                            Button("Previous text block") { model.activePane = "secondary"; pane.perform(.advancePassage(-1)) }.disabled(!pane.engine.capabilities.contains(.passageNavigation))
+                            Button("Next text block") { model.activePane = "secondary"; pane.perform(.advancePassage(1)) }.disabled(!pane.engine.capabilities.contains(.passageNavigation))
+                        }.menuStyle(.borderlessButton).labelStyle(.iconOnly).fixedSize().accessibilityIdentifier("split.more")
                         Spacer()
                         Button("Swap panes", systemImage: "arrow.left.arrow.right") { model.swap() }.labelStyle(.iconOnly).accessibilityIdentifier("split.swap")
                         Button("Close second pane", systemImage: "xmark") { model.closeSplit() }.labelStyle(.iconOnly).accessibilityIdentifier("split.close")
-                    }.padding(8)
+                    }.padding(8).controlSize(.small)
                     if let error = pane.errorMessage { Text(error).foregroundStyle(.secondary).padding() }
                     SplitNativeView(pane: pane).id(pane.id)
                 }.frame(minWidth: 280).overlay(alignment: .top) { if model.activePane == "secondary" { Rectangle().fill(Color.accentColor).frame(height: 2).allowsHitTesting(false) } }
@@ -173,8 +177,8 @@ struct SplitReadingView<Primary: View>: View {
             Button { model.activePane = primary ? "primary" : "secondary"; model.interaction() } label: {
                 Label(title, systemImage: model.activePane == (primary ? "primary" : "secondary") ? "circle.inset.filled" : "circle").lineLimit(1)
             }.buttonStyle(.plain)
-                .accessibilityLabel(Text(primary ? "Primary pane" : "Secondary pane") + Text(": " + title))
-                .accessibilityValue(Text(model.activePane == (primary ? "primary" : "secondary") ? "Active" : "Inactive"))
+                .accessibilityLabel(Text(LocalizedStringKey(primary ? "Primary pane" : "Secondary pane")) + Text(": " + title))
+                .accessibilityValue(Text(LocalizedStringKey(model.activePane == (primary ? "primary" : "secondary") ? "Active" : "Inactive")))
                 .accessibilityIdentifier(primary ? "split.primary" : "split.secondary")
             Spacer()
             Text("\(primary ? session.pageNumber : model.secondary?.section ?? 1)").monospacedDigit().accessibilityIdentifier(primary ? "split.primary.section" : "split.secondary.section")

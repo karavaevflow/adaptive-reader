@@ -6961,6 +6961,36 @@
           }
         }
       }
+    },
+    "Reader translation": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перевод читателя"
+          }
+        }
+      }
+    },
+    "Second pane tools": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Инструменты второй панели"
+          }
+        }
+      }
+    },
+    "Previous page or chapter": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предыдущая страница или глава"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

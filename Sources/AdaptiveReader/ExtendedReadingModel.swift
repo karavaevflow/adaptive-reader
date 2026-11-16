@@ -80,7 +80,7 @@ final class ExtendedReadingModel {
             }
             #endif
         }
-        catch { errorMessage = error.localizedDescription }
+        catch { errorMessage = NSLocalizedString(error.localizedDescription, comment: "Extended reading error") }
     }
     func perform(_ command: ExtendedReadingCommand) async {
         guard let store else { return }
@@ -90,7 +90,7 @@ final class ExtendedReadingModel {
         default: break
         }
         do { snapshot = try await store.performExtended(command); errorMessage = nil; session?.refreshExtendedActivity() }
-        catch { errorMessage = error.localizedDescription }
+        catch { errorMessage = NSLocalizedString(error.localizedDescription, comment: "Extended reading error") }
     }
     func startSplit(_ book: BookRecord, anchor: SourceAnchor? = nil) {
         openTask?.cancel(); let token = UUID(); openToken = token; busy = true
@@ -107,7 +107,7 @@ final class ExtendedReadingModel {
                 pane.onInteraction = { [weak self] in self?.activePane = "secondary"; self?.interaction() }
                 session?.prepareSurfaceTransition()
                 secondary?.close(); secondary = pane; activePane = "secondary"; visible = false
-            } catch is CancellationError {} catch { errorMessage = error.localizedDescription }
+            } catch is CancellationError {} catch { errorMessage = NSLocalizedString(error.localizedDescription, comment: "Extended reading error") }
             if openToken == token { busy = false; openTask = nil }
         }
     }
@@ -156,7 +156,7 @@ final class ExtendedReadingModel {
             guard !passage.text.isEmpty else { throw ReaderError.unsupportedCommand }
             capturedSource = KnowledgeSource(anchor: passage.anchor, bookTitle: record.title, location: "\(session.pageNumber)", quotation: String(passage.text.prefix(1600)))
             translation = ""; explanation = ""
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = NSLocalizedString(error.localizedDescription, comment: "Extended reading error") }
     }
     func saveTranslation() async {
         guard let capturedSource else { return }
@@ -197,7 +197,7 @@ final class ExtendedReadingModel {
                 try Task.checkCancellation(); guard ocrToken == token, session.record?.id == book.id else { return }
                 try pdf.installRecognizedPage(result)
                 ocrPage = result
-            } catch is CancellationError {} catch { if ocrToken == token { errorMessage = error.localizedDescription } }
+            } catch is CancellationError {} catch { if ocrToken == token { errorMessage = NSLocalizedString(error.localizedDescription, comment: "Extended reading error") } }
             if ocrToken == token { ocrRunning = false; ocrWorker = nil; ocrTask = nil }
         }
     }
@@ -222,7 +222,7 @@ final class ExtendedReadingModel {
                 try Task.checkCancellation()
                 let updated = try await store.performExtended(.record(event, generation: generation))
                 self?.snapshot = updated
-            } catch is CancellationError {} catch { self?.errorMessage = error.localizedDescription }
+            } catch is CancellationError {} catch { self?.errorMessage = NSLocalizedString(error.localizedDescription, comment: "Extended reading error") }
         }
         if kind == .navigation { eventTask = task }
     }
@@ -289,7 +289,7 @@ final class SplitPane {
             }
             if let initialAnchor { try commands.perform(.navigate(initialAnchor)) }
             changed()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = NSLocalizedString(error.localizedDescription, comment: "Extended reading error") }
     }
     func changed() {
         if let anchor = try? engine.currentAnchor() {
@@ -300,24 +300,26 @@ final class SplitPane {
         }
         onChange?()
     }
-    func nextSection() {
+    var sectionCount: Int { (engine as? PDFReaderEngine)?.document.pageCount ?? (engine as? EPUBReaderEngine)?.publication.readingResources.count ?? 0 }
+    func nextSection() { stepSection(1) }
+    func stepSection(_ direction: Int) {
         do {
             let anchor: SourceAnchor
             if let pdf = engine as? PDFReaderEngine {
-                let index = min(section, pdf.document.pageCount - 1)
+                let index = max(0, min(section - 1 + direction, pdf.document.pageCount - 1))
                 guard let page = pdf.document.page(at: index) else { return }
                 let box = page.bounds(for: .cropBox)
                 anchor = .init(bookID: engine.bookID, sourceRevision: engine.sourceRevision, position: .pdf(.init(pageIndex: index, x: box.minX, y: box.maxY)))
             } else if let epub = engine as? EPUBReaderEngine {
-                let index = min(section, epub.publication.readingResources.count - 1)
+                let index = max(0, min(section - 1 + direction, epub.publication.readingResources.count - 1))
                 anchor = .init(bookID: engine.bookID, sourceRevision: engine.sourceRevision, position: .epub(resource: epub.publication.readingResources[index].resource, locator: EPUBTextLocator(offset: 0).encoded))
             } else { return }
             try commands.perform(.navigate(anchor)); changed()
-        } catch { errorMessage = error.localizedDescription }
+        } catch { errorMessage = NSLocalizedString(error.localizedDescription, comment: "Extended reading error") }
     }
     func navigate(_ anchor: SourceAnchor) { perform(.navigate(anchor)) }
     func perform(_ command: ApplicationCommand) {
-        do { try commands.perform(command); changed() } catch { errorMessage = error.localizedDescription }
+        do { try commands.perform(command); changed() } catch { errorMessage = NSLocalizedString(error.localizedDescription, comment: "Extended reading error") }
     }
     func close() { observers.removeAll(); engine.cancelSearch(); (engine as? EPUBReaderEngine)?.stop(); onChange = nil }
 }

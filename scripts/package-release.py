@@ -28,6 +28,10 @@ architectures = subprocess.check_output(['xcrun', 'lipo', '-archs', str(app / 'C
 if set(architectures.split()) != {'arm64', 'x86_64'}:
     raise RuntimeError('Expected both arm64 and x86_64')
 shutil.copyfile(root / 'LICENSE', stage / 'LICENSE')
+dependency_license = root / '.build/checkouts/ZIPFoundation/LICENSE'
+if not dependency_license.is_file():
+    raise RuntimeError('Resolve the pinned ZIPFoundation dependency before packaging its license')
+(stage / 'THIRD-PARTY.txt').write_text('ZIPFoundation 0.9.20\nhttps://github.com/weichsel/ZIPFoundation\n\n' + dependency_license.read_text())
 toolchain = subprocess.check_output(['xcodebuild', '-version'], text=True).strip()
 sdk = subprocess.check_output(['xcrun', '--sdk', 'macosx', '--show-sdk-version'], text=True).strip()
 (stage / 'BUILD.txt').write_text(f'Adaptive Reader {a.version}\nApplication source: {a.source}\n{toolchain}\nmacOS SDK: {sdk}\nArchitectures: {architectures}\nMinimum macOS: 15.0\nSignature: local ad-hoc; no Developer ID or notarization\nAcceptance: docs/v0.6.md in the source repository\n')

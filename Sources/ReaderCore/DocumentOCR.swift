@@ -1,6 +1,7 @@
 import Foundation
 import CoreGraphics
 import Vision
+import CoreML
 
 public struct OCRLine: Codable, Equatable, Sendable, Identifiable {
     public var id: String { "\(anchor.bookID):\(anchor.position):\(bounds)" }
@@ -53,6 +54,7 @@ public final class DocumentOCR: @unchecked Sendable {
             try Task.checkCancellation()
             return try autoreleasepool {
                 try self.checkCancellation()
+                Self.trace("rendering page")
                 guard PDFReaderEngine.revision(data) == revision else { throw ReaderError.sourceChanged }
                 guard let provider = CGDataProvider(data: data as CFData), let pdf = CGPDFDocument(provider),
                       !pdf.isEncrypted, pdf.allowsCopying else { throw ReaderError.lockedDocument }
@@ -74,16 +76,28 @@ public final class DocumentOCR: @unchecked Sendable {
                 guard let image = context.makeImage() else { throw ReaderError.unavailableSource }
                 let request = VNRecognizeTextRequest()
                 request.recognitionLevel = .accurate; request.usesLanguageCorrection = true
+                request.preferBackgroundProcessing = true
+                Self.trace("configuring recognizer")
                 let supported = try request.supportedRecognitionLanguages()
                 let selected = languages.filter { supported.contains($0) }
                 guard !selected.isEmpty else { throw ReaderError.unsupportedCommand }
                 request.recognitionLanguages = selected
+                // A bounded page is processed on a supported CPU device. This keeps
+                // recognition independent of a virtual/absent GPU and reader drawing.
+                let stages = try request.supportedComputeStageDevices
+                guard !stages.isEmpty else { throw ReaderError.unsupportedCommand }
+                for (stage, devices) in stages {
+                    guard let cpu = devices.first(where: { if case .cpu = $0 { true } else { false } }) else { throw ReaderError.unsupportedCommand }
+                    request.setComputeDevice(cpu, for: stage)
+                }
                 lock.lock(); let stopped = cancelled; if !stopped { self.request = request }; lock.unlock()
                 guard !stopped else { throw CancellationError() }
                 defer { lock.lock(); self.request = nil; lock.unlock() }
+                Self.trace("recognizing text on CPU")
                 do { try VNImageRequestHandler(cgImage: image, options: [:]).perform([request]) }
                 catch { try self.checkCancellation(); throw error }
                 try self.checkCancellation()
+                Self.trace("recognition completed")
                 let inverse = transform.inverted()
                 let lines = (request.results ?? []).compactMap { observation -> OCRLine? in
                     guard let candidate = observation.topCandidates(1).first, !candidate.string.isEmpty else { return nil }
@@ -104,6 +118,11 @@ public final class DocumentOCR: @unchecked Sendable {
         lock.lock(); let stopped = cancelled; lock.unlock()
         if stopped { throw CancellationError() }
         try Task.checkCancellation()
+    }
+    private static func trace(_ stage: String) {
+        #if DEBUG
+        NSLog("Adaptive OCR: %@", stage)
+        #endif
     }
 }
 
