@@ -97,12 +97,14 @@ final class ExtendedReadingModel {
                 let pane = SplitPane(record: record, engine: engine, anchor: saved, palette: palette ?? .original)
                 pane.onChange = { [weak self] in self?.secondaryMoved() }
                 pane.onInteraction = { [weak self] in self?.activePane = "secondary"; self?.interaction() }
+                session?.prepareSurfaceTransition()
                 secondary?.close(); secondary = pane; activePane = "secondary"; visible = false
             } catch is CancellationError {} catch { errorMessage = error.localizedDescription }
             if openToken == token { busy = false; openTask = nil }
         }
     }
     func closeSplit() {
+        if secondary != nil { session?.prepareSurfaceTransition() }
         saveTask?.cancel(); saveTask = nil
         if let pane = secondary, let anchor = try? pane.engine.currentAnchor() {
             let position = SplitPosition(anchor: anchor, palette: pane.engine.palette)

@@ -62,6 +62,7 @@ final class ReaderSession {
     @ObservationIgnored private let storageRoot: URL
     @ObservationIgnored private let awake = DisplayAwake()
     @ObservationIgnored private var pendingState: ReadingState?
+    @ObservationIgnored private var surfaceTransitionAnchor: SourceAnchor?
     @ObservationIgnored private var subscriptions = Set<AnyCancellable>()
     @ObservationIgnored private var saving: Task<Void, Never>?
     @ObservationIgnored private var searchTask: Task<Void, Never>?
@@ -246,8 +247,22 @@ final class ReaderSession {
         }
     }
 
+    func prepareSurfaceTransition() {
+        surfaceTransitionAnchor = try? engine?.currentAnchor()
+    }
     func mount() {
-        guard let engine, !mounted else { return }
+        guard let engine else { return }
+        if mounted {
+            if let pdf = engine as? PDFReaderEngine {
+                pdf.view.layoutDocumentView()
+                if let anchor = surfaceTransitionAnchor { do { try pdf.navigate(to: anchor) } catch { report(error) } }
+                observePDF(pdf)
+            } else if let anchor = surfaceTransitionAnchor {
+                do { try engine.navigate(to: anchor) } catch { report(error) }
+            }
+            surfaceTransitionAnchor = nil; positionChanged()
+            return
+        }
         if let epub = engine as? EPUBReaderEngine {
             mounted = true
             do {
@@ -269,6 +284,11 @@ final class ReaderSession {
         pendingState = nil; mounted = true
         scale = engine.view.scaleFactor
         pageNumber = engine.document.index(for: engine.view.currentPage ?? engine.document.page(at: 0)!) + 1
+        observePDF(engine)
+        positionChanged(); applyAmbient(at: Date()); updateActivityDriver()
+    }
+    private func observePDF(_ engine: PDFReaderEngine) {
+        subscriptions.removeAll()
         let center = NotificationCenter.default
         for name in [Notification.Name.PDFViewPageChanged, .PDFViewScaleChanged] {
             center.publisher(for: name, object: engine.view).receive(on: RunLoop.main).sink { [weak self] _ in
@@ -282,11 +302,10 @@ final class ReaderSession {
                 MainActor.assumeIsolated { self?.positionChanged() }
             }.store(in: &subscriptions)
         }
-        positionChanged(); applyAmbient(at: Date()); updateActivityDriver()
     }
 
     private func positionChanged() {
-        guard mounted, let engine else { return }
+        guard mounted, surfaceTransitionAnchor == nil, let engine else { return }
         extended.primaryMoved()
         if companion.smartMargins { companionViewportRevision &+= 1 }
         scale = Double(pdfEngine?.view.scaleFactor ?? 1)
@@ -433,6 +452,7 @@ final class ReaderSession {
     }
     private func stopWork() {
         extended.stop()
+        surfaceTransitionAnchor = nil
         epubEngine?.stop()
         study.reset()
         companion.reset(); companionVisible = false
@@ -454,7 +474,7 @@ final class ReaderSession {
             return
         }
         do {
-            try await store.save(ReadingState(anchor: try engine.currentAnchor(), palette: commands.palette,
+            try await store.save(ReadingState(anchor: try surfaceTransitionAnchor ?? engine.currentAnchor(), palette: commands.palette,
                 scale: Double(pdfEngine?.view.scaleFactor ?? 1), autoScales: pdfEngine?.view.autoScales ?? false, pdfDisplayMode: pdfEngine?.view.displayMode.rawValue ?? 1, epubTypography: epubEngine?.typography), for: record)
         } catch { report(error) }
     }

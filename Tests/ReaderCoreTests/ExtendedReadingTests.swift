@@ -69,7 +69,7 @@ private func extendedBook() async throws -> (LibraryStore, BookRecord, SourceAnc
     let (store, book, _) = try await extendedBook(), data = try extendedFixture()
     let page = try await DocumentOCR().recognize(data: data, bookID: book.id, revision: book.revision, pageIndex: 0)
     #expect(!page.lines.isEmpty)
-    #expect(page.lines.map(\.text).joined(separator: " ").localizedCaseInsensitiveContains("Reading specimen"))
+    #expect(page.lines.map(\.text).joined(separator: " ").localizedCaseInsensitiveContains("A stable anchor connects the reader"))
     try await store.cacheOCR(page, for: book)
     #expect(try await store.cachedOCR(for: book, pageIndex: 0) == page)
     #expect(try await store.openBook(book.id).1 == data)
