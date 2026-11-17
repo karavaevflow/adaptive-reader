@@ -1,0 +1,66 @@
+{
+  "version": "v1.0.0-rc.1",
+  "releaseURL": "https://github.com/karavaevflow/adaptive-reader/releases/tag/v1.0.0-rc.1",
+  "prerelease": true,
+  "markAsLatest": false,
+  "tagCommit": "7ffb750759b6d064834c66e7d06ba9191c9d6410",
+  "compiledAndCISource": "ef968c8ca1fb7be9f6e7f0ad03e55189479b1590",
+  "sourceTreeUnchangedAtTag": true,
+  "ciRun": 44144951311,
+  "archive": "AdaptiveReader-v1.0.0-rc.1.zip",
+  "sha256": "2a3a35b23973d1666198ec4f1a7544bf91551590a277e994e599d5946791e3cc",
+  "sizeBytes": 5232915,
+  "githubAssetID": 760300591,
+  "githubAssetDigest": "sha256:2a3a35b23973d1666198ec4f1a7544bf91551590a277e994e599d5946791e3cc",
+  "downloadedZIPChecksumVerified": true,
+  "sidecarVerified": true,
+  "zipCRCVerified": true,
+  "downloadedExtractedStrictSignatureVerified": true,
+  "architectures": [
+    "x86_64",
+    "arm64"
+  ],
+  "signing": "local ad-hoc",
+  "notarized": false,
+  "minimumMacOS": "15.0",
+  "finalizedFromCIArchiveSHA256": "a75f77dd0d3f0f19147cb0bdb83c10a50bf5784173a7091e50d94836690ba177",
+  "actualBUILD": {
+    "acceptance": "docs/v1.0.md",
+    "acceptanceReportSHA256": "419b97cf8be336572deac6de6f73f42a74fb9e701f0ce584d23e02720706b765",
+    "applicationVersion": "1.0.0",
+    "architectures": [
+      "x86_64",
+      "arm64"
+    ],
+    "build": "9",
+    "bundleIdentifier": "com.karavaevflow.AdaptiveReader",
+    "documentationCommit": "7ffb750759b6d064834c66e7d06ba9191c9d6410",
+    "entitlements": {
+      "com.apple.security.app-sandbox": true,
+      "com.apple.security.files.bookmarks.app-scope": true,
+      "com.apple.security.files.user-selected.read-write": true,
+      "com.apple.security.network.client": true
+    },
+    "finalizedFromCIArchiveSHA256": "a75f77dd0d3f0f19147cb0bdb83c10a50bf5784173a7091e50d94836690ba177",
+    "installedProductionTest": {
+      "failed": 0,
+      "passed": 1,
+      "run": "https://github.com/karavaevflow/adaptive-reader/actions/runs/44144951311",
+      "skipped": 0
+    },
+    "minimumMacOS": "15.0",
+    "notarized": false,
+    "sdk": "15.5",
+    "signature": "local ad-hoc",
+    "sourceCommit": "ef968c8ca1fb7be9f6e7f0ad03e55189479b1590",
+    "toolchain": "Xcode 16.4\nBuild version 16F6",
+    "version": "v1.0.0-rc.1"
+  },
+  "verifiedUTC": "2026-11-17T19:20:36.281778+00:00",
+  "unverifiedStableGates": [
+    "Exact macOS 15.0 runtime",
+    "Fresh system VoiceOver/Reduce Motion/Reduce Transparency review",
+    "Browser-download/quarantine Gatekeeper installation and actual old-binary replacement on a clean Mac"
+  ],
+  "scope": "Verifies published bytes and extracted signature; does not assert a browser/quarantine or production-container install on the owner Mac."
+}
