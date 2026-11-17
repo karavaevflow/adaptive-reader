@@ -3,6 +3,7 @@ import ReaderCore
 import PDFKit
 import Combine
 import Darwin
+import UniformTypeIdentifiers
 
 @MainActor
 @Observable
@@ -16,6 +17,11 @@ final class ReaderSession {
     var title = "Adaptive Reader"
     var busy = false
     var errorMessage: String?
+    var errorTitle = "Unable to open document"
+    var libraryTransferTitle: String?
+    var libraryTransferNotice: String?
+    var libraryRecoveryURL: URL?
+    @ObservationIgnored private var libraryTransferTask: Task<Void, Never>?
     var pageNumber = 1
     var scale = 1.0
     var books: [BookRecord] = []
@@ -462,10 +468,14 @@ final class ReaderSession {
         engine?.cancelSearch(); searchQuery = ""; searchMatches = []; searching = false; checkingText = false
     }
     func suspend() {
-        knowledge.cancel()
+        knowledge.cancel(); libraryTransferTask?.cancel()
         active = false; closeMiniReader(revealMain: false); stopReadingActivity(); awake.release(); keepAwake = false; stopWork(); saving?.cancel()
     }
     func flush() async {
+        await libraryTransferTask?.value
+        await flushReadingData()
+    }
+    private func flushReadingData() async {
         await study.flush()
         await flushPreferences()
         await extended.flush()
@@ -728,7 +738,67 @@ final class ReaderSession {
         searchTask?.cancel(); textTask?.cancel(); checkpointTask?.cancel(); saving?.cancel()
         engine?.cancelSearch()
     }
-    func report(_ error: Error) { errorMessage = NSLocalizedString(error.localizedDescription, comment: "Reader error") }
+    func chooseLibraryBackup(restoring: Bool) {
+        let command: WorkspaceCommand = restoring ? .restoreLibraryBackup : .backupLibrary
+        guard active, command.isEnabled(in: self), let window = surfaceView?.window ?? NSApp.mainWindow ?? NSApp.keyWindow else { return }
+        if restoring {
+            let panel = NSOpenPanel()
+            panel.allowedContentTypes = [.zip]; panel.allowsMultipleSelection = false
+            panel.title = String(localized: "Restore library backup")
+            panel.prompt = String(localized: "Restore")
+            panel.message = String(localized: "Restore into an empty library. Reading history and tracking choices are included. Current AI settings stay unchanged.")
+            panel.beginSheetModal(for: window) { [weak self] response in
+                guard response == .OK, let url = panel.url else { return }
+                self?.transferLibrary(url: url, restoring: true)
+            }
+        } else {
+            let panel = NSSavePanel()
+            panel.allowedContentTypes = [.zip]
+            panel.title = String(localized: "Back up library")
+            panel.nameFieldStringValue = "Adaptive-Library-" + ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-") + ".zip"
+            panel.message = String(localized: "Includes managed books and private reader data. Back up linked originals separately. Caches and AI settings are excluded. Keep the archive private.")
+            panel.beginSheetModal(for: window) { [weak self] response in
+                guard response == .OK, let url = panel.url else { return }
+                self?.transferLibrary(url: url, restoring: false)
+            }
+        }
+    }
+    func cancelLibraryTransfer() { libraryTransferTask?.cancel() }
+    private func transferLibrary(url: URL, restoring: Bool) {
+        let command: WorkspaceCommand = restoring ? .restoreLibraryBackup : .backupLibrary
+        guard active, command.isEnabled(in: self) else { return }
+        busy = true; setAutoScroll(false)
+        libraryTransferTitle = restoring ? "Restoring library" : "Saving library backup"
+        libraryTransferNotice = nil; libraryRecoveryURL = nil
+        libraryTransferTask = Task {
+            let grant = url.startAccessingSecurityScopedResource()
+            defer {
+                if grant { url.stopAccessingSecurityScopedResource() }
+                busy = false; libraryTransferTitle = nil; libraryTransferTask = nil
+            }
+            await flushReadingData()
+            do {
+                try Task.checkCancellation()
+                if restoring {
+                    libraryRecoveryURL = try await store.restoreLibraryBackup(from: url)
+                    if active {
+                        await refreshLibrary(); await extended.reload(); await knowledge.reload(); await restore()
+                        libraryTransferNotice = "Library restored. The previous folder was kept for recovery."
+                    }
+                } else {
+                    try await store.writeLibraryBackup(to: url)
+                    if active { libraryTransferNotice = "Library backup saved." }
+                }
+            } catch is CancellationError {
+                if active { libraryTransferNotice = "Library operation cancelled." }
+            } catch {
+                if active { report(error, title: restoring ? "Unable to restore library" : "Unable to save library backup") }
+            }
+        }
+    }
+    func report(_ error: Error, title: String = "Unable to open document") {
+        errorTitle = title; errorMessage = NSLocalizedString(error.localizedDescription, comment: "Reader error")
+    }
 }
 
 @MainActor

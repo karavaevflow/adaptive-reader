@@ -229,7 +229,7 @@ final class ExtendedReadingModel {
     func interaction() { lastInteraction = ProcessInfo.processInfo.systemUptime }
     func primaryInteraction() { activePane = "primary"; interaction() }
     func tick(now: Double) {
-        let eligible = snapshot.insightsEnabled && NSApp.isActive && session?.surfaceView?.window?.isKeyWindow == true
+        let eligible = snapshot.insightsEnabled && session?.busy == false && NSApp.isActive && session?.surfaceView?.window?.isKeyWindow == true
             && session?.surfaceView?.window?.occlusionState.contains(.visible) == true && !visible && now - lastInteraction < 60
         let elapsed = readingClock.sample(now: now, eligible: eligible)
         guard elapsed > 0, let anchor = activeAnchor else { return }

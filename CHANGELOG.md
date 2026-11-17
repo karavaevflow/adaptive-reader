@@ -2,7 +2,7 @@
 
 ## 1.0.0-rc.1 — Unreleased
 
-Release-candidate validation for the existing PDF/EPUB reading workspace. Adds frozen-library upgrade checks, installed production-package acceptance, repeat long-session checks, verified package metadata/licenses and public contribution/privacy/security documentation. The candidate is not yet declared v1.0 stable; the acceptance report records open platform/accessibility checks.
+Release-candidate validation for the existing PDF/EPUB reading workspace. Adds native library backup/restore with integrity validation, an empty-library guard and retained recovery folder; frozen-library upgrade checks, installed production-package acceptance, repeat long-session checks, verified package metadata/licenses and public contribution/privacy/security documentation. The candidate is not yet declared v1.0 stable; the acceptance report records open platform/accessibility checks.
 
 The candidate retains independent Split Reading, source-aligned reader translations/vocabulary, local page OCR with confidence/source links, optional Replay/Insights, Study/Recall/local speech, Knowledge boards/search and the opt-in AI integration. No model is installed or enabled by this update. Bilingual translations are reader-authored; arbitrary editions are not automatically aligned.
 

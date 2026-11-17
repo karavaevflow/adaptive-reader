@@ -83,6 +83,8 @@ jobs:
           python3 scripts/configure-release-tests.py --products "$RUNNER_TEMP/AdaptiveRelease/Build/Products" --app "$RUNNER_TEMP/AdaptiveInstalled/AdaptiveReader-v1.0.0-rc.1/AdaptiveReader.app" > ReleaseRunPath.txt
       - name: Installed Release and upgrade acceptance
         run: xcodebuild -xctestrun "$(cat ReleaseRunPath.txt)" -destination 'platform=macOS' -only-testing:AdaptiveReaderUITests/ReleaseAcceptanceTests -resultBundlePath ReleaseAcceptance.xcresult test-without-building
+      - name: Require installed-production pass without skips
+        run: python3 scripts/check-xctest-result.py ReleaseAcceptance.xcresult --passed 1 --output ReleaseAcceptance-summary.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -91,6 +93,7 @@ jobs:
             dist/AdaptiveReader-v1.0.0-rc.1.zip
             dist/AdaptiveReader-v1.0.0-rc.1.sha256
             ReleaseAcceptance.xcresult
+            ReleaseAcceptance-summary.json
   stability:
     if: startsWith(github.head_ref || github.ref_name, 'codex/public-stable-v1.0')
     runs-on: macos-15-intel
@@ -101,8 +104,12 @@ jobs:
         run: swift scripts/configure-ci-display.swift
       - name: Real 25-minute optimized Mini Reader session
         run: sh scripts/benchmark-v02-soak.sh "$RUNNER_TEMP/Stability.xcresult"
+      - name: Require a real long-session pass without skips
+        run: python3 scripts/check-xctest-result.py "$RUNNER_TEMP/Stability.xcresult" --passed 1 --minimum-seconds 1500 --output "$RUNNER_TEMP/Stability-summary.json"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: stability-results
-          path: ${{ runner.temp }}/Stability.xcresult
+          path: |
+            ${{ runner.temp }}/Stability.xcresult
+            ${{ runner.temp }}/Stability-summary.json

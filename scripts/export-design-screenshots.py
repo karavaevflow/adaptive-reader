@@ -53,7 +53,7 @@ if args.release == "v06":
 if args.release == "v06-flows":
     expected = {"v06-OCR-flow", "v06-Privacy-flow", "v06-CrossFormat-flow"}
 if args.release == "v1-release":
-    expected = {"v1-release-clean-library", "v1-release-offline-import", "v1-release-upgraded-study", "v1-release-upgraded-pdf-epub", "v1-release-restored"}
+    expected = {"v1-release-clean-library", "v1-release-offline-import", "v1-release-upgraded-study", "v1-release-upgraded-pdf-epub", "v1-release-restored", "v1-release-backup-export"}
 with tempfile.TemporaryDirectory(prefix="adaptive-design-") as temporary:
     directory = Path(temporary)
     subprocess.run([

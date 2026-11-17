@@ -28,6 +28,7 @@ if len(targets) != 1:
     raise RuntimeError('Expected one UI test target')
 variables = {'ADAPTIVE_RELEASE_CI_ONLY': 'YES', 'ADAPTIVE_RELEASE_APP_URL': str(a.app.resolve()),
              'ADAPTIVE_UPGRADE_FIXTURE': str(root / 'Research/Upgrade/v0.6/Library'),
+             'ADAPTIVE_UPGRADE_ARCHIVE': str(root / 'Research/Upgrade/v0.6/Library.zip'),
              'ADAPTIVE_RELEASE_PDF': str(root / 'Research/Fixtures/text.pdf')}
 for target in targets:
     target['UITargetAppPath'] = str(a.app.resolve())

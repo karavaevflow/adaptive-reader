@@ -80,11 +80,13 @@ enum WorkspaceCommand: String, CaseIterable, Identifiable, Hashable {
     case toggleSidebar, toggleAppearance, toggleInspector, zoomIn, zoomOut
     case commandCenter, readingTools, back, forward, toggleSpotlight, spotlightNext, spotlightPrevious, nextPassage, previousPassage
     case toggleAutoScroll, toggleSession, stopSession, miniReader, returnToReader, companion
-    case knowledge, saveKnowledge, extendedReading
+    case knowledge, saveKnowledge, extendedReading, backupLibrary, restoreLibraryBackup
     case study, newCard, newNote, highlightPassage, listenFromHere, resumeListening, toggleListening, stopListening
     var id: String { rawValue }
     var label: String {
         switch self {
+        case .backupLibrary: "Back up library"
+        case .restoreLibraryBackup: "Restore library backup"
         case .openDocument: "Open book"
         case .importReference: "Import linked book"
         case .closeBook: "Close book"
@@ -127,6 +129,8 @@ enum WorkspaceCommand: String, CaseIterable, Identifiable, Hashable {
     }
     @MainActor func isEnabled(in session: ReaderSession) -> Bool {
         switch self {
+        case .backupLibrary: !session.busy && !session.study.busy && !session.knowledge.busy && !session.extended.busy
+        case .restoreLibraryBackup: !session.busy && session.engine == nil && session.books.isEmpty && !session.study.busy && !session.knowledge.busy && !session.extended.busy
         case .openDocument, .importReference: !session.busy
         case .commandCenter, .toggleSidebar, .toggleAppearance, .toggleInspector: true
         case .readingTools: true
@@ -198,6 +202,9 @@ struct WorkspaceCommands: Commands {
                 .keyboardShortcut("o", modifiers: [.command, .shift]).disabled(actions == nil)
             Button("Close book") { actions?.perform(.closeBook) }
                 .keyboardShortcut("w", modifiers: [.command, .shift]).disabled(actions?.hasBook != true)
+            Divider()
+            Button("Back up library") { actions?.perform(.backupLibrary) }.disabled(actions?.enabledCommands.contains(.backupLibrary) != true)
+            Button("Restore library backup") { actions?.perform(.restoreLibraryBackup) }.disabled(actions?.enabledCommands.contains(.restoreLibraryBackup) != true)
         }
         CommandGroup(after: .toolbar) {
             Button("Command Center") { actions?.perform(.commandCenter) }.keyboardShortcut("k").disabled(actions == nil)

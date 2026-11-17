@@ -73,6 +73,8 @@ guard arguments.count >= 3 else { throw ValidationFailure.arguments }
 if arguments[1] == "seed", arguments.count == 4 {
     try await seed(repository: URL(fileURLWithPath: arguments[2]), destination: URL(fileURLWithPath: arguments[3]))
     FileHandle.standardOutput.write(try await report(root: URL(fileURLWithPath: arguments[3])))
+} else if arguments[1] == "backup", arguments.count == 4 {
+    try await LibraryStore(root: URL(fileURLWithPath: arguments[2])).writeLibraryBackup(to: URL(fileURLWithPath: arguments[3]))
 } else if arguments[1] == "verify", arguments.count == 3 {
     FileHandle.standardOutput.write(try await report(root: URL(fileURLWithPath: arguments[2])))
 } else { throw ValidationFailure.arguments }
