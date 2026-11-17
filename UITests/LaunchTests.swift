@@ -48,9 +48,12 @@ final class ReleaseAcceptanceTests: XCTestCase {
             panel.buttons["OKButton"].firstMatch.click()
         }
         func acknowledge(_ message: String) {
-            XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label == %@ OR value == %@", message, message)).firstMatch.waitForExistence(timeout: 15))
-            let button = app.buttons["OK"].firstMatch
-            XCTAssertTrue(button.waitForExistence(timeout: 15)); button.click()
+            let notice = app.staticTexts.matching(NSPredicate(format: "label == %@ OR value == %@", message, message)).firstMatch
+            XCTAssertTrue(notice.waitForExistence(timeout: 15))
+            // Return invokes the native alert's default action, avoiding a
+            // duplicate, non-clickable Touch Bar OK in the AX hierarchy.
+            app.typeKey(.return, modifierFlags: [])
+            XCTAssertTrue(notice.waitForNonExistence(timeout: 8))
         }
         func section(_ name: String) {
             let picker = app.popUpButtons["study.section"].firstMatch
@@ -857,17 +860,27 @@ final class OfflineReaderTests: XCTestCase {
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Shared source anchors")).firstMatch.waitForExistence(timeout: 5))
         knowledgeTab(app, "Library search")
         paste("stable", into: app.textFields["knowledge.search.query"], app: app); app.buttons["knowledge.search.run"].click()
-        let epubCheck = app.checkBoxes.matching(NSPredicate(format: "label CONTAINS %@", " · reflow · ")).firstMatch
-        XCTAssertTrue(epubCheck.waitForExistence(timeout: 30)); epubCheck.click()
-        let pdfCheck = app.checkBoxes.matching(NSPredicate(format: "label CONTAINS %@", " · text · ")).firstMatch
         let results = app.scrollViews["knowledge.search.results"].firstMatch
         XCTAssertTrue(results.waitForExistence(timeout: 5))
-        for _ in 0..<16 {
-            if pdfCheck.exists && pdfCheck.isHittable { break }
-            results.scroll(byDeltaX: 0, deltaY: -500)
+        func selectQuotation(from title: String) {
+            let checkbox = app.checkBoxes.matching(NSPredicate(format: "label BEGINSWITH %@", "Author quotation · " + title + " · ")).firstMatch
+            XCTAssertTrue(checkbox.waitForExistence(timeout: 30))
+            // SwiftUI can report a clipped row as hittable. Keep the entire
+            // checkbox inside the scroll viewport before synthesizing input.
+            for _ in 0..<40 {
+                let viewport = results.frame.insetBy(dx: 4, dy: 12)
+                if checkbox.isHittable && viewport.contains(checkbox.frame) { break }
+                results.scroll(byDeltaX: 0, deltaY: checkbox.frame.midY < viewport.minY ? 180 : -180)
+            }
+            XCTAssertTrue(checkbox.isHittable && results.frame.insetBy(dx: 4, dy: 12).contains(checkbox.frame))
+            checkbox.click()
+            let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == 1"), object: checkbox)
+            XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 8), .completed)
         }
-        XCTAssertTrue(pdfCheck.exists && pdfCheck.isHittable); pdfCheck.click()
-        XCTAssertTrue(app.buttons["knowledge.compare"].isEnabled); app.buttons["knowledge.compare"].click()
+        selectQuotation(from: "reflow"); selectQuotation(from: "text")
+        let compare = app.buttons["knowledge.compare"]
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: compare)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 8), .completed); compare.click()
         let verification = app.buttons.matching(NSPredicate(format: "label == %@", "Verify source"))
         XCTAssertTrue(verification.firstMatch.waitForExistence(timeout: 10))
         expectKnowledgeCount(verification, 2); verification.element(boundBy: 0).click()
