@@ -2,7 +2,7 @@
 set -eu
 # Real elapsed 25-minute session; keep the control Mac available to XCTest.
 caffeinate -di xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader \
-  -configuration Release -destination 'platform=macOS,arch=arm64' \
+  -configuration Release -destination 'platform=macOS' \
   -derivedDataPath /private/tmp/adaptive-v02-soak \
   -resultBundlePath "${1:-/private/tmp/adaptive-v02-soak.xcresult}" \
   ADAPTIVE_TEST_BUNDLE_SUFFIX=.UITesting \

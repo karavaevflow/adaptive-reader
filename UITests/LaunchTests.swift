@@ -3,6 +3,120 @@ import AppKit
 import IOKit.pwr_mgt
 import Carbon.HIToolbox
 
+/// Runs only on a disposable GitHub macOS account, against the extracted production
+/// Release app. It never redirects a release build to a debug/test storage root.
+final class ReleaseAcceptanceTests: XCTestCase {
+    override func setUp() { super.setUp(); continueAfterFailure = false }
+
+    @MainActor func testPackagedInstallOfflineImportAndV06Upgrade() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["ADAPTIVE_RELEASE_CI_ONLY"] == "YES",
+              NSUserName() == "runner",
+              let applicationPath = environment["ADAPTIVE_RELEASE_APP_URL"],
+              let fixturePath = environment["ADAPTIVE_UPGRADE_FIXTURE"],
+              let pdfPath = environment["ADAPTIVE_RELEASE_PDF"] else {
+            throw XCTSkip("Production-container acceptance runs only on a disposable CI Mac")
+        }
+        let applicationURL = URL(fileURLWithPath: applicationPath)
+        let info = try XCTUnwrap(Bundle(url: applicationURL))
+        XCTAssertEqual(info.bundleIdentifier, "com.karavaevflow.AdaptiveReader")
+        let home = URL(fileURLWithPath: String(cString: getpwuid(getuid())!.pointee.pw_dir))
+        let root = home.appendingPathComponent("Library/Containers/com.karavaevflow.AdaptiveReader/Data/Library/Application Support/AdaptiveReader")
+        guard !FileManager.default.fileExists(atPath: root.path) else {
+            throw NSError(domain: "ReleaseAcceptance", code: 1, userInfo: [NSLocalizedDescriptionKey: "Refusing to use an existing production library"])
+        }
+        let app = XCUIApplication(url: applicationURL)
+        // No speech or model actions are invoked in this production-binary test.
+        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en"]
+        func launch() {
+            app.launch(); app.activate()
+            XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 15))
+        }
+        func quit() {
+            app.typeKey("q", modifierFlags: [.command])
+            XCTAssertTrue(app.wait(for: .notRunning, timeout: 15))
+        }
+        func capture(_ name: String) {
+            let attachment = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+            attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+        }
+        func section(_ name: String) {
+            let picker = app.popUpButtons["study.section"].firstMatch
+            XCTAssertTrue(picker.waitForExistence(timeout: 8)); picker.click(); app.menuItems[name].firstMatch.click()
+        }
+        launch()
+        let open = app.buttons["library.open"].firstMatch
+        XCTAssertTrue(open.waitForExistence(timeout: 10))
+        try app.performAccessibilityAudit(for: .contrast)
+        capture("v1-release-clean-library")
+        open.click()
+        let panel = app.sheets["open-panel"].firstMatch
+        XCTAssertTrue(panel.waitForExistence(timeout: 8))
+        panel.typeKey("g", modifierFlags: [.command, .shift])
+        let location = app.textFields["PathTextField"].firstMatch
+        XCTAssertTrue(location.waitForExistence(timeout: 8))
+        location.typeText(pdfPath); location.typeKey(.return, modifierFlags: [])
+        panel.buttons["OKButton"].firstMatch.click()
+        XCTAssertTrue(app.windows["text"].waitForExistence(timeout: 15))
+        let text = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", "stable anchor", "stable anchor")).firstMatch
+        XCTAssertTrue(text.waitForExistence(timeout: 10))
+        XCTAssertTrue(text.frame.intersects(app.windows.firstMatch.frame))
+        capture("v1-release-offline-import")
+        app.typeKey("e", modifierFlags: [.command, .shift])
+        XCTAssertTrue(app.buttons["extended.done"].waitForExistence(timeout: 8))
+        app.radioButtons["Replay"].firstMatch.click()
+        XCTAssertEqual(app.checkBoxes["replay.enabled"].value as? Int, 0)
+        app.radioButtons["Insights"].firstMatch.click()
+        XCTAssertEqual(app.checkBoxes["insights.enabled"].value as? Int, 0)
+        app.buttons["extended.done"].click()
+        quit()
+        let currentBook = try Data(contentsOf: root.appendingPathComponent("LastBook"))
+        let manager = FileManager.default
+        let fixture = URL(fileURLWithPath: fixturePath)
+        let files = try XCTUnwrap(manager.enumerator(atPath: fixture.path))
+        for case let relative as String in files where relative != "LastBook" {
+            let source = fixture.appendingPathComponent(relative), target = root.appendingPathComponent(relative)
+            let type = try manager.attributesOfItem(atPath: source.path)[.type] as? FileAttributeType
+            if type == .typeDirectory { try manager.createDirectory(at: target, withIntermediateDirectories: true) }
+            else if type == .typeRegular {
+                guard !manager.fileExists(atPath: target.path) else {
+                    throw NSError(domain: "ReleaseAcceptance", code: 2, userInfo: [NSLocalizedDescriptionKey: "Fixture would overwrite an existing file"])
+                }
+                try manager.copyItem(at: source, to: target)
+            } else { XCTFail("Unexpected fixture entry"); return }
+        }
+        XCTAssertEqual(try Data(contentsOf: root.appendingPathComponent("LastBook")), currentBook)
+        launch()
+        XCTAssertTrue(app.windows["text"].waitForExistence(timeout: 15))
+        app.typeKey("w", modifierFlags: [.command, .shift])
+        let pdf = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "library.book.", "Upgrade PDF")).firstMatch
+        XCTAssertTrue(pdf.waitForExistence(timeout: 10)); pdf.click()
+        XCTAssertTrue(app.windows["Upgrade PDF"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["2/3"].firstMatch.waitForExistence(timeout: 10))
+        app.typeKey("l", modifierFlags: [.command, .shift])
+        section("Notes")
+        XCTAssertTrue(app.staticTexts["Сохранить мою заметку при обновлении"].firstMatch.waitForExistence(timeout: 10))
+        section("Cards")
+        XCTAssertTrue(app.staticTexts["What must survive an update?"].firstMatch.waitForExistence(timeout: 10))
+        capture("v1-release-upgraded-study")
+        app.buttons["study.close"].firstMatch.click()
+        app.typeKey("e", modifierFlags: [.command, .shift])
+        let epub = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label == %@", "split.open.", "Upgrade EPUB")).firstMatch
+        XCTAssertTrue(epub.waitForExistence(timeout: 10)); epub.click()
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15))
+        capture("v1-release-upgraded-pdf-epub")
+        app.buttons["split.close"].firstMatch.click()
+        quit()
+        launch()
+        XCTAssertTrue(app.windows["Upgrade PDF"].waitForExistence(timeout: 15))
+        capture("v1-release-restored")
+        quit()
+        for name in ["B0000000-0000-4000-8000-000000000001.pdf", "B0000000-0000-4000-8000-000000000002.epub"] {
+            XCTAssertEqual(try Data(contentsOf: root.appendingPathComponent("Assets/" + name)), try Data(contentsOf: fixture.appendingPathComponent("Assets/" + name)))
+        }
+    }
+}
+
 private var targetApplicationBundleID: String {
     Bundle(for: OfflineReaderTests.self).object(forInfoDictionaryKey: "AdaptiveReaderTargetBundleID") as? String ?? "com.karavaevflow.AdaptiveReader"
 }

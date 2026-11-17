@@ -10,7 +10,7 @@ import tempfile
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("result", type=Path, help="Xcode .xcresult bundle")
 parser.add_argument("destination", type=Path, help="Reference image directory")
-parser.add_argument("--release", choices=("phase0", "v02", "v03", "v04-foundation", "v04", "v04-flows", "v04-export", "v05", "v05-flows", "v06", "v06-flows"), default="phase0")
+parser.add_argument("--release", choices=("phase0", "v02", "v03", "v04-foundation", "v04", "v04-flows", "v04-export", "v05", "v05-flows", "v06", "v06-flows", "v1-release"), default="phase0")
 args = parser.parse_args()
 expected = {
     f"{screen}-{language}-{width}-{theme}"
@@ -52,6 +52,8 @@ if args.release == "v06":
     expected = {f"v06-{screen}-{language}-{width}-{theme}" for screen in ("Split", "Tools0", "Tools1", "Tools2", "Tools3", "Tools4") for language in ("en", "ru") for width in (800, 1440) for theme in ("light", "dark")}
 if args.release == "v06-flows":
     expected = {"v06-OCR-flow", "v06-Privacy-flow", "v06-CrossFormat-flow"}
+if args.release == "v1-release":
+    expected = {"v1-release-clean-library", "v1-release-offline-import", "v1-release-upgraded-study", "v1-release-upgraded-pdf-epub", "v1-release-restored"}
 with tempfile.TemporaryDirectory(prefix="adaptive-design-") as temporary:
     directory = Path(temporary)
     subprocess.run([
