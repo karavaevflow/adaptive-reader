@@ -1,0 +1,13 @@
+{
+  "sourceCommit": "630247735cc3f3078b8c5e4918a479380d9d0fb1",
+  "xcode": "Xcode 26.3\nBuild version 17C529",
+  "swift": "Apple Swift version 6.2.4 (swiftlang-6.2.4.1.4 clang-1700.6.4.2)\nTarget: arm64-apple-macosx15.0",
+  "binaries": {
+    "ColorResearch": "5ffee30d0147ea057edd10025ab1612ee4ab60c9d9ea001addda4eae0b038cc3",
+    "ExtendedResearch": "970db44a5e2d139b8559ed31b584fe23657efb116d359df9e4bf30a6c5ff8856",
+    "EPUBResearch": "313daed6d13d265fc5f4396e1e1edd317461d53cc74b623c87ae19b3ef166cd8",
+    "KnowledgeResearch": "e5897c3c3cdd915006324f7d85d798fc0985eb491f9b41aff7362fd047972f2e",
+    "AdaptiveReader": "5a36391a8b472a3434f734eef3f8ab6ef533d2d22e714c17b32638f8f485cdcf"
+  },
+  "scope": "Local Release control-Mac measurements. Distribution app is verified separately from its exact CI archive."
+}

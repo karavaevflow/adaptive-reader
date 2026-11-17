@@ -4,7 +4,7 @@ Artificial reader data generated through the exact ReaderCore writer source from
 
 Includes two managed fixture books (PDF/EPUB), positions/palettes/favorites/bookmarks, RU notes, study cards/highlights/listening locators, a two-source Knowledge board/edge/path, translations/vocabulary, a saved split position and explicitly enabled history/statistics. There are no secrets, access bookmarks, private books, real AI answers or disposable caches. Data comes from the repository's original fixture corpus.
 
-Tests reopen a copy with current production readers, check values and byte preservation, then make one note edit and verify neighboring domains are unchanged. Separate cases exercise schema-1/2 Book metadata and future-version rejection without reset. The installed-Release test appends these records to an otherwise disposable CI library without replacing its newly imported book.
+Tests reopen a copy with current production readers, check values and byte preservation, then make one note edit and verify neighboring domains are unchanged. Separate cases exercise schema-1/2 Book metadata and future-version rejection without reset. The installed-Release test restores this payload into an empty disposable CI library through the native UI, then imports another PDF without replacing the restored books.
 
 Do not regenerate this directory when changing the schema. Add a new dated/versioned corpus. The seed command refuses an existing destination. Reproduction requires the recorded writer source; current writer changes must not be mislabeled as old-version output.
 

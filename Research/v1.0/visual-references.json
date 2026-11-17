@@ -1,0 +1,16 @@
+{
+  "sourceCommit": "6121a5702363e0454da8f7cd59a85bff53b13ac4",
+  "runID": 44134365642,
+  "partition": "release-package",
+  "installedTestPassed": true,
+  "fullRunPassed": false,
+  "reviewed": true,
+  "images": {
+    "v1-release-backup-export.png": "9ccf56a55d47c8fb3524042b239427cdf895a2e4125ab25191845eccc9b13083",
+    "v1-release-clean-library.png": "dcf06f11ddeea0fc09453575079a630fde406fea979e17da2f5181a9e721feba",
+    "v1-release-offline-import.png": "ebded3f627151395d5f7e5ede02cb9ba73f432b7aa0eedf65f0642e6c92c791e",
+    "v1-release-restored.png": "8ee8e0a81186a9371961b4c0040170c77971e11179d8391ecd37d722293ccdfe",
+    "v1-release-upgraded-pdf-epub.png": "5cc083ce1bba7eefc84d6a50e244f9bc0c024420ef1b3355c46b6fae54bff67f",
+    "v1-release-upgraded-study.png": "a55b1e0865745cfe364a3ee0818ad5adeb620159678445cd8cf54b2d7fd43904"
+  }
+}

@@ -1,0 +1,719 @@
+{
+  "inputs": [
+    "pdf-paired-controls.json",
+    "companion-paired-controls.json",
+    "epub-speech-paired.json",
+    "ocr-cancel-paired.json"
+  ],
+  "comparisons": [
+    {
+      "domain": "pdf-paired",
+      "scenario": {
+        "fixture": "large-text.pdf",
+        "mode": "original"
+      },
+      "metric": "openMS",
+      "baseline": 48.49600791931152,
+      "current": 47.651052474975586,
+      "changePercent": -1.7423195858549567,
+      "investigate": false
+    },
+    {
+      "domain": "pdf-paired",
+      "scenario": {
+        "fixture": "large-text.pdf",
+        "mode": "original"
+      },
+      "metric": "peakRSSBytes",
+      "baseline": 53526528,
+      "current": 52789248,
+      "changePercent": -1.377410468319562,
+      "investigate": false
+    },
+    {
+      "domain": "pdf-paired",
+      "scenario": {
+        "fixture": "large-text.pdf",
+        "mode": "original"
+      },
+      "metric": "cpuFrameMS",
+      "baseline": 1.8464922904968262,
+      "current": 1.8510222434997559,
+      "changePercent": 0.24532747990573256,
+      "investigate": false
+    },
+    {
+      "domain": "pdf-paired",
+      "scenario": {
+        "fixture": "large-text.pdf",
+        "mode": "selected"
+      },
+      "metric": "openMS",
+      "baseline": 68.41897964477539,
+      "current": 67.87407398223877,
+      "changePercent": -0.7964247133846691,
+      "investigate": false
+    },
+    {
+      "domain": "pdf-paired",
+      "scenario": {
+        "fixture": "large-text.pdf",
+        "mode": "selected"
+      },
+      "metric": "peakRSSBytes",
+      "baseline": 94519296,
+      "current": 94535680,
+      "changePercent": 0.017334026694393323,
+      "investigate": false
+    },
+    {
+      "domain": "pdf-paired",
+      "scenario": {
+        "fixture": "large-text.pdf",
+        "mode": "selected"
+      },
+      "metric": "cpuFrameMS",
+      "baseline": 2.219974994659424,
+      "current": 2.009451389312744,
+      "changePercent": -9.483152100953152,
+      "investigate": false
+    },
+    {
+      "domain": "pdf-paired",
+      "scenario": {
+        "fixture": "scan.pdf",
+        "mode": "original"
+      },
+      "metric": "openMS",
+      "baseline": 30.563950538635254,
+      "current": 32.32407569885254,
+      "changePercent": 5.758827406792033,
+      "investigate": false
+    },
+    {
+      "domain": "pdf-paired",
+      "scenario": {
+        "fixture": "scan.pdf",
+        "mode": "original"
+      },
+      "metric": "peakRSSBytes",
+      "baseline": 77561856,
+      "current": 77545472,
+      "changePercent": -0.021123785382337612,
+      "investigate": false
+    },
+    {
+      "domain": "pdf-paired",
+      "scenario": {
+        "fixture": "scan.pdf",
+        "mode": "original"
+      },
+      "metric": "cpuFrameMS",
+      "baseline": 0.42998790740966797,
+      "current": 0.38444995880126953,
+      "changePercent": -10.590518436373719,
+      "investigate": false
+    },
+    {
+      "domain": "pdf-paired",
+      "scenario": {
+        "fixture": "scan.pdf",
+        "mode": "selected"
+      },
+      "metric": "openMS",
+      "baseline": 51.71704292297363,
+      "current": 52.182912826538086,
+      "changePercent": 0.9008053771719204,
+      "investigate": false
+    },
+    {
+      "domain": "pdf-paired",
+      "scenario": {
+        "fixture": "scan.pdf",
+        "mode": "selected"
+      },
+      "metric": "peakRSSBytes",
+      "baseline": 128729088,
+      "current": 128811008,
+      "changePercent": 0.06363752068219153,
+      "investigate": false
+    },
+    {
+      "domain": "pdf-paired",
+      "scenario": {
+        "fixture": "scan.pdf",
+        "mode": "selected"
+      },
+      "metric": "cpuFrameMS",
+      "baseline": 0.40650367736816406,
+      "current": 0.4330277442932129,
+      "changePercent": 6.524926686217003,
+      "investigate": false
+    },
+    {
+      "domain": "pdf-paired",
+      "scenario": {
+        "fixture": "text.pdf",
+        "mode": "original"
+      },
+      "metric": "openMS",
+      "baseline": 40.43400287628174,
+      "current": 40.43292999267578,
+      "changePercent": -0.002653419225495668,
+      "investigate": false
+    },
+    {
+      "domain": "pdf-paired",
+      "scenario": {
+        "fixture": "text.pdf",
+        "mode": "original"
+      },
+      "metric": "peakRSSBytes",
+      "baseline": 47808512,
+      "current": 47595520,
+      "changePercent": -0.44551062371487316,
+      "investigate": false
+    },
+    {
+      "domain": "pdf-paired",
+      "scenario": {
+        "fixture": "text.pdf",
+        "mode": "original"
+      },
+      "metric": "cpuFrameMS",
+      "baseline": 0.5015134811401367,
+      "current": 0.4455447196960449,
+      "changePercent": -11.159971476111242,
+      "investigate": false
+    },
+    {
+      "domain": "pdf-paired",
+      "scenario": {
+        "fixture": "text.pdf",
+        "mode": "selected"
+      },
+      "metric": "openMS",
+      "baseline": 53.994059562683105,
+      "current": 58.72702598571777,
+      "changePercent": 8.765716935101064,
+      "investigate": false
+    },
+    {
+      "domain": "pdf-paired",
+      "scenario": {
+        "fixture": "text.pdf",
+        "mode": "selected"
+      },
+      "metric": "peakRSSBytes",
+      "baseline": 96829440,
+      "current": 96829440,
+      "changePercent": 0.0,
+      "investigate": false
+    },
+    {
+      "domain": "pdf-paired",
+      "scenario": {
+        "fixture": "text.pdf",
+        "mode": "selected"
+      },
+      "metric": "cpuFrameMS",
+      "baseline": 0.48154592514038086,
+      "current": 0.4515647888183594,
+      "changePercent": -6.226018071543504,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "large-text.pdf",
+        "mode": "original"
+      },
+      "metric": "openMS",
+      "baseline": 49.18503761291504,
+      "current": 50.392985343933105,
+      "changePercent": 2.455925195228237,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "large-text.pdf",
+        "mode": "original"
+      },
+      "metric": "peakRSSBytes",
+      "baseline": 132431872,
+      "current": 132890624,
+      "changePercent": 0.34640603736235676,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "large-text.pdf",
+        "mode": "original"
+      },
+      "metric": "cpuFrameMS",
+      "baseline": 1.797020435333252,
+      "current": 1.77001953125,
+      "changePercent": -1.5025373975919631,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "large-text.pdf",
+        "mode": "original"
+      },
+      "metric": "indexMS",
+      "baseline": 668.2469844818115,
+      "current": 667.976975440979,
+      "changePercent": -0.04040557564833902,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "large-text.pdf",
+        "mode": "original"
+      },
+      "metric": "cancellationMS",
+      "baseline": 5.085945129394531,
+      "current": 5.096077919006348,
+      "changePercent": 0.1992312019501119,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "large-text.pdf",
+        "mode": "selected"
+      },
+      "metric": "openMS",
+      "baseline": 69.42200660705566,
+      "current": 68.21203231811523,
+      "changePercent": -1.742926123972699,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "large-text.pdf",
+        "mode": "selected"
+      },
+      "metric": "peakRSSBytes",
+      "baseline": 158859264,
+      "current": 158334976,
+      "changePercent": -0.330033003300334,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "large-text.pdf",
+        "mode": "selected"
+      },
+      "metric": "cpuFrameMS",
+      "baseline": 1.9104480743408203,
+      "current": 1.9025206565856934,
+      "changePercent": -0.41495070510421117,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "large-text.pdf",
+        "mode": "selected"
+      },
+      "metric": "indexMS",
+      "baseline": 667.7449941635132,
+      "current": 668.274998664856,
+      "changePercent": 0.07937229121526279,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "large-text.pdf",
+        "mode": "selected"
+      },
+      "metric": "cancellationMS",
+      "baseline": 5.368947982788086,
+      "current": 5.233049392700195,
+      "changePercent": -2.531195879035486,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "scan.pdf",
+        "mode": "original"
+      },
+      "metric": "openMS",
+      "baseline": 32.524943351745605,
+      "current": 33.08701515197754,
+      "changePercent": 1.7281253779701577,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "scan.pdf",
+        "mode": "original"
+      },
+      "metric": "peakRSSBytes",
+      "baseline": 77103104,
+      "current": 77152256,
+      "changePercent": 0.06374840628984302,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "scan.pdf",
+        "mode": "original"
+      },
+      "metric": "cpuFrameMS",
+      "baseline": 0.42700767517089844,
+      "current": 0.39452314376831055,
+      "changePercent": -7.607481853713005,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "scan.pdf",
+        "mode": "original"
+      },
+      "metric": "indexMS",
+      "baseline": 0,
+      "current": 0,
+      "changePercent": null,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "scan.pdf",
+        "mode": "original"
+      },
+      "metric": "cancellationMS",
+      "baseline": 0.007987022399902344,
+      "current": 0.0050067901611328125,
+      "changePercent": -37.31343283582089,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "scan.pdf",
+        "mode": "selected"
+      },
+      "metric": "openMS",
+      "baseline": 53.05302143096924,
+      "current": 53.28106880187988,
+      "changePercent": 0.42984803647303504,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "scan.pdf",
+        "mode": "selected"
+      },
+      "metric": "peakRSSBytes",
+      "baseline": 127844352,
+      "current": 128860160,
+      "changePercent": 0.794566192490076,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "scan.pdf",
+        "mode": "selected"
+      },
+      "metric": "cpuFrameMS",
+      "baseline": 0.3910064697265625,
+      "current": 0.4010200500488281,
+      "changePercent": 2.5609756097561,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "scan.pdf",
+        "mode": "selected"
+      },
+      "metric": "indexMS",
+      "baseline": 0,
+      "current": 0,
+      "changePercent": null,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "scan.pdf",
+        "mode": "selected"
+      },
+      "metric": "cancellationMS",
+      "baseline": 0.0059604644775390625,
+      "current": 0.0040531158447265625,
+      "changePercent": -31.999999999999996,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "text.pdf",
+        "mode": "original"
+      },
+      "metric": "openMS",
+      "baseline": 38.65396976470947,
+      "current": 38.2230281829834,
+      "changePercent": -1.1148701785334336,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "text.pdf",
+        "mode": "original"
+      },
+      "metric": "peakRSSBytes",
+      "baseline": 48218112,
+      "current": 48037888,
+      "changePercent": -0.3737682636765216,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "text.pdf",
+        "mode": "original"
+      },
+      "metric": "cpuFrameMS",
+      "baseline": 0.5225539207458496,
+      "current": 0.46902894973754883,
+      "changePercent": -10.242956541576365,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "text.pdf",
+        "mode": "original"
+      },
+      "metric": "indexMS",
+      "baseline": 3.0260086059570312,
+      "current": 2.9250383377075195,
+      "changePercent": -3.3367475575165506,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "text.pdf",
+        "mode": "original"
+      },
+      "metric": "cancellationMS",
+      "baseline": 5.343079566955566,
+      "current": 5.180954933166504,
+      "changePercent": -3.034291961357405,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "text.pdf",
+        "mode": "selected"
+      },
+      "metric": "openMS",
+      "baseline": 57.48403072357178,
+      "current": 57.7540397644043,
+      "changePercent": 0.46971139190106204,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "text.pdf",
+        "mode": "selected"
+      },
+      "metric": "peakRSSBytes",
+      "baseline": 97452032,
+      "current": 97697792,
+      "changePercent": 0.2521856086079355,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "text.pdf",
+        "mode": "selected"
+      },
+      "metric": "cpuFrameMS",
+      "baseline": 0.5444884300231934,
+      "current": 0.5474686622619629,
+      "changePercent": 0.5473453749315738,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "text.pdf",
+        "mode": "selected"
+      },
+      "metric": "indexMS",
+      "baseline": 2.8700828552246094,
+      "current": 2.7860403060913086,
+      "changePercent": -2.9282272802791165,
+      "investigate": false
+    },
+    {
+      "domain": "companion-fixture-paired",
+      "scenario": {
+        "fixture": "text.pdf",
+        "mode": "selected"
+      },
+      "metric": "cancellationMS",
+      "baseline": 5.7419538497924805,
+      "current": 5.742073059082031,
+      "changePercent": 0.0020761101999333675,
+      "investigate": false
+    },
+    {
+      "domain": "epub-speech-paired",
+      "scenario": {},
+      "metric": "speechFirstWordMs",
+      "baseline": 675.2216666682216,
+      "current": 625.9304583363701,
+      "changePercent": -7.300003949084077,
+      "investigate": false
+    },
+    {
+      "domain": "epub-speech-paired",
+      "scenario": {},
+      "metric": "longChapterFirstLayoutMs",
+      "baseline": 315.60895833172253,
+      "current": 286.0746250007651,
+      "changePercent": -9.35788815598676,
+      "investigate": false
+    },
+    {
+      "domain": "epub-speech-paired",
+      "scenario": {},
+      "metric": "reflowMs",
+      "baseline": 29.277791669301223,
+      "current": 28.272958334127907,
+      "changePercent": -3.432066689056057,
+      "investigate": false
+    },
+    {
+      "domain": "epub-speech-paired",
+      "scenario": {},
+      "metric": "locatorMs",
+      "baseline": 5.8162916684523225,
+      "current": 5.334166668035323,
+      "changePercent": -8.289216358114482,
+      "investigate": false
+    },
+    {
+      "domain": "epub-speech-paired",
+      "scenario": {},
+      "metric": "peakClientBytes",
+      "baseline": 99729408,
+      "current": 98631680,
+      "changePercent": -1.1007064235255437,
+      "investigate": false
+    },
+    {
+      "domain": "ocr-cancel-paired",
+      "scenario": {
+        "pair": "pdf-epub"
+      },
+      "metric": "openMS",
+      "baseline": 264.712929725647,
+      "current": 260.84303855895996,
+      "changePercent": -1.4619199639012148,
+      "investigate": false
+    },
+    {
+      "domain": "ocr-cancel-paired",
+      "scenario": {
+        "pair": "pdf-epub"
+      },
+      "metric": "peakRSSBytes",
+      "baseline": 155893760,
+      "current": 156352512,
+      "changePercent": 0.2942722017866606,
+      "investigate": false
+    },
+    {
+      "domain": "ocr-cancel-paired",
+      "scenario": {
+        "pair": "pdf-epub"
+      },
+      "metric": "cpuFrameMS",
+      "baseline": 1.372992992401123,
+      "current": 1.3674497604370117,
+      "changePercent": -0.4037334490991973,
+      "investigate": false
+    },
+    {
+      "domain": "ocr-cancel-paired",
+      "scenario": {
+        "pair": "pdf-epub"
+      },
+      "metric": "cancellationMS",
+      "baseline": 30.758976936340332,
+      "current": 31.347990036010742,
+      "changePercent": 1.914930723767072,
+      "investigate": false
+    },
+    {
+      "domain": "ocr-cancel-paired",
+      "scenario": {
+        "pair": "pdf-pdf"
+      },
+      "metric": "openMS",
+      "baseline": 56.607961654663086,
+      "current": 51.18906497955322,
+      "changePercent": -9.572675851089373,
+      "investigate": false
+    },
+    {
+      "domain": "ocr-cancel-paired",
+      "scenario": {
+        "pair": "pdf-pdf"
+      },
+      "metric": "peakRSSBytes",
+      "baseline": 148537344,
+      "current": 143376384,
+      "changePercent": -3.474520185307739,
+      "investigate": false
+    },
+    {
+      "domain": "ocr-cancel-paired",
+      "scenario": {
+        "pair": "pdf-pdf"
+      },
+      "metric": "cpuFrameMS",
+      "baseline": 1.4069676399230957,
+      "current": 1.3950467109680176,
+      "changePercent": -0.8472781190425716,
+      "investigate": false
+    },
+    {
+      "domain": "ocr-cancel-paired",
+      "scenario": {
+        "pair": "pdf-pdf"
+      },
+      "metric": "cancellationMS",
+      "baseline": 18.598079681396484,
+      "current": 14.951109886169434,
+      "changePercent": -19.609389021357327,
+      "investigate": false
+    }
+  ]
+}
