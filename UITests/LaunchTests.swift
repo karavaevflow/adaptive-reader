@@ -860,19 +860,25 @@ final class OfflineReaderTests: XCTestCase {
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Shared source anchors")).firstMatch.waitForExistence(timeout: 5))
         knowledgeTab(app, "Library search")
         paste("stable", into: app.textFields["knowledge.search.query"], app: app); app.buttons["knowledge.search.run"].click()
+        let searchFinished = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: app.buttons["knowledge.search.run"])
+        XCTAssertEqual(XCTWaiter.wait(for: [searchFinished], timeout: 30), .completed)
         let results = app.scrollViews["knowledge.search.results"].firstMatch
         XCTAssertTrue(results.waitForExistence(timeout: 5))
         func selectQuotation(from title: String) {
             let checkbox = app.checkBoxes.matching(NSPredicate(format: "label BEGINSWITH %@", "Author quotation · " + title + " · ")).firstMatch
-            XCTAssertTrue(checkbox.waitForExistence(timeout: 30))
             // SwiftUI can report a clipped row as hittable. Keep the entire
             // checkbox inside the scroll viewport before synthesizing input.
+            // Off-screen rows may be absent from AX until scrolled into view.
             for _ in 0..<40 {
                 let viewport = results.frame.insetBy(dx: 4, dy: 12)
-                if checkbox.isHittable && viewport.contains(checkbox.frame) { break }
-                results.scroll(byDeltaX: 0, deltaY: checkbox.frame.midY < viewport.minY ? 180 : -180)
+                if checkbox.exists {
+                    if checkbox.isHittable && viewport.contains(checkbox.frame) { break }
+                    results.scroll(byDeltaX: 0, deltaY: checkbox.frame.midY < viewport.minY ? 180 : -180)
+                } else {
+                    results.scroll(byDeltaX: 0, deltaY: -180)
+                }
             }
-            XCTAssertTrue(checkbox.isHittable && results.frame.insetBy(dx: 4, dy: 12).contains(checkbox.frame))
+            XCTAssertTrue(checkbox.exists && checkbox.isHittable && results.frame.insetBy(dx: 4, dy: 12).contains(checkbox.frame))
             checkbox.click()
             let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == 1"), object: checkbox)
             XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 8), .completed)
