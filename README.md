@@ -4,7 +4,7 @@ Native macOS reading workspace with an offline PDF/EPUB library and source-linke
 
 ## Install and release status
 
-The project is validating **v1.0.0-rc.1**; v1.0 stable is not declared. [Releases](https://github.com/karavaevflow/adaptive-reader/releases) contain published builds when available. Candidate archives require macOS 15+, include Apple silicon/Intel binaries, and are locally ad-hoc signed, **not Developer ID signed or notarized**. Read [installation/update instructions](docs/distribution.md) and the [v1.0 acceptance ledger](docs/v1.0.md) before installing. Preserve your library when replacing the app; verify the supplied checksum.
+**[v1.0.0-rc.1](https://github.com/karavaevflow/adaptive-reader/releases/tag/v1.0.0-rc.1)** is a prerelease; v1.0 stable is not declared. Download the universal ZIP and SHA-256 sidecar from that release. Candidate archives require macOS 15+, include Apple silicon/Intel binaries, and are locally ad-hoc signed, **not Developer ID signed or notarized**. Read [installation/update instructions](docs/distribution.md) and the [v1.0 acceptance ledger](docs/v1.0.md) before installing. Preserve your library when replacing the app; verify the supplied checksum.
 
 AI remains off by default. See [privacy](PRIVACY.md), [security reporting](SECURITY.md), [contributing](CONTRIBUTING.md), [changelog](CHANGELOG.md) and [licenses](NOTICE.md). Real-model evaluation remains deferred; candidate status does not imply it was completed.
 

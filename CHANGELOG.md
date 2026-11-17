@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0-rc.1 — Unreleased
+## 1.0.0-rc.1 — 2026-11-17
 
 Release-candidate validation for the existing PDF/EPUB reading workspace. Adds native library backup/restore with integrity validation, an empty-library guard and retained recovery folder; frozen-library upgrade checks, installed production-package acceptance, repeat long-session checks, verified package metadata/licenses and public contribution/privacy/security documentation. The candidate is not yet declared v1.0 stable; the acceptance report records open platform/accessibility checks.
 

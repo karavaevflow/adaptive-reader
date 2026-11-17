@@ -1,6 +1,6 @@
 # v1.0 candidate Release measurements
 
-Measured application/core source: `630247735cc3f3078b8c5e4918a479380d9d0fb1`. UI-test-only commits `6121a5702363e0454da8f7cd59a85bff53b13ac4` and `cf16f94f576a8bbdf1515b8747a6faf1a9469630` preserve all production source. Control Mac: MacBookAir10,1 / Apple M1 / 8 GiB, macOS 15.8.3, Xcode 26.3, 1440×900 pt / 2880×1800 px, 60 Hz. [Control metadata](control-mac.json), [binary/source provenance](build-provenance.json).
+Measured application/core source: `630247735cc3f3078b8c5e4918a479380d9d0fb1`. Final candidate source is `ef968c8ca1fb7be9f6e7f0ad03e55189479b1590`; its production tree is identical ([comparison](source-compatibility.json)). Control Mac: MacBookAir10,1 / Apple M1 / 8 GiB, macOS 15.8.3, Xcode 26.3, 1440×900 pt / 2880×1800 px, 60 Hz. [Control metadata](control-mac.json), [binary/source provenance](build-provenance.json).
 
 Five independent Release processes per scenario. No local build or UI automation overlapped primary measurements. Filesystem/model caches were not flushed. The three preliminary `prebackup/` reports at source 644827d remain separate; final conclusions use the complete final-source files below. No slower dataset was discarded.
 
@@ -9,6 +9,8 @@ Five independent Release processes per scenario. No local build or UI automation
 Five fresh QA identities/libraries: median **806.82 ms**, range 799.07–2605.98 ms; median sampled RSS 74.53 MiB. All five owned processes terminated normally. [Raw runs](launch.json).
 
 This supplemental metric measures the first layer-0 WindowServer window ≥400×200 pt, using an inactive QA copy of the production Release app. It does not prove first readable pixels, interactive readiness, cold OS startup or exact production bundle trust behavior. One RSS sample is taken after the window appears; it is not peak RSS. QA identities protect the owner's production library/preferences. No speech/model action runs. This is a new baseline, not an interchangeable comparison with older XCTest launch instrumentation.
+
+The actual CI-built universal app (Xcode 16.4 / macOS SDK 15.5, source `ef968c8ca1fb7be9f6e7f0ad03e55189479b1590`) also completed five isolated arm64 process launches and normal exits on this M1: median first-window **827.45 ms**. [Final CI-package runs](final-ci-package-launch.json), [actual CI build metadata](ci-build.json). This is a cross-toolchain/architecture smoke check, not an interchangeable historical performance baseline or a full local UI suite. The earlier `ci-package-launch.json` pilot at source cf16f94 is retained separately.
 
 ## Independent readers and real CPU OCR
 
@@ -34,7 +36,7 @@ All ten full OCR runs recognized lines during overlapping scroll frames; all ten
 
 ## Fixed Knowledge library
 
-Twenty managed books, 1,000 cards, 1,000 board nodes and 1,997 edges, five fresh isolated libraries. Same corpus/workload as v0.5; no speech/model requests. [Raw runs](knowledge-performance.json).
+Twenty managed books, 1,000 cards, 1,000 board nodes and 1,997 edges, five fresh isolated libraries. Same corpus/workload as v0.5; no speech or AI-provider/network requests. [Raw runs](knowledge-performance.json).
 
 | Metric | Median |
 |---|---:|
@@ -84,3 +86,11 @@ python3 scripts/compare-reader-workload.py /path/to/frozen/ExtendedResearch .bui
 ```
 
 Use new output paths to retain evidence; never relabel a current binary as an old source. Run on a quiet fixed Mac with no concurrent builds/UI automation. The original checksums/source fingerprints, raw five-run rows and all threshold crossings remain in this directory. `scripts/summarize-v1-performance.py` reproduces the comparison files from these retained inputs. Actual long-session hosted CI evidence and installed-package references are recorded separately in [v1.0 acceptance](../../docs/v1.0.md). Exact macOS 15.0 runtime, fresh system accessibility review and downloaded Gatekeeper/old-binary upgrade remain open stable gates.
+
+## Hosted real 25-minute Release session
+
+[Raw 51 samples](long-session.json), [derived summary](long-session-summary.json) and [XCTest summary](ci-stability-summary.json) come from final-source job 134257660977 in [CI 44144951311](https://github.com/karavaevflow/adaptive-reader/actions/runs/44144951311). Optimized Release uses `FOUNDATION_BENCHMARK COMFORT_SOAK` and a separate `.UITesting` identity. The actual Mini Reader/auto-scroll session lasts **1500.28 seconds**; the test including launch, native import, capture, return and source closure passes in **1660.585 seconds** with no skips/failures.
+
+The 600-page PDF moves from page 1 to 55; timer reaches 1500 seconds, autoscroll and the activity driver stop. The subsequent native Close book assertions verify documentOpen=false and driverActive=false. Sampled RSS is 275.51–275.93 MiB; process `ru_maxrss` peak is 296.97 MiB, including startup/framework caches. Cumulative process CPU growth is 97.84% of one core.
+
+This is one real long run on a **hosted Intel Mac mini/macOS 15.7.9**, not five sessions, an energy measurement or a fixed-M1 regression comparison. Virtualized rendering and a different processor prevent comparing its CPU/RSS directly with the old M1 soak. Raw rows end before source closure; shutdown is separately asserted by the passed test. Releasing activity does not promise immediate reclamation of framework memory. [Reviewed completion capture](../../docs/v1.0/v1-long-session-complete.png).

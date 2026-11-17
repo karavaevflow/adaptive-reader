@@ -1,0 +1,12 @@
+{
+  "implementationCommit": "630247735cc3f3078b8c5e4918a479380d9d0fb1",
+  "testedCommit": "ef968c8ca1fb7be9f6e7f0ad03e55189479b1590",
+  "productionDiffEmpty": true,
+  "checkedPaths": [
+    "Sources",
+    "Package.swift",
+    "Package.resolved",
+    "AdaptiveReader.xcodeproj"
+  ],
+  "reason": "Later commits change UI readiness/targeting and research/evidence only."
+}

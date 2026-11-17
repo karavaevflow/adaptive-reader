@@ -1,16 +1,23 @@
 {
-  "sourceCommit": "6121a5702363e0454da8f7cd59a85bff53b13ac4",
-  "runID": 44134365642,
+  "sourceCommit": "ef968c8ca1fb7be9f6e7f0ad03e55189479b1590",
+  "runID": 44144951311,
   "partition": "release-package",
   "installedTestPassed": true,
-  "fullRunPassed": false,
+  "fullRunPassed": true,
   "reviewed": true,
   "images": {
-    "v1-release-backup-export.png": "9ccf56a55d47c8fb3524042b239427cdf895a2e4125ab25191845eccc9b13083",
-    "v1-release-clean-library.png": "dcf06f11ddeea0fc09453575079a630fde406fea979e17da2f5181a9e721feba",
-    "v1-release-offline-import.png": "ebded3f627151395d5f7e5ede02cb9ba73f432b7aa0eedf65f0642e6c92c791e",
-    "v1-release-restored.png": "8ee8e0a81186a9371961b4c0040170c77971e11179d8391ecd37d722293ccdfe",
-    "v1-release-upgraded-pdf-epub.png": "5cc083ce1bba7eefc84d6a50e244f9bc0c024420ef1b3355c46b6fae54bff67f",
-    "v1-release-upgraded-study.png": "a55b1e0865745cfe364a3ee0818ad5adeb620159678445cd8cf54b2d7fd43904"
+    "v1-release-backup-export.png": "4bf7f143a65fc17be9c7e736962ddde055642610c0a98c492f1643db6b41ed7a",
+    "v1-release-clean-library.png": "6012b3679fdbb41f20608ac789e8d910039bc839fa07315ecb125d24cd74a460",
+    "v1-release-offline-import.png": "2057d82c2e50373ddb7453a98dd5b51a3bd0640058051e99ba7b77e5edbd733b",
+    "v1-release-restored.png": "dde144dc16cece97687450e33ac9decc135466cbb8023b67f27723c940701dfb",
+    "v1-release-upgraded-pdf-epub.png": "91f862a9cbbf218d9d6cf783ef74e37b38c75915346272eb8069cf63bd1669ff",
+    "v1-release-upgraded-study.png": "1d759f37277452dddc6e460c2641e909edaf9e71b1d91d25cceb50220d9144ca"
+  },
+  "longSessionReference": {
+    "image": "v1-long-session-complete.png",
+    "sha256": "2d1fbc8f64dff455104552631882a0dec5bcea6458e3ecb9e5d2c3d97fe1c684",
+    "partition": "stability",
+    "reviewed": true,
+    "configuration": "Optimized Release, FOUNDATION_BENCHMARK COMFORT_SOAK, .UITesting identity"
   }
 }

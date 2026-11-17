@@ -1,0 +1,23 @@
+{
+  "sourceCommit": "ef968c8ca1fb7be9f6e7f0ad03e55189479b1590",
+  "runID": 44144951311,
+  "jobID": 134257660977,
+  "configuration": "Optimized Release, FOUNDATION_BENCHMARK COMFORT_SOAK, .UITesting identity",
+  "host": "Hosted Intel Mac mini, macOS 15.7.9; not the fixed M1 control Mac",
+  "sampleCount": 51,
+  "sampleIntervalSeconds": 30,
+  "sampledDurationSeconds": 1500.2757241890001,
+  "timerElapsedSeconds": 1500,
+  "firstPage": 1,
+  "lastPage": 55,
+  "observedRSSMinBytes": 288894976,
+  "observedRSSMaxBytes": 289329152,
+  "processPeakRSSBytes": 311394304,
+  "cpuPercentOfOneCore": 97.83648580953037,
+  "completed": true,
+  "autoScrollStopped": true,
+  "driverStopped": true,
+  "postCloseAssertionsPassed": true,
+  "testCaseSeconds": 1660.585,
+  "limitations": "One real session, not five. CPU is process accounting, not energy. Hosted Intel RSS/CPU cannot be compared as a controlled regression with the M1 baseline."
+}

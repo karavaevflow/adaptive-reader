@@ -1,0 +1,23 @@
+{
+  "acceptance": "docs/v1.0.md",
+  "applicationVersion": "1.0.0",
+  "architectures": [
+    "x86_64",
+    "arm64"
+  ],
+  "build": "9",
+  "bundleIdentifier": "com.karavaevflow.AdaptiveReader",
+  "entitlements": {
+    "com.apple.security.app-sandbox": true,
+    "com.apple.security.files.bookmarks.app-scope": true,
+    "com.apple.security.files.user-selected.read-write": true,
+    "com.apple.security.network.client": true
+  },
+  "minimumMacOS": "15.0",
+  "notarized": false,
+  "sdk": "15.5",
+  "signature": "local ad-hoc",
+  "sourceCommit": "ef968c8ca1fb7be9f6e7f0ad03e55189479b1590",
+  "toolchain": "Xcode 16.4\nBuild version 16F6",
+  "version": "v1.0.0-rc.1"
+}
