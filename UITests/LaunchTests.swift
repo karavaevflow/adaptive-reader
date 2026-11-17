@@ -84,7 +84,7 @@ final class ReleaseAcceptanceTests: XCTestCase {
         let epub = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label == %@", "split.open.", "Upgrade EPUB")).firstMatch
         XCTAssertTrue(epub.waitForExistence(timeout: 10)); epub.click()
         XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15))
-        let epubText = app.webViews.staticTexts.matching(NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", "Learning begins with attention", "Learning begins with attention")).firstMatch
+        let epubText = app.webViews.staticTexts.matching(NSPredicate(format: "value == %@", "Learning begins with attention. A stable source anchor survives a change of typeface and column width.")).firstMatch
         XCTAssertTrue(epubText.waitForExistence(timeout: 15))
         XCTAssertFalse(epubText.frame.isEmpty)
         XCTAssertTrue(epubText.frame.intersects(app.webViews.firstMatch.frame))
