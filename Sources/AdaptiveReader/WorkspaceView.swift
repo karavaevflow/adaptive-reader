@@ -29,6 +29,7 @@ struct WorkspaceView: View {
     @AppStorage("inspectorVisible") private var inspectorVisible = false
     @AppStorage("shellAppearance") private var appearance = ShellAppearance.system
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var session = ReaderSession()
     @SceneStorage("workspaceWindowID") private var windowID = UUID().uuidString
     private var windowAutosaveName: String {
@@ -86,7 +87,19 @@ struct WorkspaceView: View {
                 Task { await session.refreshBookmarks(); await session.refreshComfortPreferences(); await session.companion.refreshSettings(); await session.study.reload(); if session.knowledge.visible { await session.knowledge.reload() } }
             } else if !hasBook { Task { await session.refreshLibrary() } }
         }
-        .overlay { if session.busy { ProgressView("Opening document").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) } }
+        .overlay {
+            if session.busy {
+                VStack(spacing: 16) {
+                    ProgressView(LocalizedStringKey(session.libraryTransferTitle ?? "Opening document"))
+                    if session.libraryTransferTitle != nil {
+                        Button("Cancel") { session.cancelLibraryTransfer() }.keyboardShortcut(.cancelAction)
+                    }
+                }.padding(24).background {
+                    if reduceTransparency { RoundedRectangle(cornerRadius: 12).fill(Adaptive.surface) }
+                    else { RoundedRectangle(cornerRadius: 12).fill(.regularMaterial) }
+                }
+            }
+        }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf, UTType(filenameExtension: "epub")!]) { result in
             switch result {
             case .success(let url):
@@ -147,11 +160,15 @@ struct WorkspaceView: View {
                     .padding(Adaptive.Space.regular)
             }
         }
-        .alert("Unable to open document", isPresented: Binding(
-            get: { session.errorMessage != nil }, set: { if !$0 { session.errorMessage = nil } }
+        .alert(Text(LocalizedStringKey(session.errorMessage != nil ? session.errorTitle : "Library backup")), isPresented: Binding(
+            get: { session.errorMessage != nil || session.libraryTransferNotice != nil },
+            set: { if !$0 { session.errorMessage = nil; session.libraryTransferNotice = nil; session.libraryRecoveryURL = nil } }
         )) {
-            Button("OK") { session.errorMessage = nil }
-        } message: { Text(session.errorMessage ?? "") }
+            if let previous = session.libraryRecoveryURL {
+                Button("Show previous folder") { NSWorkspace.shared.activateFileViewerSelecting([previous]) }
+            }
+            Button("OK") { session.errorMessage = nil; session.libraryTransferNotice = nil; session.libraryRecoveryURL = nil }
+        } message: { Text(LocalizedStringKey(session.errorMessage ?? session.libraryTransferNotice ?? "")) }
     }
 
     private func startSession() async {
@@ -457,6 +474,8 @@ struct WorkspaceView: View {
     private func perform(_ command: WorkspaceCommand, width: CGFloat) {
         if session.performReadingCommand(command) { return }
         switch command {
+        case .backupLibrary: session.chooseLibraryBackup(restoring: false)
+        case .restoreLibraryBackup: session.chooseLibraryBackup(restoring: true)
         case .commandCenter: session.setAutoScroll(false); session.commandCenterVisible.toggle()
         case .readingTools: readingToolsVisible = true
         case .extendedReading, .knowledge, .saveKnowledge, .study, .newNote, .newCard, .highlightPassage, .listenFromHere, .resumeListening, .toggleListening, .stopListening, .back, .forward, .nextPassage, .previousPassage, .toggleSpotlight, .spotlightNext, .spotlightPrevious, .toggleAutoScroll, .toggleSession, .stopSession, .miniReader, .returnToReader: break
@@ -509,12 +528,12 @@ struct WorkspaceView: View {
             if session.engine != nil {
                 Button("Library", systemImage: "books.vertical") { perform(.closeBook, width: width) }
                     .accessibilityIdentifier("reader.close").disabled(session.busy)
-                Button(LocalizedStringKey(session.epubEngine == nil ? "Previous page" : "Previous chapter"), systemImage: "chevron.left") { session.navigate(page: session.pageNumber - 1) }
-                    .disabled(session.pageNumber <= 1).accessibilityIdentifier("page.previous")
+                Button(LocalizedStringKey(session.epubEngine == nil ? "Previous page" : "Previous chapter"), systemImage: "chevron.left") { session.stepSection(-1) }
+                    .disabled(!session.canStepSection(-1)).accessibilityIdentifier("page.previous")
                 Text("\(session.pageNumber)/\(session.sectionCount)").monospacedDigit()
                     .accessibilityIdentifier("page.current")
-                Button(LocalizedStringKey(session.epubEngine == nil ? "Next page" : "Next chapter"), systemImage: "chevron.right") { session.navigate(page: session.pageNumber + 1) }
-                    .disabled(session.pageNumber >= session.sectionCount).accessibilityIdentifier("page.next")
+                Button(LocalizedStringKey(session.epubEngine == nil ? "Next page" : "Next chapter"), systemImage: "chevron.right") { session.stepSection(1) }
+                    .disabled(!session.canStepSection(1)).accessibilityIdentifier("page.next")
             }
             if hasBook && width >= 1100 {
                 Button("Find in book", systemImage: "magnifyingglass") { perform(.search, width: width) }
@@ -584,6 +603,8 @@ struct WorkspaceView: View {
                     Button("Auto-scroll") { perform(.toggleAutoScroll, width: width) }
                 }
                 Divider()
+                Button("Back up library") { perform(.backupLibrary, width: width) }.disabled(!WorkspaceCommand.backupLibrary.isEnabled(in: session))
+                Button("Restore library backup") { perform(.restoreLibraryBackup, width: width) }.disabled(!WorkspaceCommand.restoreLibraryBackup.isEnabled(in: session))
                 Button("Import linked book") { perform(.importReference, width: width) }
                 Button("Appearance") { perform(.toggleAppearance, width: width) }
                 Button("Sidebar") { perform(.toggleSidebar, width: width) }

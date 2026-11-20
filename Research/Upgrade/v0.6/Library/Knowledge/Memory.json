@@ -1,0 +1,163 @@
+{
+  "boards" : [
+    {
+      "edges" : [
+        {
+          "from" : "20E0003C-EA1A-4EE2-AA93-7FF80F56FBA6",
+          "id" : "61CAAEED-6370-4172-904B-D2FA453C6171",
+          "label" : "Related idea",
+          "to" : "37F75CA2-DC57-46F9-9425-54330AA58811"
+        }
+      ],
+      "id" : "211923DE-6112-4336-9CD9-7FB045EEBEA2",
+      "nodes" : [
+        {
+          "cardID" : "20E0003C-EA1A-4EE2-AA93-7FF80F56FBA6",
+          "cluster" : "",
+          "point" : {
+            "x" : 20,
+            "y" : 20
+          }
+        },
+        {
+          "cardID" : "37F75CA2-DC57-46F9-9425-54330AA58811",
+          "cluster" : "",
+          "point" : {
+            "x" : 380,
+            "y" : 20
+          }
+        }
+      ],
+      "title" : "Upgrade board"
+    }
+  ],
+  "cards" : [
+    {
+      "comment" : "",
+      "createdAt" : 816620675.887471,
+      "id" : "20E0003C-EA1A-4EE2-AA93-7FF80F56FBA6",
+      "kind" : "quotation",
+      "sources" : [
+        {
+          "anchor" : {
+            "bookID" : "B0000000-0000-4000-8000-000000000001",
+            "position" : {
+              "pdf" : {
+                "_0" : {
+                  "pageIndex" : 1,
+                  "x" : 30,
+                  "y" : 600
+                }
+              }
+            },
+            "schemaVersion" : 1,
+            "sourceRevision" : "c261c4969f1b44d16add079d101ff9ec714534a3f4402a71db68af050f851a8b"
+          },
+          "bookTitle" : "Upgrade PDF",
+          "location" : "Page 2",
+          "quotation" : "Reading specimen"
+        }
+      ],
+      "tags" : [
+
+      ],
+      "text" : "Reading specimen",
+      "title" : "Keep quotation"
+    },
+    {
+      "comment" : "",
+      "createdAt" : 816620675.887473,
+      "id" : "37F75CA2-DC57-46F9-9425-54330AA58811",
+      "kind" : "readerNote",
+      "sources" : [
+        {
+          "anchor" : {
+            "bookID" : "B0000000-0000-4000-8000-000000000002",
+            "position" : {
+              "epub" : {
+                "locator" : "eyJvZmZzZXQiOjAsInF1b3RlIjoiUmVhZGluZyBhbmQgbWVtb3J5TGVhcm5pbmcgYmVnaW5zIHdpdGggYXR0ZW50aW9uLiBBIHN0YWJsZSBzb3VyY2UgYW5jaG9yIHN1cnZpdmUiLCJ2ZXJzaW9uIjoxfQ==",
+                "resource" : "EPUB\/one.xhtml"
+              }
+            },
+            "schemaVersion" : 1,
+            "sourceRevision" : "a9ea758d9c77032ab740c2b4959d33976502e3288ed3b3356f72812ec5a2e84f"
+          },
+          "bookTitle" : "Upgrade EPUB",
+          "location" : "Chapter 1",
+          "quotation" : "Reading specimen"
+        }
+      ],
+      "tags" : [
+
+      ],
+      "text" : "Моя связь между книгами",
+      "title" : "Keep reader idea"
+    }
+  ],
+  "metadata" : [
+    {
+      "author" : "Reader",
+      "bookID" : "B0000000-0000-4000-8000-000000000001",
+      "collection" : "Upgrade check"
+    },
+    {
+      "author" : "Reader",
+      "bookID" : "B0000000-0000-4000-8000-000000000002",
+      "collection" : "Upgrade check"
+    }
+  ],
+  "paths" : [
+    {
+      "goal" : "Keep my path",
+      "id" : "E51523CF-5203-462C-A705-FC2559D1C02C",
+      "steps" : [
+        {
+          "completed" : false,
+          "id" : "CB996F63-2EAD-4442-8FA1-C305BE0777E4",
+          "source" : {
+            "anchor" : {
+              "bookID" : "B0000000-0000-4000-8000-000000000001",
+              "position" : {
+                "pdf" : {
+                  "_0" : {
+                    "pageIndex" : 1,
+                    "x" : 30,
+                    "y" : 600
+                  }
+                }
+              },
+              "schemaVersion" : 1,
+              "sourceRevision" : "c261c4969f1b44d16add079d101ff9ec714534a3f4402a71db68af050f851a8b"
+            },
+            "bookTitle" : "Upgrade PDF",
+            "location" : "Page 2",
+            "quotation" : "Reading specimen"
+          },
+          "title" : "Return to source"
+        },
+        {
+          "completed" : false,
+          "id" : "91E02B0A-3E88-4FA0-9931-BDFBA63125E3",
+          "source" : {
+            "anchor" : {
+              "bookID" : "B0000000-0000-4000-8000-000000000002",
+              "position" : {
+                "epub" : {
+                  "locator" : "eyJvZmZzZXQiOjAsInF1b3RlIjoiUmVhZGluZyBhbmQgbWVtb3J5TGVhcm5pbmcgYmVnaW5zIHdpdGggYXR0ZW50aW9uLiBBIHN0YWJsZSBzb3VyY2UgYW5jaG9yIHN1cnZpdmUiLCJ2ZXJzaW9uIjoxfQ==",
+                  "resource" : "EPUB\/one.xhtml"
+                }
+              },
+              "schemaVersion" : 1,
+              "sourceRevision" : "a9ea758d9c77032ab740c2b4959d33976502e3288ed3b3356f72812ec5a2e84f"
+            },
+            "bookTitle" : "Upgrade EPUB",
+            "location" : "Chapter 1",
+            "quotation" : "Reading specimen"
+          },
+          "title" : "Return to source"
+        }
+      ]
+    }
+  ],
+  "schemaVersion" : 1
+}

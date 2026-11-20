@@ -2,6 +2,14 @@
 
 Native macOS reading workspace with an offline PDF/EPUB library and source-linked study tools. Requires macOS 15 or later. SwiftUI and AppKit provide the shell, PDFKit displays documents. MIT licensed.
 
+## Install and release status
+
+A PDF rendering/navigation hotfix, **v1.0.0-rc.2 (11)**, is under validation. rc.1 has a known repeated-page defect in selected palettes and a two-up navigation trap; see [the hotfix ledger](docs/v1.0-rc.2.md). Keep the library when updating.
+
+**[v1.0.0-rc.1](https://github.com/karavaevflow/adaptive-reader/releases/tag/v1.0.0-rc.1)** is a prerelease; v1.0 stable is not declared. Download the universal ZIP and SHA-256 sidecar from that release. Candidate archives require macOS 15+, include Apple silicon/Intel binaries, and are locally ad-hoc signed, **not Developer ID signed or notarized**. Read [installation/update instructions](docs/distribution.md) and the [v1.0 acceptance ledger](docs/v1.0.md) before installing. Preserve your library when replacing the app; verify the supplied checksum.
+
+AI remains off by default. See [privacy](PRIVACY.md), [security reporting](SECURITY.md), [contributing](CONTRIBUTING.md), [changelog](CHANGELOG.md) and [licenses](NOTICE.md). Real-model evaluation remains deferred; candidate status does not imply it was completed.
+
 ## Build
 
 Install full Xcode with macOS SDK and select it under Xcode Settings → Locations → Command Line Tools. Open `AdaptiveReader.xcodeproj`, choose the shared AdaptiveReader scheme, and run.
@@ -58,3 +66,5 @@ Search is local, cancellable and filtered by books, title, author and collection
 **View → Extended reading** (`⇧⌘E`) opens Split, Bilingual, OCR, Replay and Insights. Split creates a second independent PDF/EPUB reader, including another position in the same book, with optional same-source position sync and Swap. Application menus address the primary pane; nearby controls address the second pane. Bilingual keeps reader translations and context explanations beside exact source fragments, with saved vocabulary. Explain in AI Companion prepares a question; only pressing Ask uses your explicitly configured provider. Arbitrary editions are not automatically aligned.
 
 OCR uses on-device Vision on an explicitly chosen current PDF page, supports cancellation, marks uncertain recognized lines and links back to the scan. Results form a revision-keyed cache; recognized pages supplement search without fabricating native PDF text selection. Replay and Insights start disabled, stay local and can be disabled or cleared independently. Replay stores source/action metadata, not screen recordings or question text. Reading time is an active-window estimate, and completed chapters/pages are marked by the reader. See the [v0.6 acceptance report](docs/v0.6.md) and [Release measurements](Research/v0.6/README.md) for actual verification status and limits.
+
+**File → Back up library / Restore library backup** saves managed books and reader data to a selected private ZIP. Linked originals need a separate backup; caches and AI settings are excluded. Restore validates the archive and is enabled only for an empty library; the previous folder is retained for recovery. The same commands are in More and Command Center.

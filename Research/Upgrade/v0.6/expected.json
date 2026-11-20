@@ -1,0 +1,38 @@
+{
+  "aiMode" : "off",
+  "boards" : 1,
+  "books" : [
+    {
+      "bookmarks" : 1,
+      "cards" : 1,
+      "favorite" : true,
+      "format" : "pdf",
+      "highlights" : 1,
+      "id" : "B0000000-0000-4000-8000-000000000001",
+      "listeningPosition" : true,
+      "notes" : 1,
+      "revision" : "c261c4969f1b44d16add079d101ff9ec714534a3f4402a71db68af050f851a8b"
+    },
+    {
+      "bookmarks" : 1,
+      "cards" : 1,
+      "favorite" : true,
+      "format" : "epub",
+      "highlights" : 1,
+      "id" : "B0000000-0000-4000-8000-000000000002",
+      "listeningPosition" : true,
+      "notes" : 1,
+      "revision" : "a9ea758d9c77032ab740c2b4959d33976502e3288ed3b3356f72812ec5a2e84f"
+    }
+  ],
+  "edges" : 1,
+  "events" : 1,
+  "insightsEnabled" : true,
+  "knowledgeCards" : 2,
+  "metrics" : 1,
+  "paths" : 1,
+  "replayEnabled" : true,
+  "splitPosition" : true,
+  "translations" : 1,
+  "vocabulary" : 1
+}

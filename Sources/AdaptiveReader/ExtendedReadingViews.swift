@@ -154,10 +154,10 @@ struct SplitReadingView<Primary: View>: View {
                 VStack(spacing: 0) {
                     header(pane.record.title, primary: false)
                     HStack {
-                        Button("Next page or chapter", systemImage: "arrow.right") { model.activePane = "secondary"; pane.nextSection() }.labelStyle(.iconOnly).disabled(pane.section >= pane.sectionCount).accessibilityIdentifier("split.next")
+                        Button("Next page or chapter", systemImage: "arrow.right") { model.activePane = "secondary"; pane.nextSection() }.labelStyle(.iconOnly).disabled(!pane.canStepSection(1)).accessibilityIdentifier("split.next")
                         Picker("Second pane palette", selection: Binding(get: { pane.engine.palette }, set: { pane.perform(.setPalette($0)) })) { ForEach(PagePalette.allCases, id: \.self) { Text(LocalizedStringKey($0.rawValue.capitalized)).tag($0) } }.labelsHidden()
                         Menu("Second pane tools", systemImage: "ellipsis.circle") {
-                            Button("Previous page or chapter") { model.activePane = "secondary"; pane.stepSection(-1) }.disabled(pane.section <= 1)
+                            Button("Previous page or chapter") { model.activePane = "secondary"; pane.stepSection(-1) }.disabled(!pane.canStepSection(-1))
                             Button("Back") { model.activePane = "secondary"; pane.perform(.back) }.disabled(!pane.commands.canGoBack)
                             Button("Previous text block") { model.activePane = "secondary"; pane.perform(.advancePassage(-1)) }.disabled(!pane.engine.capabilities.contains(.passageNavigation))
                             Button("Next text block") { model.activePane = "secondary"; pane.perform(.advancePassage(1)) }.disabled(!pane.engine.capabilities.contains(.passageNavigation))

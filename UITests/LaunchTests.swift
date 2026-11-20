@@ -3,6 +3,118 @@ import AppKit
 import IOKit.pwr_mgt
 import Carbon.HIToolbox
 
+/// Production-container acceptance on a disposable CI Mac. Every write into the
+/// protected library goes through the app's normal import/restore UI.
+final class ReleaseAcceptanceTests: XCTestCase {
+    override func setUp() { super.setUp(); continueAfterFailure = false }
+
+    @MainActor func testPackagedInstallOfflineImportAndV06Upgrade() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["ADAPTIVE_RELEASE_CI_ONLY"] == "YES", NSUserName() == "runner",
+              let applicationPath = environment["ADAPTIVE_RELEASE_APP_URL"],
+              let fixturePath = environment["ADAPTIVE_UPGRADE_FIXTURE"],
+              let archivePath = environment["ADAPTIVE_UPGRADE_ARCHIVE"],
+              let pdfPath = environment["ADAPTIVE_RELEASE_PDF"] else {
+            throw XCTSkip("Production-container acceptance runs only on a disposable CI Mac")
+        }
+        let applicationURL = URL(fileURLWithPath: applicationPath)
+        XCTAssertEqual(try XCTUnwrap(Bundle(url: applicationURL)).bundleIdentifier, "com.karavaevflow.AdaptiveReader")
+        let home = URL(fileURLWithPath: String(cString: getpwuid(getuid())!.pointee.pw_dir))
+        let root = home.appendingPathComponent("Library/Containers/com.karavaevflow.AdaptiveReader/Data/Library/Application Support/AdaptiveReader")
+        guard !FileManager.default.fileExists(atPath: root.path) else {
+            throw NSError(domain: "ReleaseAcceptance", code: 1, userInfo: [NSLocalizedDescriptionKey: "Refusing to use an existing production library"])
+        }
+        let app = XCUIApplication(url: applicationURL)
+        // Production code, no storage override and no speech/model action.
+        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en"]
+        func launch() { app.launch(); app.activate(); XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 15)) }
+        func quit() { app.typeKey("q", modifierFlags: [.command]); XCTAssertTrue(app.wait(for: .notRunning, timeout: 15)) }
+        func capture(_ name: String) {
+            let attachment = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+            attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+        }
+        func menu(_ name: String) {
+            app.menuBars.menuBarItems["File"].click()
+            let item = app.menuItems[name].firstMatch
+            let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: item)
+            XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 8), .completed); item.click()
+        }
+        func choose(_ path: String) {
+            let panel = app.sheets.firstMatch
+            XCTAssertTrue(panel.waitForExistence(timeout: 8))
+            panel.typeKey("g", modifierFlags: [.command, .shift])
+            let field = app.textFields["PathTextField"].firstMatch
+            XCTAssertTrue(field.waitForExistence(timeout: 8)); field.click(); field.typeKey("a", modifierFlags: [.command]); field.typeText(path); field.typeKey(.return, modifierFlags: [])
+            panel.buttons["OKButton"].firstMatch.click()
+        }
+        func acknowledge(_ message: String) {
+            let notice = app.staticTexts.matching(NSPredicate(format: "label == %@ OR value == %@", message, message)).firstMatch
+            XCTAssertTrue(notice.waitForExistence(timeout: 15))
+            // Return invokes the native alert's default action, avoiding a
+            // duplicate, non-clickable Touch Bar OK in the AX hierarchy.
+            app.typeKey(.return, modifierFlags: [])
+            XCTAssertTrue(notice.waitForNonExistence(timeout: 8))
+        }
+        func section(_ name: String) {
+            let picker = app.popUpButtons["study.section"].firstMatch
+            XCTAssertTrue(picker.waitForExistence(timeout: 8)); picker.click(); app.menuItems[name].firstMatch.click()
+        }
+        launch()
+        XCTAssertTrue(app.buttons["library.open"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
+        // Match the regular Library audit: make the new window key and move
+        // the pointer off inherited toolbar/title hover state before sampling.
+        app.buttons["library.open"].firstMatch.coordinate(withNormalizedOffset: CGVector(dx: -1, dy: -1)).click()
+        try app.performAccessibilityAudit(for: .contrast)
+        capture("v1-release-clean-library")
+        app.typeKey("e", modifierFlags: [.command, .shift])
+        XCTAssertTrue(app.buttons["extended.done"].waitForExistence(timeout: 8))
+        app.radioButtons["Replay"].firstMatch.click(); XCTAssertEqual(app.checkBoxes["replay.enabled"].value as? Int, 0)
+        app.radioButtons["Insights"].firstMatch.click(); XCTAssertEqual(app.checkBoxes["insights.enabled"].value as? Int, 0)
+        app.buttons["extended.done"].click()
+        menu("Restore library backup"); choose(archivePath)
+        acknowledge("Library restored. The previous folder was kept for recovery.")
+        XCTAssertTrue(app.windows["Upgrade PDF"].waitForExistence(timeout: 15))
+        quit(); launch()
+        XCTAssertTrue(app.windows["Upgrade PDF"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["2/3"].firstMatch.waitForExistence(timeout: 10))
+        app.typeKey("l", modifierFlags: [.command, .shift]); section("Notes")
+        XCTAssertTrue(app.staticTexts["Сохранить мою заметку при обновлении"].firstMatch.waitForExistence(timeout: 10))
+        section("Cards")
+        XCTAssertTrue(app.staticTexts["What must survive an update?"].firstMatch.waitForExistence(timeout: 10))
+        capture("v1-release-upgraded-study")
+        app.buttons["study.close"].firstMatch.click()
+        app.typeKey("e", modifierFlags: [.command, .shift])
+        let epub = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label == %@", "split.open.", "Upgrade EPUB")).firstMatch
+        XCTAssertTrue(epub.waitForExistence(timeout: 10)); epub.click()
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15))
+        let epubText = app.webViews.staticTexts.matching(NSPredicate(format: "value == %@", "Learning begins with attention. A stable source anchor survives a change of typeface and column width.")).firstMatch
+        XCTAssertTrue(epubText.waitForExistence(timeout: 15))
+        XCTAssertFalse(epubText.frame.isEmpty)
+        XCTAssertTrue(epubText.frame.intersects(app.webViews.firstMatch.frame))
+        capture("v1-release-upgraded-pdf-epub")
+        app.buttons["split.close"].firstMatch.click()
+        let export = FileManager.default.temporaryDirectory.appendingPathComponent("Adaptive-ReleaseBackup-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: export, withIntermediateDirectories: true)
+        menu("Back up library"); choose(export.path)
+        acknowledge("Library backup saved.")
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(at: export, includingPropertiesForKeys: nil).filter { $0.pathExtension == "zip" }.count, 1)
+        capture("v1-release-backup-export")
+        app.buttons["reader.open"].firstMatch.click(); choose(pdfPath)
+        XCTAssertTrue(app.windows["text"].waitForExistence(timeout: 15))
+        let text = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", "stable anchor", "stable anchor")).firstMatch
+        XCTAssertTrue(text.waitForExistence(timeout: 10)); XCTAssertTrue(text.frame.intersects(app.windows.firstMatch.frame))
+        capture("v1-release-offline-import")
+        quit(); launch()
+        XCTAssertTrue(app.windows["text"].waitForExistence(timeout: 15))
+        capture("v1-release-restored"); quit()
+        let fixture = URL(fileURLWithPath: fixturePath)
+        for name in ["B0000000-0000-4000-8000-000000000001.pdf", "B0000000-0000-4000-8000-000000000002.epub"] {
+            XCTAssertEqual(try Data(contentsOf: root.appendingPathComponent("Assets/" + name)), try Data(contentsOf: fixture.appendingPathComponent("Assets/" + name)))
+        }
+    }
+}
+
 private var targetApplicationBundleID: String {
     Bundle(for: OfflineReaderTests.self).object(forInfoDictionaryKey: "AdaptiveReaderTargetBundleID") as? String ?? "com.karavaevflow.AdaptiveReader"
 }
@@ -394,6 +506,44 @@ final class OfflineReaderTests: XCTestCase {
         return assertions.filter { $0[kIOPMAssertionNameKey as String] as? String == "Adaptive Reader reading session" }.count
     }
 
+    @MainActor func testTwoUpPageControlsAdvanceAndRestoreInReaderAndMini() {
+        let id = UUID().uuidString, app = launch(id, specimen: false)
+        app.buttons["reader.open"].firstMatch.click()
+        choosePDF(app, relativePath: "Research/Fixtures/text.pdf")
+        XCTAssertTrue(app.windows["text"].waitForExistence(timeout: 10))
+        let pages = app.scrollViews["reader.pages"].firstMatch
+        XCTAssertTrue(pages.waitForExistence(timeout: 10)); pages.rightClick()
+        let twoUp = app.menuItems["Two Pages"].firstMatch
+        XCTAssertTrue(twoUp.waitForExistence(timeout: 5)); twoUp.click()
+        app.buttons["appearance.toggle"].firstMatch.click()
+        app.popUpButtons["page.palette"].firstMatch.click(); app.menuItems["Midnight"].firstMatch.click()
+        app.typeKey(.escape, modifierFlags: [])
+        if app.popUpButtons["page.palette"].firstMatch.exists { app.typeKey(.escape, modifierFlags: []) }
+        XCTAssertFalse(app.popUpButtons["page.palette"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["1/3"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["page.next"].firstMatch.click()
+        XCTAssertTrue(app.staticTexts["3/3"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["page.next"].firstMatch.isEnabled)
+        snapshot(app, "rc2-two-up-page3")
+        app.buttons["page.previous"].firstMatch.click()
+        XCTAssertTrue(app.staticTexts["1/3"].firstMatch.waitForExistence(timeout: 5))
+        menu(app, "View", "Mini Reader")
+        let mini = app.windows["Mini Reader"]
+        XCTAssertTrue(mini.waitForExistence(timeout: 5)); mini.buttons["Next page"].firstMatch.click()
+        XCTAssertTrue(mini.staticTexts["3/3"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(mini.buttons["Next page"].firstMatch.isEnabled)
+        let shot = XCTAttachment(screenshot: mini.screenshot()); shot.name = "rc2-two-up-mini"; shot.lifetime = .keepAlways; add(shot)
+        mini.buttons["mini.return"].firstMatch.click()
+        app.typeKey("q", modifierFlags: [.command]); XCTAssertTrue(app.wait(for: .notRunning, timeout: 15))
+        let restored = launch(id, specimen: false)
+        XCTAssertTrue(restored.windows["text"].waitForExistence(timeout: 10))
+        XCTAssertTrue(restored.staticTexts["3/3"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(restored.buttons["page.next"].firstMatch.isEnabled)
+        restored.buttons["page.previous"].firstMatch.click()
+        XCTAssertTrue(restored.staticTexts["1/3"].firstMatch.waitForExistence(timeout: 5))
+        snapshot(restored, "rc2-two-up-restored")
+    }
+
     @MainActor func testOfflineReadingRoundTrip() {
         let id = UUID().uuidString
         let app = launch(id, specimen: true)
@@ -756,17 +906,33 @@ final class OfflineReaderTests: XCTestCase {
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Shared source anchors")).firstMatch.waitForExistence(timeout: 5))
         knowledgeTab(app, "Library search")
         paste("stable", into: app.textFields["knowledge.search.query"], app: app); app.buttons["knowledge.search.run"].click()
-        let epubCheck = app.checkBoxes.matching(NSPredicate(format: "label CONTAINS %@", " · reflow · ")).firstMatch
-        XCTAssertTrue(epubCheck.waitForExistence(timeout: 30)); epubCheck.click()
-        let pdfCheck = app.checkBoxes.matching(NSPredicate(format: "label CONTAINS %@", " · text · ")).firstMatch
+        let searchFinished = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: app.buttons["knowledge.search.run"])
+        XCTAssertEqual(XCTWaiter.wait(for: [searchFinished], timeout: 30), .completed)
         let results = app.scrollViews["knowledge.search.results"].firstMatch
         XCTAssertTrue(results.waitForExistence(timeout: 5))
-        for _ in 0..<16 {
-            if pdfCheck.exists && pdfCheck.isHittable { break }
-            results.scroll(byDeltaX: 0, deltaY: -500)
+        func selectQuotation(from title: String) {
+            let checkbox = app.checkBoxes.matching(NSPredicate(format: "label BEGINSWITH %@", "Author quotation · " + title + " · ")).firstMatch
+            // SwiftUI can report a clipped row as hittable. Keep the entire
+            // checkbox inside the scroll viewport before synthesizing input.
+            // Off-screen rows may be absent from AX until scrolled into view.
+            for _ in 0..<40 {
+                let viewport = results.frame.insetBy(dx: 4, dy: 12)
+                if checkbox.exists {
+                    if checkbox.isHittable && viewport.contains(checkbox.frame) { break }
+                    results.scroll(byDeltaX: 0, deltaY: checkbox.frame.midY < viewport.minY ? 180 : -180)
+                } else {
+                    results.scroll(byDeltaX: 0, deltaY: -180)
+                }
+            }
+            XCTAssertTrue(checkbox.exists && checkbox.isHittable && results.frame.insetBy(dx: 4, dy: 12).contains(checkbox.frame))
+            checkbox.click()
+            let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == 1"), object: checkbox)
+            XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 8), .completed)
         }
-        XCTAssertTrue(pdfCheck.exists && pdfCheck.isHittable); pdfCheck.click()
-        XCTAssertTrue(app.buttons["knowledge.compare"].isEnabled); app.buttons["knowledge.compare"].click()
+        selectQuotation(from: "reflow"); selectQuotation(from: "text")
+        let compare = app.buttons["knowledge.compare"]
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: compare)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 8), .completed); compare.click()
         let verification = app.buttons.matching(NSPredicate(format: "label == %@", "Verify source"))
         XCTAssertTrue(verification.firstMatch.waitForExistence(timeout: 10))
         expectKnowledgeCount(verification, 2); verification.element(boundBy: 0).click()

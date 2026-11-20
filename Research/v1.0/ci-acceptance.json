@@ -1,0 +1,256 @@
+{
+  "applicationSource": "ef968c8ca1fb7be9f6e7f0ad03e55189479b1590",
+  "productionImplementation": "630247735cc3f3078b8c5e4918a479380d9d0fb1",
+  "runID": 44144951311,
+  "url": "https://github.com/karavaevflow/adaptive-reader/actions/runs/44144951311",
+  "conclusion": "success",
+  "coreTests": 77,
+  "routineUIPassed": 33,
+  "longSessionUIPassed": 1,
+  "uiPassedExecutions": 34,
+  "uiSkippedExecutions": 5,
+  "uiFailed": 0,
+  "scope": "Five inherited skips in the routine partition; the comfort method passes separately in the real long-session job. Four opt-in methods are not newly executed.",
+  "partitions": [
+    {
+      "name": "foundation",
+      "jobID": 134257658135,
+      "passedTests": 25,
+      "skippedTests": 5,
+      "failedTests": 0,
+      "cases": [
+        {
+          "test": "AdaptiveReaderUITests.LaunchTests testAccessibilityDescriptions",
+          "result": "passed",
+          "seconds": 17.552
+        },
+        {
+          "test": "AdaptiveReaderUITests.LaunchTests testCompanionVisualMatrix",
+          "result": "passed",
+          "seconds": 164.912
+        },
+        {
+          "test": "AdaptiveReaderUITests.LaunchTests testComponentCatalog",
+          "result": "passed",
+          "seconds": 62.952
+        },
+        {
+          "test": "AdaptiveReaderUITests.LaunchTests testDailyReadingVisualMatrix",
+          "result": "passed",
+          "seconds": 214.831
+        },
+        {
+          "test": "AdaptiveReaderUITests.LaunchTests testOfflineLibraryVisualMatrix",
+          "result": "passed",
+          "seconds": 118.566
+        },
+        {
+          "test": "AdaptiveReaderUITests.LaunchTests testPhase0ReleaseMeasurements",
+          "result": "skipped",
+          "seconds": 0.16
+        },
+        {
+          "test": "AdaptiveReaderUITests.LaunchTests testReaderSessionRestoresAfterQuit",
+          "result": "passed",
+          "seconds": 41.691
+        },
+        {
+          "test": "AdaptiveReaderUITests.LaunchTests testReducedAccessibilityAndFocus",
+          "result": "skipped",
+          "seconds": 0.151
+        },
+        {
+          "test": "AdaptiveReaderUITests.LaunchTests testVisualAcceptanceMatrix",
+          "result": "passed",
+          "seconds": 226.268
+        },
+        {
+          "test": "AdaptiveReaderUITests.LaunchTests testVoiceOverRuntime",
+          "result": "skipped",
+          "seconds": 0.201
+        },
+        {
+          "test": "AdaptiveReaderUITests.LaunchTests testWindowAndAppearancePopover",
+          "result": "passed",
+          "seconds": 17.179
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testComfortTwentyFiveMinuteReleaseSession",
+          "result": "skipped",
+          "seconds": 0.266
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testCompanionCancellationAndScanWithoutText",
+          "result": "passed",
+          "seconds": 49.351
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testCompanionCloudConsentIsExplicit",
+          "result": "passed",
+          "seconds": 38.408
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testCompanionEvidenceActionsAndNoteUndo",
+          "result": "passed",
+          "seconds": 44.316
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testDailyClosingMainWindowClosesMiniAndStopsActivity",
+          "result": "passed",
+          "seconds": 29.667
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testDailyCommandCenterAndSmartBack",
+          "result": "passed",
+          "seconds": 47.473
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testDailyMiniReaderTransfersPositionAndCommands",
+          "result": "passed",
+          "seconds": 29.768
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testDailyPhysicalFootnoteLinkReturnsToSource",
+          "result": "passed",
+          "seconds": 35.291
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testDailyTimerAndManualScrollCancellation",
+          "result": "passed",
+          "seconds": 33.282
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testEPUBSearchReflowBookmarkAndRestore",
+          "result": "passed",
+          "seconds": 118.847
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testLargeDocumentCommandsDuringSearch",
+          "result": "passed",
+          "seconds": 163.769
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testLargeDocumentReleaseMeasurements",
+          "result": "skipped",
+          "seconds": 0.259
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testLinkedImportSurvivesQuit",
+          "result": "passed",
+          "seconds": 50.666
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testMagicSelectionKeepsSourceVisible",
+          "result": "passed",
+          "seconds": 16.265
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testNativeListenPauseResumeRestartAndClose",
+          "result": "passed",
+          "seconds": 77.864
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testOfflineReadingRoundTrip",
+          "result": "passed",
+          "seconds": 57.358
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testStudyCardsNotesRecallAndHighlightsSurviveReflowAndRestart",
+          "result": "passed",
+          "seconds": 209.515
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testStudyMarkdownExportThroughNativeSavePanel",
+          "result": "passed",
+          "seconds": 50.414
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testStudyVisualMatrix",
+          "result": "passed",
+          "seconds": 531.096
+        }
+      ]
+    },
+    {
+      "name": "extended",
+      "jobID": 134257659974,
+      "passedTests": 3,
+      "skippedTests": 0,
+      "failedTests": 0,
+      "cases": [
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testExtendedReadingBilingualOCRTrackingAndRestart",
+          "result": "passed",
+          "seconds": 101.812
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testExtendedSplitIndependentScrollAndVisualMatrix",
+          "result": "passed",
+          "seconds": 272.748
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testSplitPDFAndEPUBSwapAndRestart",
+          "result": "passed",
+          "seconds": 69.658
+        }
+      ]
+    },
+    {
+      "name": "knowledge",
+      "jobID": 134257660847,
+      "passedTests": 4,
+      "skippedTests": 0,
+      "failedTests": 0,
+      "cases": [
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testDailyScheduledPaletteHonorsManualOverrideUntilBoundary",
+          "result": "passed",
+          "seconds": 85.608
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testKnowledgeGraphComparisonTimelinePathAndRestart",
+          "result": "passed",
+          "seconds": 210.3
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testKnowledgeMarkdownNativeExport",
+          "result": "passed",
+          "seconds": 38.68
+        },
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testKnowledgeVisualMatrix",
+          "result": "passed",
+          "seconds": 190.752
+        }
+      ]
+    },
+    {
+      "name": "release",
+      "jobID": 134257662054,
+      "passedTests": 1,
+      "skippedTests": 0,
+      "failedTests": 0,
+      "cases": [
+        {
+          "test": "AdaptiveReaderUITests.ReleaseAcceptanceTests testPackagedInstallOfflineImportAndV06Upgrade",
+          "result": "passed",
+          "seconds": 155.432
+        }
+      ]
+    },
+    {
+      "name": "stability",
+      "jobID": 134257660977,
+      "passedTests": 1,
+      "skippedTests": 0,
+      "failedTests": 0,
+      "cases": [
+        {
+          "test": "AdaptiveReaderUITests.OfflineReaderTests testComfortTwentyFiveMinuteReleaseSession",
+          "result": "passed",
+          "seconds": 1660.585
+        }
+      ]
+    }
+  ]
+}

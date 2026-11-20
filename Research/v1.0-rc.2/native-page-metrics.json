@@ -1,0 +1,236 @@
+{
+  "sourceCommit": "8e79df7666303ae42fb47901cf1aa34e7cb32c5f",
+  "scope": "Five separate Release processes per palette. Actual PDFKit subclass draws, no windows/audio/model/network during measurement. Includes hashing forced pixel bytes; not on-screen/GPU frame latency. Correct-render baseline; pre-fix selected image reuse was invalid.",
+  "runs": [
+    {
+      "distinctPages": 3,
+      "firstDrawMS": [
+        4.71145833216724,
+        1.0301666661689524,
+        1.0889166660490446
+      ],
+      "fixtureSHA256": "c261c4969f1b44d16add079d101ff9ec714534a3f4402a71db68af050f851a8b",
+      "pagePixelsSHA256": [
+        "27ec65e76d8fb6339847c39ab59071300726a53271c62aac682122e4042efd7d",
+        "5853afa43510339751cd39087e14582d5abcff95389e5dc3f638db8109b019de",
+        "70187581cb982ee3f3bffac1eb935eee1963ae385689d557660412f74aaa3471"
+      ],
+      "palette": "original",
+      "peakClientRSSBytes": 36651008,
+      "readyMS": 169.26604167019832,
+      "repeatDrawMS": [
+        1.0013333339884412,
+        1.017291666357778,
+        1.007041664706776
+      ],
+      "run": 1
+    },
+    {
+      "distinctPages": 3,
+      "firstDrawMS": [
+        2.543666665587807,
+        1.0531666666793171,
+        1.0705416643759236
+      ],
+      "fixtureSHA256": "c261c4969f1b44d16add079d101ff9ec714534a3f4402a71db68af050f851a8b",
+      "pagePixelsSHA256": [
+        "27ec65e76d8fb6339847c39ab59071300726a53271c62aac682122e4042efd7d",
+        "5853afa43510339751cd39087e14582d5abcff95389e5dc3f638db8109b019de",
+        "70187581cb982ee3f3bffac1eb935eee1963ae385689d557660412f74aaa3471"
+      ],
+      "palette": "original",
+      "peakClientRSSBytes": 37109760,
+      "readyMS": 149.9800416677317,
+      "repeatDrawMS": [
+        1.003000001219334,
+        0.9544583335809875,
+        0.9850833303062245
+      ],
+      "run": 2
+    },
+    {
+      "distinctPages": 3,
+      "firstDrawMS": [
+        1.9839999986288603,
+        1.0565416669123806,
+        1.0777500028780196
+      ],
+      "fixtureSHA256": "c261c4969f1b44d16add079d101ff9ec714534a3f4402a71db68af050f851a8b",
+      "pagePixelsSHA256": [
+        "27ec65e76d8fb6339847c39ab59071300726a53271c62aac682122e4042efd7d",
+        "5853afa43510339751cd39087e14582d5abcff95389e5dc3f638db8109b019de",
+        "70187581cb982ee3f3bffac1eb935eee1963ae385689d557660412f74aaa3471"
+      ],
+      "palette": "original",
+      "peakClientRSSBytes": 36732928,
+      "readyMS": 77.13337499808404,
+      "repeatDrawMS": [
+        0.9771250006451737,
+        0.9882500016828999,
+        0.948541666730307
+      ],
+      "run": 3
+    },
+    {
+      "distinctPages": 3,
+      "firstDrawMS": [
+        2.0901666684949305,
+        1.0360833330196328,
+        1.1027916661987547
+      ],
+      "fixtureSHA256": "c261c4969f1b44d16add079d101ff9ec714534a3f4402a71db68af050f851a8b",
+      "pagePixelsSHA256": [
+        "27ec65e76d8fb6339847c39ab59071300726a53271c62aac682122e4042efd7d",
+        "5853afa43510339751cd39087e14582d5abcff95389e5dc3f638db8109b019de",
+        "70187581cb982ee3f3bffac1eb935eee1963ae385689d557660412f74aaa3471"
+      ],
+      "palette": "original",
+      "peakClientRSSBytes": 36683776,
+      "readyMS": 67.79854166597943,
+      "repeatDrawMS": [
+        0.9832499999902211,
+        0.9881249970931094,
+        0.9825833367358427
+      ],
+      "run": 4
+    },
+    {
+      "distinctPages": 3,
+      "firstDrawMS": [
+        1.9821249989036005,
+        1.081041667930549,
+        1.142749999416992
+      ],
+      "fixtureSHA256": "c261c4969f1b44d16add079d101ff9ec714534a3f4402a71db68af050f851a8b",
+      "pagePixelsSHA256": [
+        "27ec65e76d8fb6339847c39ab59071300726a53271c62aac682122e4042efd7d",
+        "5853afa43510339751cd39087e14582d5abcff95389e5dc3f638db8109b019de",
+        "70187581cb982ee3f3bffac1eb935eee1963ae385689d557660412f74aaa3471"
+      ],
+      "palette": "original",
+      "peakClientRSSBytes": 36913152,
+      "readyMS": 81.48875000188127,
+      "repeatDrawMS": [
+        0.9637083348934539,
+        0.9854166673903819,
+        0.953833332459908
+      ],
+      "run": 5
+    },
+    {
+      "distinctPages": 3,
+      "firstDrawMS": [
+        4.742666664242279,
+        12.661624998145271,
+        12.938791667693295
+      ],
+      "fixtureSHA256": "c261c4969f1b44d16add079d101ff9ec714534a3f4402a71db68af050f851a8b",
+      "pagePixelsSHA256": [
+        "09a81d439667377827cababde488baef7f632e153153bf4e8151a45d588fb6db",
+        "6bd3b86444ae4d86c3abb262fcb7074107ae25c04f1c3fc1931b53c2fd0d8534",
+        "67389f1c353635097de9658340586aa63ffba9c4377cfd8141678753a5df94af"
+      ],
+      "palette": "midnight",
+      "peakClientRSSBytes": 98107392,
+      "readyMS": 138.63358333401266,
+      "repeatDrawMS": [
+        0.8867500000633299,
+        0.9064999976544641,
+        0.7970416663738433
+      ],
+      "run": 1
+    },
+    {
+      "distinctPages": 3,
+      "firstDrawMS": [
+        5.176291666430188,
+        13.114500001393026,
+        13.388625000516186
+      ],
+      "fixtureSHA256": "c261c4969f1b44d16add079d101ff9ec714534a3f4402a71db68af050f851a8b",
+      "pagePixelsSHA256": [
+        "09a81d439667377827cababde488baef7f632e153153bf4e8151a45d588fb6db",
+        "6bd3b86444ae4d86c3abb262fcb7074107ae25c04f1c3fc1931b53c2fd0d8534",
+        "67389f1c353635097de9658340586aa63ffba9c4377cfd8141678753a5df94af"
+      ],
+      "palette": "midnight",
+      "peakClientRSSBytes": 98516992,
+      "readyMS": 123.93766666355077,
+      "repeatDrawMS": [
+        0.8822083327686414,
+        0.8256666660599876,
+        0.8441249992756639
+      ],
+      "run": 2
+    },
+    {
+      "distinctPages": 3,
+      "firstDrawMS": [
+        5.219041668169666,
+        12.836624999181367,
+        12.754374998621643
+      ],
+      "fixtureSHA256": "c261c4969f1b44d16add079d101ff9ec714534a3f4402a71db68af050f851a8b",
+      "pagePixelsSHA256": [
+        "09a81d439667377827cababde488baef7f632e153153bf4e8151a45d588fb6db",
+        "6bd3b86444ae4d86c3abb262fcb7074107ae25c04f1c3fc1931b53c2fd0d8534",
+        "67389f1c353635097de9658340586aa63ffba9c4377cfd8141678753a5df94af"
+      ],
+      "palette": "midnight",
+      "peakClientRSSBytes": 97779712,
+      "readyMS": 112.10370833214256,
+      "repeatDrawMS": [
+        0.9202083310810849,
+        0.8201250020647421,
+        0.86600000213366
+      ],
+      "run": 3
+    },
+    {
+      "distinctPages": 3,
+      "firstDrawMS": [
+        4.95608333585551,
+        13.030374997470062,
+        12.442833332897862
+      ],
+      "fixtureSHA256": "c261c4969f1b44d16add079d101ff9ec714534a3f4402a71db68af050f851a8b",
+      "pagePixelsSHA256": [
+        "09a81d439667377827cababde488baef7f632e153153bf4e8151a45d588fb6db",
+        "6bd3b86444ae4d86c3abb262fcb7074107ae25c04f1c3fc1931b53c2fd0d8534",
+        "67389f1c353635097de9658340586aa63ffba9c4377cfd8141678753a5df94af"
+      ],
+      "palette": "midnight",
+      "peakClientRSSBytes": 99106816,
+      "readyMS": 112.15970833291067,
+      "repeatDrawMS": [
+        0.9387916688865516,
+        0.9265000007872004,
+        0.878625000041211
+      ],
+      "run": 4
+    },
+    {
+      "distinctPages": 3,
+      "firstDrawMS": [
+        4.898041665001074,
+        13.326750002306653,
+        14.090125001530396
+      ],
+      "fixtureSHA256": "c261c4969f1b44d16add079d101ff9ec714534a3f4402a71db68af050f851a8b",
+      "pagePixelsSHA256": [
+        "09a81d439667377827cababde488baef7f632e153153bf4e8151a45d588fb6db",
+        "6bd3b86444ae4d86c3abb262fcb7074107ae25c04f1c3fc1931b53c2fd0d8534",
+        "67389f1c353635097de9658340586aa63ffba9c4377cfd8141678753a5df94af"
+      ],
+      "palette": "midnight",
+      "peakClientRSSBytes": 98336768,
+      "readyMS": 114.44900000060443,
+      "repeatDrawMS": [
+        1.0073750017909333,
+        0.9649999992689118,
+        0.931833332288079
+      ],
+      "run": 5
+    }
+  ]
+}

@@ -122,23 +122,21 @@ public final class PDFColorRenderer: @unchecked Sendable {
 }
 
 final class AdaptivePDFPage: PDFPage, @unchecked Sendable {
-    private let lock = NSLock()
-    private var eligibility: PDFColorSupport?
-    private let renderID = UUID().uuidString
-
+    // PDFKit constructs this subclass through its Objective-C page loader,
+    // bypassing Swift stored-property initializers. Keep per-page state in
+    // the explicitly initialized document delegate instead.
     var colorSupport: PDFColorSupport {
-        lock.withLock {
-            if let eligibility { return eligibility }
-            let result = pageRef.map { PDFColorRenderer.shared.support(for: $0) } ?? .missingText
-            eligibility = result
-            return result
-        }
+        guard let pageRef else { return .missingText }
+        return (document?.delegate as? AdaptivePDFDelegate)?.colorSupport(for: pageRef)
+            ?? PDFColorRenderer.shared.support(for: pageRef)
     }
 
     override func draw(with box: PDFDisplayBox, to context: CGContext) {
-        let palette = (document?.delegate as? AdaptivePDFDelegate)?.palette ?? .original
+        let delegate = document?.delegate as? AdaptivePDFDelegate
+        let palette = delegate?.palette ?? .original
         guard palette != .original, box == .cropBox, colorSupport == .available,
-              let pageRef, let image = PDFColorRenderer.shared.cached(page: pageRef, id: renderID, palette: palette) else {
+              let pageRef, let delegate,
+              let image = PDFColorRenderer.shared.cached(page: pageRef, id: delegate.renderIdentifier(for: pageRef), palette: palette) else {
             super.draw(with: box, to: context)
             return
         }
@@ -150,8 +148,20 @@ final class AdaptivePDFPage: PDFPage, @unchecked Sendable {
 
 final class AdaptivePDFDelegate: NSObject, PDFDocumentDelegate {
     private let lock = NSLock()
+    private let renderNamespace = UUID().uuidString
+    private var eligibility: [Int: PDFColorSupport] = [:]
     private var appearance: PagePalette = .original
     var palette: PagePalette { lock.withLock { appearance } }
     func setPalette(_ palette: PagePalette) { lock.withLock { appearance = palette } }
+    func renderIdentifier(for page: CGPDFPage) -> String { "\(renderNamespace)-\(page.pageNumber)" }
+    func colorSupport(for page: CGPDFPage) -> PDFColorSupport {
+        if let cached = lock.withLock({ eligibility[page.pageNumber] }) { return cached }
+        let result = PDFColorRenderer.shared.support(for: page)
+        return lock.withLock {
+            if let cached = eligibility[page.pageNumber] { return cached }
+            eligibility[page.pageNumber] = result
+            return result
+        }
+    }
     func classForPage() -> AnyClass { AdaptivePDFPage.self }
 }

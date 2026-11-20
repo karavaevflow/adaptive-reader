@@ -1,0 +1,38 @@
+{
+  "finishedUTC" : "2026-11-17T17:00:44Z",
+  "method" : "First layer-0 WindowServer window >=400x200 pt; fresh process\/library, inactive QA identity; OS caches not flushed; one RSS sample after window",
+  "runs" : [
+    {
+      "firstWindowMS" : 2605.9794166667416,
+      "firstWindowRSSBytes" : 79118336,
+      "qaBundleIdentifier" : "com.karavaevflow.AdaptiveReader.ReleaseQA.AD923317-CBAD-43E0-B345-E037A2304308",
+      "run" : 1
+    },
+    {
+      "firstWindowMS" : 802.62758333265083,
+      "firstWindowRSSBytes" : 78151680,
+      "qaBundleIdentifier" : "com.karavaevflow.AdaptiveReader.ReleaseQA.6D711017-1ABC-407E-B498-C982F8924EE7",
+      "run" : 2
+    },
+    {
+      "firstWindowMS" : 799.06541666787234,
+      "firstWindowRSSBytes" : 78020608,
+      "qaBundleIdentifier" : "com.karavaevflow.AdaptiveReader.ReleaseQA.A23C1749-2FE0-4AAF-95B1-A2EC4C98A013",
+      "run" : 3
+    },
+    {
+      "firstWindowMS" : 806.82300000080431,
+      "firstWindowRSSBytes" : 78020608,
+      "qaBundleIdentifier" : "com.karavaevflow.AdaptiveReader.ReleaseQA.9E08E72F-673F-4CB2-9646-D3B7EE63DD27",
+      "run" : 4
+    },
+    {
+      "firstWindowMS" : 831.86437500080501,
+      "firstWindowRSSBytes" : 78577664,
+      "qaBundleIdentifier" : "com.karavaevflow.AdaptiveReader.ReleaseQA.2C72D9DC-2458-468E-A1C9-D767EE2F805D",
+      "run" : 5
+    }
+  ],
+  "sourceCommit" : "630247735cc3f3078b8c5e4918a479380d9d0fb1",
+  "startedUTC" : "2026-11-17T17:00:35Z"
+}

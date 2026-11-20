@@ -1,0 +1,19 @@
+{
+  "finalizerSourceSHA256": "76a2a63c8f69f51d82e770b353cd5111deb16eda3d6c50a77a2cea5b0c0b525c",
+  "positive": {
+    "sourceCommit": "6121a5702363e0454da8f7cd59a85bff53b13ac4",
+    "installedProductionPassed": 1,
+    "failures": 0,
+    "skips": 0,
+    "signedAppBytesUnchanged": true,
+    "extractedStrictSignatureVerified": true,
+    "archiveSHA256": "d72e222fed3648950234267f3f31165500a163f03bfeb261271a579509c5d5c9",
+    "published": false,
+    "scope": "Temporary finalizer validation, not the final candidate distribution."
+  },
+  "negative": {
+    "failedKnowledgeResultRejected": true,
+    "candidateOutputCreated": false
+  },
+  "pythonSyntax": "AST validation passed for all four added/changed Python report/finalizer scripts."
+}

@@ -7021,6 +7021,216 @@
           }
         }
       }
+    },
+    "Back up library": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать резервную копию библиотеки"
+          }
+        }
+      }
+    },
+    "Restore library backup": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Восстановить библиотеку из копии"
+          }
+        }
+      }
+    },
+    "Restore": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Восстановить"
+          }
+        }
+      }
+    },
+    "Restore into an empty library. Reading history and tracking choices are included. Current AI settings stay unchanged.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Восстановление доступно в пустой библиотеке. Будут восстановлены история чтения и настройки её записи. Текущие настройки ИИ сохранятся."
+          }
+        }
+      }
+    },
+    "Includes managed books and private reader data. Back up linked originals separately. Caches and AI settings are excluded. Keep the archive private.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копия содержит сохранённые в библиотеке книги и личные данные читателя. Исходники книг, добавленных ссылкой, сохраните отдельно. Кэш и настройки ИИ не включаются. Храните архив приватно."
+          }
+        }
+      }
+    },
+    "Restoring library": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Восстановление библиотеки"
+          }
+        }
+      }
+    },
+    "Saving library backup": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранение резервной копии"
+          }
+        }
+      }
+    },
+    "Library backup": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Резервная копия библиотеки"
+          }
+        }
+      }
+    },
+    "Library restored. The previous folder was kept for recovery.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Библиотека восстановлена. Предыдущая папка сохранена для возврата."
+          }
+        }
+      }
+    },
+    "Library backup saved.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Резервная копия библиотеки сохранена."
+          }
+        }
+      }
+    },
+    "Library operation cancelled.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Операция с библиотекой отменена."
+          }
+        }
+      }
+    },
+    "Show previous folder": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать предыдущую папку"
+          }
+        }
+      }
+    },
+    "Unable to restore library": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось восстановить библиотеку"
+          }
+        }
+      }
+    },
+    "Unable to save library backup": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось сохранить резервную копию"
+          }
+        }
+      }
+    },
+    "The library backup is damaged or incomplete. Current files were kept.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Резервная копия повреждена или неполна. Текущие файлы сохранены."
+          }
+        }
+      }
+    },
+    "This library backup needs a newer version of Adaptive Reader.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для этой резервной копии нужна более новая версия Adaptive Reader."
+          }
+        }
+      }
+    },
+    "The backup exceeds the supported size or file-count limits.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Размер копии или число файлов превышает поддерживаемый предел."
+          }
+        }
+      }
+    },
+    "Restore is available only for an empty library. Existing books and reader data were kept.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Восстановление доступно только в пустой библиотеке. Текущие книги и данные читателя сохранены."
+          }
+        }
+      }
+    },
+    "Choose a new backup filename. Existing archives are not replaced.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите новое имя файла. Существующие копии не заменяются."
+          }
+        }
+      }
+    },
+    "The library contains an unsupported file layout. Keep a separate folder backup.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В библиотеке найдены файлы неподдерживаемой структуры. Сохраните отдельную копию папки."
+          }
+        }
+      }
+    },
+    "Save the backup outside the library folder.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохраните резервную копию за пределами папки библиотеки."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
