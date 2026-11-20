@@ -61,6 +61,10 @@ final class ReleaseAcceptanceTests: XCTestCase {
         }
         launch()
         XCTAssertTrue(app.buttons["library.open"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
+        // Match the regular Library audit: make the new window key and move
+        // the pointer off inherited toolbar/title hover state before sampling.
+        app.buttons["library.open"].firstMatch.coordinate(withNormalizedOffset: CGVector(dx: -1, dy: -1)).click()
         try app.performAccessibilityAudit(for: .contrast)
         capture("v1-release-clean-library")
         app.typeKey("e", modifierFlags: [.command, .shift])

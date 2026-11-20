@@ -25,7 +25,7 @@ jobs:
       - name: Configure visual test desktop
         run: swift scripts/configure-ci-display.swift
       - name: UI tests
-        run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination 'platform=macOS' -resultBundlePath TestResults.xcresult -skip-testing:AdaptiveReaderUITests/ReleaseAcceptanceTests -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testTwoUpPageControlsAdvanceAndRestoreInReaderAndMini -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testSplitPDFAndEPUBSwapAndRestart -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testExtendedReadingBilingualOCRTrackingAndRestart -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testExtendedSplitIndependentScrollAndVisualMatrix -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testDailyScheduledPaletteHonorsManualOverrideUntilBoundary -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeGraphComparisonTimelinePathAndRestart -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeVisualMatrix -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeMarkdownNativeExport test
+        run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination 'platform=macOS' -resultBundlePath TestResults.xcresult -skip-testing:AdaptiveReaderUITests/ReleaseAcceptanceTests -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testTwoUpPageControlsAdvanceAndRestoreInReaderAndMini -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testSplitPDFAndEPUBSwapAndRestart -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testExtendedReadingBilingualOCRTrackingAndRestart -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testExtendedSplitIndependentScrollAndVisualMatrix -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testDailyScheduledPaletteHonorsManualOverrideUntilBoundary -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeGraphComparisonTimelinePathAndRestart -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeVisualMatrix -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeMarkdownNativeExport -skip-testing:AdaptiveReaderUITests/LaunchTests/testOfflineLibraryVisualMatrix -skip-testing:AdaptiveReaderUITests/LaunchTests/testDailyReadingVisualMatrix -skip-testing:AdaptiveReaderUITests/LaunchTests/testCompanionVisualMatrix -skip-testing:AdaptiveReaderUITests/LaunchTests/testComponentCatalog -skip-testing:AdaptiveReaderUITests/LaunchTests/testVisualAcceptanceMatrix -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testStudyVisualMatrix test
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -33,6 +33,20 @@ jobs:
           path: |
             TestResults.xcresult
             CoreTests.log
+  visual-matrix:
+    runs-on: macos-15-intel
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure visual test desktop
+        run: swift scripts/configure-ci-display.swift
+      - name: Library and reader visual matrices
+        run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination 'platform=macOS' -resultBundlePath VisualTests.xcresult -only-testing:AdaptiveReaderUITests/LaunchTests/testOfflineLibraryVisualMatrix -only-testing:AdaptiveReaderUITests/LaunchTests/testDailyReadingVisualMatrix -only-testing:AdaptiveReaderUITests/LaunchTests/testCompanionVisualMatrix -only-testing:AdaptiveReaderUITests/LaunchTests/testComponentCatalog -only-testing:AdaptiveReaderUITests/LaunchTests/testVisualAcceptanceMatrix -only-testing:AdaptiveReaderUITests/OfflineReaderTests/testStudyVisualMatrix test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visual-results
+          path: VisualTests.xcresult
   knowledge:
     runs-on: macos-15-intel
     timeout-minutes: 30

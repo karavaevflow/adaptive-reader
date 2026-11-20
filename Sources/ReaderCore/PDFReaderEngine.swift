@@ -237,6 +237,11 @@ public final class PDFReaderEngine: ReaderEngine {
 
     public var focusedPageIndex: Int? {
         guard let page = view.currentPage else { return nil }
+        // PDFKit can retain an old focused/search page while the clip view
+        // scrolls elsewhere. Only prefer that page while it is visible;
+        // otherwise controls and counters must follow the viewport anchor.
+        let frame = view.convert(page.bounds(for: view.displayBox), from: page)
+        guard frame.intersects(view.bounds) else { return nil }
         let index = document.index(for: page)
         return index == NSNotFound ? nil : index
     }

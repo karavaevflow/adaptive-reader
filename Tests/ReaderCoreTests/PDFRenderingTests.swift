@@ -103,3 +103,27 @@ func pdfRelativeNavigationAdvancesEverySpreadAndStopsAtEdges(pageCount: Int, vie
         }
     }
 }
+
+@Test @MainActor
+func pdfRelativeNavigationFollowsScrolledViewportInsteadOfOffscreenFocus() throws {
+    let url = renderingFixtures.deletingLastPathComponent().appendingPathComponent("Large/large-text.pdf")
+    let engine = try PDFReaderEngine(data: Data(contentsOf: url), bookID: UUID())
+    let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 1100, height: 760),
+        styleMask: [.titled], backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false; window.contentView = engine.view
+    defer { window.close() }
+    engine.view.displayMode = .singlePageContinuous
+    engine.view.layoutDocumentView()
+    for _ in 0..<3 { #expect(try engine.scroll(by: 1200)) }
+    guard case .pdf(let visible) = try engine.currentAnchor().position else {
+        Issue.record("Expected a PDF viewport anchor"); return
+    }
+    #expect(visible.pageIndex > 1)
+    let previous = try #require(try engine.adjacentPage(-1))
+    let next = try #require(try engine.adjacentPage(1))
+    guard case .pdf(let before) = previous.position, case .pdf(let after) = next.position else {
+        Issue.record("Expected PDF navigation targets"); return
+    }
+    #expect(before.pageIndex == visible.pageIndex - 1)
+    #expect(after.pageIndex == visible.pageIndex + 1)
+}

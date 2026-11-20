@@ -2,7 +2,7 @@
 
 ## 1.0.0-rc.2 — 2026-11-20
 
-Fix repeated/stale PDF page images in selected palettes and incorrect Original fallback by moving page cache/eligibility state out of PDFKit-created page subclasses. Fix Next/Previous in two-page modes across Reader, Mini Reader and Split, including separate-cover layouts and end bounds. Adds native page-pixel and spread-navigation regressions. Existing source files and library schemas are preserved.
+Fix repeated/stale PDF page images in selected palettes and incorrect Original fallback by moving page cache/eligibility state out of PDFKit-created page subclasses. Fix Next/Previous in two-page modes across Reader, Mini Reader and Split, including separate-cover layouts and end bounds. Discard stale offscreen PDFKit focus after scrolling so counters and navigation follow the visible document. Adds native page-pixel, spread-navigation and manual-scroll regressions. Existing source files and library schemas are preserved.
 
 ## 1.0.0-rc.1 — 2026-11-17
 
