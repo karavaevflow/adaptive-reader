@@ -263,6 +263,8 @@ final class SplitPane {
     var onChange: (() -> Void)?
     var onInteraction: (() -> Void)?
     var section = 1
+    private(set) var canGoToPreviousSection = false
+    private(set) var canGoToNextSection = false
     @ObservationIgnored private var initialAnchor: SourceAnchor?
     @ObservationIgnored private var initialPalette: PagePalette
     @ObservationIgnored private var mounted = false
@@ -276,7 +278,9 @@ final class SplitPane {
             try commands.perform(.setPalette(initialPalette))
             if let pdf = engine as? PDFReaderEngine {
                 pdf.view.layoutDocumentView(); pdf.view.autoScales = true
-                NotificationCenter.default.publisher(for: .PDFViewPageChanged, object: pdf.view).sink { [weak self] _ in Task { @MainActor in self?.changed() } }.store(in: &observers)
+                for name in [Notification.Name.PDFViewPageChanged, .PDFViewDisplayModeChanged] {
+                    NotificationCenter.default.publisher(for: name, object: pdf.view).sink { [weak self] _ in Task { @MainActor in self?.changed() } }.store(in: &observers)
+                }
                 if let clip = pdf.view.documentView?.enclosingScrollView?.contentView {
                     clip.postsBoundsChangedNotifications = true
                     NotificationCenter.default.publisher(for: NSView.boundsDidChangeNotification, object: clip).sink { [weak self] _ in Task { @MainActor in self?.changed() } }.store(in: &observers)
@@ -294,24 +298,33 @@ final class SplitPane {
     func changed() {
         if let anchor = try? engine.currentAnchor() {
             switch anchor.position {
-            case .pdf(let point): section = point.pageIndex + 1
+            case .pdf(let point): section = ((engine as? PDFReaderEngine)?.focusedPageIndex ?? point.pageIndex) + 1
             case .epub(let resource, _): section = ((engine as? EPUBReaderEngine)?.publication.readingResources.firstIndex { $0.resource == resource } ?? 0) + 1
             }
+        }
+        if let pdf = engine as? PDFReaderEngine {
+            canGoToPreviousSection = (try? pdf.adjacentPage(-1)) != nil
+            canGoToNextSection = (try? pdf.adjacentPage(1)) != nil
+        } else {
+            canGoToPreviousSection = section > 1
+            canGoToNextSection = section < sectionCount
         }
         onChange?()
     }
     var sectionCount: Int { (engine as? PDFReaderEngine)?.document.pageCount ?? (engine as? EPUBReaderEngine)?.publication.readingResources.count ?? 0 }
+    func canStepSection(_ direction: Int) -> Bool {
+        switch direction { case -1: return canGoToPreviousSection; case 1: return canGoToNextSection; default: return false }
+    }
     func nextSection() { stepSection(1) }
     func stepSection(_ direction: Int) {
         do {
             let anchor: SourceAnchor
             if let pdf = engine as? PDFReaderEngine {
-                let index = max(0, min(section - 1 + direction, pdf.document.pageCount - 1))
-                guard let page = pdf.document.page(at: index) else { return }
-                let box = page.bounds(for: .cropBox)
-                anchor = .init(bookID: engine.bookID, sourceRevision: engine.sourceRevision, position: .pdf(.init(pageIndex: index, x: box.minX, y: box.maxY)))
+                guard let next = try pdf.adjacentPage(direction) else { return }
+                anchor = next
             } else if let epub = engine as? EPUBReaderEngine {
-                let index = max(0, min(section - 1 + direction, epub.publication.readingResources.count - 1))
+                guard canStepSection(direction) else { return }
+                let index = section - 1 + direction
                 anchor = .init(bookID: engine.bookID, sourceRevision: engine.sourceRevision, position: .epub(resource: epub.publication.readingResources[index].resource, locator: EPUBTextLocator(offset: 0).encoded))
             } else { return }
             try commands.perform(.navigate(anchor)); changed()

@@ -23,6 +23,8 @@ final class ReaderSession {
     var libraryRecoveryURL: URL?
     @ObservationIgnored private var libraryTransferTask: Task<Void, Never>?
     var pageNumber = 1
+    private(set) var canGoToPreviousSection = false
+    private(set) var canGoToNextSection = false
     var scale = 1.0
     var books: [BookRecord] = []
     var states: [UUID: ReadingState] = [:]
@@ -296,7 +298,7 @@ final class ReaderSession {
     private func observePDF(_ engine: PDFReaderEngine) {
         subscriptions.removeAll()
         let center = NotificationCenter.default
-        for name in [Notification.Name.PDFViewPageChanged, .PDFViewScaleChanged] {
+        for name in [Notification.Name.PDFViewPageChanged, .PDFViewScaleChanged, .PDFViewDisplayModeChanged] {
             center.publisher(for: name, object: engine.view).receive(on: RunLoop.main).sink { [weak self] _ in
                 MainActor.assumeIsolated { self?.positionChanged() }
             }.store(in: &subscriptions)
@@ -318,7 +320,14 @@ final class ReaderSession {
         pdfEngine?.updateSpotlightLayout()
         if let epubEngine { pageNumber = epubEngine.chapterIndex + 1 }
         if let anchor = try? engine.currentAnchor(), case .pdf(let point) = anchor.position {
-            pageNumber = point.pageIndex + 1
+            pageNumber = (pdfEngine?.focusedPageIndex ?? point.pageIndex) + 1
+        }
+        if let pdf = pdfEngine {
+            canGoToPreviousSection = (try? pdf.adjacentPage(-1)) != nil
+            canGoToNextSection = (try? pdf.adjacentPage(1)) != nil
+        } else if let epub = epubEngine {
+            canGoToPreviousSection = epub.chapterIndex > 0
+            canGoToNextSection = epub.chapterIndex + 1 < epub.publication.readingResources.count
         }
         saving?.cancel()
         saving = Task { [weak self] in
@@ -328,6 +337,18 @@ final class ReaderSession {
         }
     }
 
+    func canStepSection(_ direction: Int) -> Bool {
+        guard engine != nil else { return false }
+        switch direction { case -1: return canGoToPreviousSection; case 1: return canGoToNextSection; default: return false }
+    }
+    func stepSection(_ direction: Int) {
+        if let pdf = pdfEngine {
+            do { if let anchor = try pdf.adjacentPage(direction) { navigate(to: anchor) } }
+            catch { report(error) }
+        } else if let epub = epubEngine, canStepSection(direction) {
+            navigate(page: epub.chapterIndex + direction + 1)
+        }
+    }
     func navigate(page: Int) {
         if let epub = epubEngine {
             guard epub.publication.readingResources.indices.contains(page - 1) else { return }

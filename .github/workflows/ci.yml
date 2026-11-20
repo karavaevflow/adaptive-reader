@@ -25,7 +25,7 @@ jobs:
       - name: Configure visual test desktop
         run: swift scripts/configure-ci-display.swift
       - name: UI tests
-        run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination 'platform=macOS' -resultBundlePath TestResults.xcresult -skip-testing:AdaptiveReaderUITests/ReleaseAcceptanceTests -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testSplitPDFAndEPUBSwapAndRestart -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testExtendedReadingBilingualOCRTrackingAndRestart -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testExtendedSplitIndependentScrollAndVisualMatrix -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testDailyScheduledPaletteHonorsManualOverrideUntilBoundary -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeGraphComparisonTimelinePathAndRestart -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeVisualMatrix -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeMarkdownNativeExport test
+        run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination 'platform=macOS' -resultBundlePath TestResults.xcresult -skip-testing:AdaptiveReaderUITests/ReleaseAcceptanceTests -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testTwoUpPageControlsAdvanceAndRestoreInReaderAndMini -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testSplitPDFAndEPUBSwapAndRestart -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testExtendedReadingBilingualOCRTrackingAndRestart -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testExtendedSplitIndependentScrollAndVisualMatrix -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testDailyScheduledPaletteHonorsManualOverrideUntilBoundary -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeGraphComparisonTimelinePathAndRestart -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeVisualMatrix -skip-testing:AdaptiveReaderUITests/OfflineReaderTests/testKnowledgeMarkdownNativeExport test
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -73,14 +73,19 @@ jobs:
         run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -configuration Release -destination 'generic/platform=macOS' -derivedDataPath "$RUNNER_TEMP/AdaptiveRelease" ONLY_ACTIVE_ARCH=NO 'ARCHS=arm64 x86_64' build
       - name: Package and verify distribution archive
         run: |
-          python3 scripts/package-release.py "$RUNNER_TEMP/AdaptiveRelease/Build/Products/Release/AdaptiveReader.app" --version v1.0.0-rc.1 --source "$(git rev-parse HEAD)" --acceptance docs/v1.0.md --output dist/AdaptiveReader-v1.0.0-rc.1.zip
-          ditto -x -k dist/AdaptiveReader-v1.0.0-rc.1.zip "$RUNNER_TEMP/AdaptiveInstalled"
+          python3 scripts/package-release.py "$RUNNER_TEMP/AdaptiveRelease/Build/Products/Release/AdaptiveReader.app" --version v1.0.0-rc.2 --source "$(git rev-parse HEAD)" --acceptance docs/v1.0-rc.2.md --output dist/AdaptiveReader-v1.0.0-rc.2.zip
+          ditto -x -k dist/AdaptiveReader-v1.0.0-rc.2.zip "$RUNNER_TEMP/AdaptiveInstalled"
       - name: Build UI runner
         run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/AdaptiveRelease" build-for-testing
-      - name: Configure visual desktop and production test target
+      - name: Configure visual test desktop
+        run: swift scripts/configure-ci-display.swift
+      - name: PDF spread navigation regression
+        run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/AdaptiveRelease" -only-testing:AdaptiveReaderUITests/OfflineReaderTests/testTwoUpPageControlsAdvanceAndRestoreInReaderAndMini -resultBundlePath PDFNavigation.xcresult test-without-building
+      - name: Require PDF navigation pass without skips
+        run: python3 scripts/check-xctest-result.py PDFNavigation.xcresult --passed 1 --output PDFNavigation-summary.json
+      - name: Configure production test target
         run: |
-          swift scripts/configure-ci-display.swift
-          python3 scripts/configure-release-tests.py --products "$RUNNER_TEMP/AdaptiveRelease/Build/Products" --app "$RUNNER_TEMP/AdaptiveInstalled/AdaptiveReader-v1.0.0-rc.1/AdaptiveReader.app" > ReleaseRunPath.txt
+          python3 scripts/configure-release-tests.py --products "$RUNNER_TEMP/AdaptiveRelease/Build/Products" --app "$RUNNER_TEMP/AdaptiveInstalled/AdaptiveReader-v1.0.0-rc.2/AdaptiveReader.app" > ReleaseRunPath.txt
       - name: Installed Release and upgrade acceptance
         run: xcodebuild -xctestrun "$(cat ReleaseRunPath.txt)" -destination 'platform=macOS' -only-testing:AdaptiveReaderUITests/ReleaseAcceptanceTests -resultBundlePath ReleaseAcceptance.xcresult test-without-building
       - name: Require installed-production pass without skips
@@ -90,10 +95,12 @@ jobs:
         with:
           name: release-package
           path: |
-            dist/AdaptiveReader-v1.0.0-rc.1.zip
-            dist/AdaptiveReader-v1.0.0-rc.1.sha256
+            dist/AdaptiveReader-v1.0.0-rc.2.zip
+            dist/AdaptiveReader-v1.0.0-rc.2.sha256
             ReleaseAcceptance.xcresult
             ReleaseAcceptance-summary.json
+            PDFNavigation.xcresult
+            PDFNavigation-summary.json
   stability:
     if: startsWith(github.head_ref || github.ref_name, 'codex/public-stable-v1.0')
     runs-on: macos-15-intel

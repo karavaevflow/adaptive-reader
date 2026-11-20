@@ -15,13 +15,16 @@ p.add_argument('--results', type=Path, required=True, help='Installed-production
 p.add_argument('--source', required=True)
 p.add_argument('--run-url', required=True)
 p.add_argument('--output', type=Path, required=True)
+p.add_argument('--acceptance', type=Path, default=Path('docs/v1.0.md'), help='Committed repository-relative candidate acceptance report')
 a = p.parse_args()
 root = Path(__file__).resolve().parent.parent
+acceptance = (root / a.acceptance).resolve().relative_to(root).as_posix()
+subprocess.run(['git', 'ls-files', '--error-unmatch', '--', acceptance], cwd=root, check=True, stdout=subprocess.DEVNULL)
 if a.output.exists() or a.output.with_suffix('.sha256').exists():
     raise RuntimeError('Refusing to replace a candidate or checksum')
 if len(a.source) != 40 or not all(c in '0123456789abcdef' for c in a.source):
     raise ValueError('Expected the full tested source commit')
-documents = ['docs/v1.0.md', 'docs/distribution.md', 'PRIVACY.md', 'SECURITY.md', 'CHANGELOG.md']
+documents = [acceptance, 'docs/distribution.md', 'PRIVACY.md', 'SECURITY.md', 'CHANGELOG.md']
 subprocess.run(['git', 'diff', '--exit-code', 'HEAD', '--', *documents], cwd=root, check=True, stdout=subprocess.DEVNULL)
 original_sha = hashlib.sha256(a.archive.read_bytes()).hexdigest()
 if a.archive.with_suffix('.sha256').read_text().split()[0] != original_sha:
@@ -39,6 +42,8 @@ stage = entries[0]
 metadata = json.loads((stage / 'BUILD.json').read_text())
 if metadata['sourceCommit'] != a.source or '-rc.' not in metadata['version']:
     raise RuntimeError('Expected this source revision and a release candidate, never a stable tag')
+if metadata['acceptance'] != acceptance:
+    raise RuntimeError('Acceptance report must match the candidate originally built in CI')
 app = stage / 'AdaptiveReader.app'
 subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], check=True)
 
@@ -64,7 +69,7 @@ def published_document(source):
         return '[' + match.group(1) + '](' + url + (separator + anchor if separator else '') + ')'
     return re.sub(r'\[([^\]]+)\]\(([^)]+)\)', link, path.read_text())
 
-for source, destination in [('docs/v1.0.md', 'ACCEPTANCE.md'), ('docs/distribution.md', 'INSTALL.md'),
+for source, destination in [(acceptance, 'ACCEPTANCE.md'), ('docs/distribution.md', 'INSTALL.md'),
                             ('PRIVACY.md', 'PRIVACY.md'), ('SECURITY.md', 'SECURITY.md'), ('CHANGELOG.md', 'CHANGELOG.md')]:
     (stage / destination).write_text(published_document(source))
 metadata['documentationCommit'] = documentation_commit

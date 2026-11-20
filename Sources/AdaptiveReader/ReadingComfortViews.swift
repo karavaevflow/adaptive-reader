@@ -273,9 +273,9 @@ private struct MiniReaderView: View {
             if let engine = session.pdfEngine { NativePDFView(engine: engine, session: session) }
             Divider()
             HStack(spacing: 10) {
-                Button("Previous page", systemImage: "chevron.left") { session.navigate(page: session.pageNumber - 1) }.disabled(session.pageNumber <= 1)
+                Button("Previous page", systemImage: "chevron.left") { session.stepSection(-1) }.disabled(!session.canStepSection(-1))
                 Text("\(session.pageNumber)/\(session.pdfEngine?.document.pageCount ?? 0)").monospacedDigit().font(.caption)
-                Button("Next page", systemImage: "chevron.right") { session.navigate(page: session.pageNumber + 1) }.disabled(session.pageNumber >= (session.pdfEngine?.document.pageCount ?? 0))
+                Button("Next page", systemImage: "chevron.right") { session.stepSection(1) }.disabled(!session.canStepSection(1))
                 Spacer()
                 if session.readingTimer.status == .running || session.readingTimer.status == .paused { Text(clockString(session.readingTimer.remaining ?? session.readingTimer.elapsed)).font(.caption.monospacedDigit()) }
                 Button("Reading tools", systemImage: "slider.horizontal.3") { tools.toggle() }.popover(isPresented: $tools) { ReadingToolsView(session: session) }

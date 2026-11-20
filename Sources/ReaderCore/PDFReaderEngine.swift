@@ -235,6 +235,41 @@ public final class PDFReaderEngine: ReaderEngine {
                                 y: min(max(destination.point.y, page.bounds(for: .cropBox).minY), page.bounds(for: .cropBox).maxY))))
     }
 
+    public var focusedPageIndex: Int? {
+        guard let page = view.currentPage else { return nil }
+        let index = document.index(for: page)
+        return index == NSNotFound ? nil : index
+    }
+
+    /// Relative page controls advance a whole spread in PDFKit's two-up modes.
+    /// The saved anchor still describes the actual visible fragment.
+    public func adjacentPage(_ direction: Int) throws -> SourceAnchor? {
+        guard direction == -1 || direction == 1 else { throw ReaderError.unsupportedCommand }
+        let index: Int
+        if let focusedPageIndex { index = focusedPageIndex }
+        else if case .pdf(let position) = try currentAnchor().position { index = position.pageIndex }
+        else { throw ReaderError.invalidAnchor }
+        let target: Int
+        if view.displayMode == .twoUp || view.displayMode == .twoUpContinuous {
+            // currentDestination can identify the left page while currentPage
+            // identifies the right page explicitly targeted in the same spread.
+            let offset = view.displaysAsBook ? 1 : 0
+            let leading = index < offset ? 0 : (index - offset) / 2 * 2 + offset
+            if direction > 0 {
+                target = offset == 1 && leading == 0 ? 1 : leading + 2
+            } else {
+                guard leading > 0 else { return nil }
+                target = max(0, leading - 2)
+            }
+        } else {
+            target = index + direction
+        }
+        guard target >= 0, target < document.pageCount, let page = document.page(at: target) else { return nil }
+        let bounds = page.bounds(for: .cropBox)
+        return SourceAnchor(bookID: bookID, sourceRevision: sourceRevision,
+            position: .pdf(.init(pageIndex: target, x: bounds.minX, y: bounds.maxY)))
+    }
+
     public func navigate(to anchor: SourceAnchor) throws {
         try anchor.validate(bookID: bookID, revision: sourceRevision)
         guard case .pdf(let position) = anchor.position else { throw ReaderError.unsupportedCommand }
@@ -254,7 +289,7 @@ public final class PDFReaderEngine: ReaderEngine {
     public func applyPagePalette(_ palette: PagePalette) throws {
         if palette != .original, let page = view.currentDestination?.page ?? view.currentPage, let ref = page.pageRef,
            (page as? AdaptivePDFPage)?.colorSupport == .available,
-           PDFColorRenderer.shared.cached(page: ref, id: "preflight-\(sourceRevision)-\(document.index(for: page))", palette: palette) == nil {
+           PDFColorRenderer.shared.cached(page: ref, id: documentDelegate.renderIdentifier(for: ref), palette: palette) == nil {
             throw ReaderError.unavailableSource
         }
         let anchor = try? currentAnchor()

@@ -502,6 +502,44 @@ final class OfflineReaderTests: XCTestCase {
         return assertions.filter { $0[kIOPMAssertionNameKey as String] as? String == "Adaptive Reader reading session" }.count
     }
 
+    @MainActor func testTwoUpPageControlsAdvanceAndRestoreInReaderAndMini() {
+        let id = UUID().uuidString, app = launch(id, specimen: false)
+        app.buttons["reader.open"].firstMatch.click()
+        choosePDF(app, relativePath: "Research/Fixtures/text.pdf")
+        XCTAssertTrue(app.windows["text"].waitForExistence(timeout: 10))
+        let pages = app.scrollViews["reader.pages"].firstMatch
+        XCTAssertTrue(pages.waitForExistence(timeout: 10)); pages.rightClick()
+        let twoUp = app.menuItems["Two Pages"].firstMatch
+        XCTAssertTrue(twoUp.waitForExistence(timeout: 5)); twoUp.click()
+        app.buttons["appearance.toggle"].firstMatch.click()
+        app.popUpButtons["page.palette"].firstMatch.click(); app.menuItems["Midnight"].firstMatch.click()
+        app.typeKey(.escape, modifierFlags: [])
+        if app.popUpButtons["page.palette"].firstMatch.exists { app.typeKey(.escape, modifierFlags: []) }
+        XCTAssertFalse(app.popUpButtons["page.palette"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["1/3"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["page.next"].firstMatch.click()
+        XCTAssertTrue(app.staticTexts["3/3"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["page.next"].firstMatch.isEnabled)
+        snapshot(app, "rc2-two-up-page3")
+        app.buttons["page.previous"].firstMatch.click()
+        XCTAssertTrue(app.staticTexts["1/3"].firstMatch.waitForExistence(timeout: 5))
+        menu(app, "View", "Mini Reader")
+        let mini = app.windows["Mini Reader"]
+        XCTAssertTrue(mini.waitForExistence(timeout: 5)); mini.buttons["Next page"].firstMatch.click()
+        XCTAssertTrue(mini.staticTexts["3/3"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(mini.buttons["Next page"].firstMatch.isEnabled)
+        let shot = XCTAttachment(screenshot: mini.screenshot()); shot.name = "rc2-two-up-mini"; shot.lifetime = .keepAlways; add(shot)
+        mini.buttons["mini.return"].firstMatch.click()
+        app.typeKey("q", modifierFlags: [.command]); XCTAssertTrue(app.wait(for: .notRunning, timeout: 15))
+        let restored = launch(id, specimen: false)
+        XCTAssertTrue(restored.windows["text"].waitForExistence(timeout: 10))
+        XCTAssertTrue(restored.staticTexts["3/3"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(restored.buttons["page.next"].firstMatch.isEnabled)
+        restored.buttons["page.previous"].firstMatch.click()
+        XCTAssertTrue(restored.staticTexts["1/3"].firstMatch.waitForExistence(timeout: 5))
+        snapshot(restored, "rc2-two-up-restored")
+    }
+
     @MainActor func testOfflineReadingRoundTrip() {
         let id = UUID().uuidString
         let app = launch(id, specimen: true)

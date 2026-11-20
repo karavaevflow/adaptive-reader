@@ -528,12 +528,12 @@ struct WorkspaceView: View {
             if session.engine != nil {
                 Button("Library", systemImage: "books.vertical") { perform(.closeBook, width: width) }
                     .accessibilityIdentifier("reader.close").disabled(session.busy)
-                Button(LocalizedStringKey(session.epubEngine == nil ? "Previous page" : "Previous chapter"), systemImage: "chevron.left") { session.navigate(page: session.pageNumber - 1) }
-                    .disabled(session.pageNumber <= 1).accessibilityIdentifier("page.previous")
+                Button(LocalizedStringKey(session.epubEngine == nil ? "Previous page" : "Previous chapter"), systemImage: "chevron.left") { session.stepSection(-1) }
+                    .disabled(!session.canStepSection(-1)).accessibilityIdentifier("page.previous")
                 Text("\(session.pageNumber)/\(session.sectionCount)").monospacedDigit()
                     .accessibilityIdentifier("page.current")
-                Button(LocalizedStringKey(session.epubEngine == nil ? "Next page" : "Next chapter"), systemImage: "chevron.right") { session.navigate(page: session.pageNumber + 1) }
-                    .disabled(session.pageNumber >= session.sectionCount).accessibilityIdentifier("page.next")
+                Button(LocalizedStringKey(session.epubEngine == nil ? "Next page" : "Next chapter"), systemImage: "chevron.right") { session.stepSection(1) }
+                    .disabled(!session.canStepSection(1)).accessibilityIdentifier("page.next")
             }
             if hasBook && width >= 1100 {
                 Button("Find in book", systemImage: "magnifyingglass") { perform(.search, width: width) }
