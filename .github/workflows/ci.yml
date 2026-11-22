@@ -93,10 +93,10 @@ jobs:
         run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/AdaptiveRelease" build-for-testing
       - name: Configure visual test desktop
         run: swift scripts/configure-ci-display.swift
-      - name: PDF spread navigation regression
-        run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/AdaptiveRelease" -only-testing:AdaptiveReaderUITests/OfflineReaderTests/testTwoUpPageControlsAdvanceAndRestoreInReaderAndMini -resultBundlePath PDFNavigation.xcresult test-without-building
-      - name: Require PDF navigation pass without skips
-        run: python3 scripts/check-xctest-result.py PDFNavigation.xcresult --passed 1 --output PDFNavigation-summary.json
+      - name: PDF navigation and active-session Mini Reader regressions
+        run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/AdaptiveRelease" -only-testing:AdaptiveReaderUITests/OfflineReaderTests/testTwoUpPageControlsAdvanceAndRestoreInReaderAndMini -only-testing:AdaptiveReaderUITests/OfflineReaderTests/testDailyClosingMainWindowClosesMiniAndStopsActivity -resultBundlePath PDFNavigation.xcresult test-without-building
+      - name: Require both reader regressions without skips
+        run: python3 scripts/check-xctest-result.py PDFNavigation.xcresult --passed 2 --output PDFNavigation-summary.json
       - name: Configure production test target
         run: |
           python3 scripts/configure-release-tests.py --products "$RUNNER_TEMP/AdaptiveRelease/Build/Products" --app "$RUNNER_TEMP/AdaptiveInstalled/AdaptiveReader-v1.0.0-rc.2/AdaptiveReader.app" > ReleaseRunPath.txt

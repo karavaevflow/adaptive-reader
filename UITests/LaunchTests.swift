@@ -469,6 +469,19 @@ final class OfflineReaderTests: XCTestCase {
             app.typeKey(.escape, modifierFlags: [])
             app.typeKey("k", modifierFlags: [.command])
             XCTAssertTrue(app.textFields["command.query"].firstMatch.waitForExistence(timeout: 10))
+        } else if group == "View" && command == "Mini Reader" {
+            // A running session updates SwiftUI's command menu. Native
+            // MenuItem.click() hovers, then re-resolves the shared menuAction:
+            // identity. Freeze the named item's geometry before sending the
+            // pointer event, using the stable View menu-bar item as its origin.
+            guard let snapshot = try? item.snapshot() else {
+                XCTFail("Could not capture the Mini Reader menu item"); return
+            }
+            XCTAssertEqual(snapshot.label, command)
+            XCTAssertFalse(snapshot.frame.isEmpty)
+            let origin = bar.frame.origin, target = snapshot.frame
+            bar.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+                dx: target.midX - origin.x, dy: target.midY - origin.y)).click()
         } else { item.click() }
     }
     @MainActor private func snapshot(_ app: XCUIApplication, _ name: String) {
@@ -1381,7 +1394,9 @@ final class OfflineReaderTests: XCTestCase {
         menu(app, "View", "Reading tools")
         XCTAssertTrue(app.buttons["comfort.start"].waitForExistence(timeout: 5))
         app.buttons["comfort.start"].click()
+        expectComfort(id, "timerStatus", "running")
         app.buttons["Done"].firstMatch.click()
+        XCTAssertTrue(app.checkBoxes["comfort.spotlight"].waitForNonExistence(timeout: 5))
         menu(app, "View", "Mini Reader")
         XCTAssertTrue(app.windows["Mini Reader"].waitForExistence(timeout: 5))
         app.windows["Phase 0 reader"].buttons["sidebar.toggle"].firstMatch.click()
