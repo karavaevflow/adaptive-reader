@@ -2,6 +2,8 @@
 
 Application source: `8e79df7666303ae42fb47901cf1aa34e7cb32c5f`. The public, repository-authored `Research/Fixtures/text.pdf` is the only input in this folder. No reader-owned book, library data or derived private page image is published.
 
+Final application/navigation source is `97438ec2f348f2c4d2c84541c4d665cc6298451e` (build 11). The drawing implementation is unchanged from the measured source above; the final change ignores offscreen PDFKit focus for navigation/counters. Measurements below remain explicitly attributed to the source actually measured. [Final local checks](local-checks.json), [CI package metadata](ci-build.json), [reviewed references](references.json). Initial 8e79df7 observations and failures remain under `initial/`; they do not certify the final source.
+
 ## Actual PDFKit drawing
 
 [Raw measurements](native-page-metrics.json) contain five independent Release processes per palette on the same MacBookAir10,1 / Apple M1 / 8 GiB, macOS 15.8.3 (24H241), Xcode 26.3 / SDK 26.2 as the previous control. Rendering is offscreen at 512×664 pixels. No local build or UI automation overlapped these measurements; the owner's Reader remained open, so this is not an otherwise idle whole-system benchmark.

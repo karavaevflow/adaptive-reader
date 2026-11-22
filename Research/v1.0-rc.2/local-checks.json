@@ -1,9 +1,10 @@
 {
-  "sourceCommit": "8e79df7666303ae42fb47901cf1aa34e7cb32c5f",
+  "sourceCommit": "97438ec2f348f2c4d2c84541c4d665cc6298451e",
+  "applicationBuild": 11,
   "core": {
-    "passed": 80,
+    "passed": 81,
     "failed": 0,
-    "seconds": 9.346
+    "seconds": 9.004
   },
   "nativeBuild": {
     "debugTestTargets": "passed",
@@ -12,15 +13,16 @@
     "sdk": "26.2",
     "macOS": "15.8.3 (24H241)"
   },
+  "scrollRegression": {
+    "before": "One assertion failure on source 8e79df7: Previous was unavailable although the viewport was several pages into the document. Native probe also showed currentPage=0 and currentAnchor.pageIndex=4.",
+    "after": "All 81 tests pass, including scrolling and forward/back spread navigation in short/tall viewports."
+  },
   "ownerApp": {
-    "openedBuild": 10,
-    "sourceUnchanged": true,
-    "imageCheck": "App-only local screenshot showed distinct adjacent pages; private screenshot is not published"
+    "openedBuild": 11,
+    "normalQuitAndReopen": true,
+    "forceTermination": false,
+    "previousCopiesPreserved": true
   },
-  "supplementalCIAppLaunch": {
-    "status": "not measured",
-    "archiveSource": "8e79df7666303ae42fb47901cf1aa34e7cb32c5f",
-    "reason": "The inactive, isolated QA copy remained running but no qualifying on-screen WindowServer window was found within the 15-second harness deadline. The harness threw LaunchFailure.window and its defer terminated the owned QA process. No successful five-run launch metric or application-crash conclusion is claimed."
-  },
-  "localXCTest": "not executed; UI Automation not available; hosted results recorded separately"
+  "localXCTest": "not executed; UI Automation unavailable; hosted results are separate",
+  "silent": true
 }
