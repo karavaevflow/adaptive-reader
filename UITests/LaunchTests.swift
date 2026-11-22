@@ -477,7 +477,7 @@ final class OfflineReaderTests: XCTestCase {
             guard let snapshot = try? item.snapshot() else {
                 XCTFail("Could not capture the Mini Reader menu item"); return
             }
-            XCTAssertEqual(snapshot.label, command)
+            XCTAssertEqual(snapshot.title, command)
             XCTAssertFalse(snapshot.frame.isEmpty)
             let origin = bar.frame.origin, target = snapshot.frame
             bar.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
