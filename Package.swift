@@ -15,6 +15,7 @@ let package = Package(
         .executableTarget(name: "ColorResearch", dependencies: ["ReaderCore"]),
         .executableTarget(name: "KnowledgeResearch", dependencies: ["ReaderCore"]),
         .executableTarget(name: "ExtendedResearch", dependencies: ["ReaderCore"]),
+        .executableTarget(name: "ReleaseValidation", dependencies: ["ReaderCore"]),
         .executableTarget(name: "EPUBResearch", dependencies: ["ReaderCore"]),
         .executableTarget(name: "AdaptiveReaderPreview", dependencies: ["ReaderCore"], path: "Sources/AdaptiveReader", exclude: ["AdaptiveReader.entitlements", "AppInfo.plist"], resources: [.process("Resources")]),
         .testTarget(name: "ReaderCoreTests", dependencies: ["ReaderCore"])

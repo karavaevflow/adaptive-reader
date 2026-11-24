@@ -1,0 +1,32 @@
+{
+  "applicationSource": "97438ec2f348f2c4d2c84541c4d665cc6298451e",
+  "currentTestSource": "ca89b2d0327e24569709308486c526044f4a61f9",
+  "productionTreeUnchanged": true,
+  "currentRun": 45046359106,
+  "status": "pending",
+  "rootCISummariesSource": "97438ec2f348f2c4d2c84541c4d665cc6298451e",
+  "precedingRun": 44717280568,
+  "precedingAttempts": [
+    {
+      "attempt": 1,
+      "foundationJob": 136223922952,
+      "passed": 18,
+      "skipped": 5,
+      "failed": 1
+    },
+    {
+      "attempt": 2,
+      "foundationJob": 137164590538,
+      "passed": 18,
+      "skipped": 5,
+      "failed": 1
+    }
+  ],
+  "failure": "Mini Reader not discovered within five seconds after starting the reading timer; native menu targeting correction pending execution. Full PDF scrolling and spread regression pass.",
+  "fastGate": "Lifecycle case deliberately repeats in the release gate; it remains in Foundation. Count unique cases separately from executions.",
+  "supersededMenuRun": {
+    "run": 45045738464,
+    "source": "b9758bdaba0d861ac0065944cf5c084954e75e23",
+    "failure": "New snapshot identity guard used label, which is empty for this native macOS menu item. Corrected to title in ca89b2d; native test runner builds. Hosted execution pending."
+  }
+}

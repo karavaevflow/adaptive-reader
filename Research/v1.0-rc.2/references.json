@@ -1,0 +1,54 @@
+{
+  "sourceCommit": "97438ec2f348f2c4d2c84541c4d665cc6298451e",
+  "run": 44717280568,
+  "artifact": 14619939942,
+  "job": 136223922829,
+  "reviewed": "All nine application-only references inspected. Only authored fixtures; no private book image.",
+  "images": [
+    {
+      "path": "docs/v1.0-rc.2/rc2-two-up-mini.png",
+      "sha256": "5abb863943d2c7c89ee570e40a18e75f4810d27790c42b3bb3f318c9748abd3b",
+      "case": "OfflineReaderTests/testTwoUpPageControlsAdvanceAndRestoreInReaderAndMini"
+    },
+    {
+      "path": "docs/v1.0-rc.2/rc2-two-up-page3.png",
+      "sha256": "d33bcaaeaf23b6bc312ebd5a99bdd70e71a2378277a73674ae69d20267a37551",
+      "case": "OfflineReaderTests/testTwoUpPageControlsAdvanceAndRestoreInReaderAndMini"
+    },
+    {
+      "path": "docs/v1.0-rc.2/rc2-two-up-restored.png",
+      "sha256": "e8074ac2610a1b0dfbb77bb382618deca27ff288e48151f2b68c446d1837c792",
+      "case": "OfflineReaderTests/testTwoUpPageControlsAdvanceAndRestoreInReaderAndMini"
+    },
+    {
+      "path": "docs/v1.0-rc.2/v1-release-backup-export.png",
+      "sha256": "0e3bd58dd4074ca47ec1cacaa5ed2335f5eb84caa17b413188cd1118eeb09d21",
+      "case": "ReleaseAcceptanceTests/testPackagedInstallOfflineImportAndV06Upgrade"
+    },
+    {
+      "path": "docs/v1.0-rc.2/v1-release-clean-library.png",
+      "sha256": "a2111ada9f9d708f3cc05cad7e1386e81e295e399b999ca5dc22bd627076a29e",
+      "case": "ReleaseAcceptanceTests/testPackagedInstallOfflineImportAndV06Upgrade"
+    },
+    {
+      "path": "docs/v1.0-rc.2/v1-release-offline-import.png",
+      "sha256": "2b1dcd50ecf7bb37f65257485de07865a8ea305b51b3d031ab4166d174a4fd2d",
+      "case": "ReleaseAcceptanceTests/testPackagedInstallOfflineImportAndV06Upgrade"
+    },
+    {
+      "path": "docs/v1.0-rc.2/v1-release-restored.png",
+      "sha256": "5ad6c7be582702e08fd97639969027dee8ce366692af1220bd5e1b51c8d2fdaa",
+      "case": "ReleaseAcceptanceTests/testPackagedInstallOfflineImportAndV06Upgrade"
+    },
+    {
+      "path": "docs/v1.0-rc.2/v1-release-upgraded-pdf-epub.png",
+      "sha256": "ef7ab86a858301de32459ad6e8ffd1883c62e0b3c88ec2fc1dac45b47a279e47",
+      "case": "ReleaseAcceptanceTests/testPackagedInstallOfflineImportAndV06Upgrade"
+    },
+    {
+      "path": "docs/v1.0-rc.2/v1-release-upgraded-study.png",
+      "sha256": "4e1397dbb1956ac9e8f34ebffdb28a54a0653d67c633b9bee95d296f06ac60f6",
+      "case": "ReleaseAcceptanceTests/testPackagedInstallOfflineImportAndV06Upgrade"
+    }
+  ]
+}

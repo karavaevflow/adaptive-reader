@@ -1,0 +1,25 @@
+{
+  "sourceCommit": "8e79df7666303ae42fb47901cf1aa34e7cb32c5f",
+  "run": "https://github.com/karavaevflow/adaptive-reader/actions/runs/44708936071/attempts/1",
+  "jobs": {
+    "pdfNavigationAndReleasePackage": 136197784941,
+    "extended": 136197784954,
+    "knowledge": 136197784997,
+    "stability": 136197785073,
+    "foundation": 136197784690
+  },
+  "foundation": {
+    "jobConclusion": "cancelled",
+    "xctestPassed": 24,
+    "xctestSkipped": 5,
+    "xctestFailed": 1,
+    "failure": "testLargeDocumentCommandsDuringSearch: counter stayed 1/600 after scrolling. Reproduced natively; fixed by ignoring offscreen PDFKit focus.",
+    "artifact": "Upload failed because TestResults.xcresult/Staging disappeared; decoded job log retained the failure and core-test count."
+  },
+  "productionAcceptance": {
+    "passed": 0,
+    "failed": 1,
+    "failure": "Contrast audit on native Adaptive Reader empty-window title. Final launcher focuses the foreground window before the unchanged audit."
+  },
+  "note": "These initial results do not certify build 11. Attempt 2 was superseded by the final-source push; final evidence is separate."
+}

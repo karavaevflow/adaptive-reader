@@ -1,0 +1,28 @@
+{
+  "sourceCommit": "97438ec2f348f2c4d2c84541c4d665cc6298451e",
+  "applicationBuild": 11,
+  "core": {
+    "passed": 81,
+    "failed": 0,
+    "seconds": 9.004
+  },
+  "nativeBuild": {
+    "debugTestTargets": "passed",
+    "universalRelease": "passed",
+    "xcode": "26.3 (17C529)",
+    "sdk": "26.2",
+    "macOS": "15.8.3 (24H241)"
+  },
+  "scrollRegression": {
+    "before": "One assertion failure on source 8e79df7: Previous was unavailable although the viewport was several pages into the document. Native probe also showed currentPage=0 and currentAnchor.pageIndex=4.",
+    "after": "All 81 tests pass, including scrolling and forward/back spread navigation in short/tall viewports."
+  },
+  "ownerApp": {
+    "openedBuild": 11,
+    "normalQuitAndReopen": true,
+    "forceTermination": false,
+    "previousCopiesPreserved": true
+  },
+  "localXCTest": "not executed; UI Automation unavailable; hosted results are separate",
+  "silent": true
+}

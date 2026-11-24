@@ -1,0 +1,45 @@
+{
+  "devicesAndConfigurations": [
+    {
+      "device": {
+        "architecture": "x86_64",
+        "deviceId": "4203018E-580F-C1B5-9525-B745CECA79EB",
+        "deviceName": "My Mac",
+        "modelName": "Mac mini",
+        "osBuildNumber": "24G830",
+        "osVersion": "15.7.9",
+        "platform": "macOS"
+      },
+      "expectedFailures": 0,
+      "failedTests": 1,
+      "passedTests": 18,
+      "skippedTests": 5,
+      "testPlanConfiguration": {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    }
+  ],
+  "environmentDescription": "AdaptiveReader \u00b7 Built with macOS 15.7.9",
+  "expectedFailures": 0,
+  "failedTests": 1,
+  "finishTime": 1795171435.571,
+  "passedTests": 18,
+  "result": "Failed",
+  "skippedTests": 5,
+  "startTime": 1795170206.76,
+  "statistics": [],
+  "testFailures": [
+    {
+      "failureText": "XCTAssertTrue failed",
+      "targetName": "AdaptiveReaderUITests",
+      "testIdentifier": 11,
+      "testIdentifierString": "OfflineReaderTests/testDailyClosingMainWindowClosesMiniAndStopsActivity()",
+      "testIdentifierURL": "test://com.apple.xcode/AdaptiveReader/AdaptiveReaderUITests/OfflineReaderTests/testDailyClosingMainWindowClosesMiniAndStopsActivity",
+      "testName": "testDailyClosingMainWindowClosesMiniAndStopsActivity()"
+    }
+  ],
+  "title": "Test - AdaptiveReader",
+  "topInsights": [],
+  "totalTestCount": 24
+}
