@@ -4,7 +4,9 @@
 
 Candidate builds are universal (Apple silicon and Intel), target macOS 15.0+, use the stable `com.karavaevflow.AdaptiveReader` identity, and have a local ad-hoc signature. **They are not Developer ID signed or notarized.** A passing local codesign check is not an Apple trust/notarization assessment. Exact tested OS versions and open stable gates are in [current candidate acceptance](v1.0-rc.2.md).
 
-Download only the intended repository release and compare its SHA-256 sidecar before expanding. Each archive includes the app, source/build metadata, actual signing status, acceptance report, changelog, privacy/security notes and code/dependency licenses. Move the app to your chosen local application folder.
+Download only the intended repository release. It offers two equivalent manual formats: a universal ZIP and a read-only DMG created from that verified ZIP. Each has its own SHA-256 sidecar (`.sha256` for the ZIP, `.dmg.sha256` for the DMG). Compare the matching checksum before opening the download. Both contain the same app, source/build metadata, actual signing status, acceptance report, changelog, privacy/security notes and code/dependency licenses. Move `AdaptiveReader.app` to your chosen local application folder.
+
+The DMG is a convenience wrapper, not a separate build or Apple notarization. GitHub's auto-generated “Source code” archives contain source only. A Homebrew cask and automatic updater are not published; use the release assets or build from source. Never run an install script from an unverified download.
 
 macOS may block a direct-download candidate. Review the source/signing status and Apple's [Safely open apps on your Mac](https://support.apple.com/en-us/102445) instructions. If you knowingly trust that specific build, macOS may offer a per-app **Open Anyway** approval under System Settings → Privacy & Security. The project does not disable Gatekeeper, remove quarantine metadata, or provide a protection-bypass command. Do not proceed with an app macOS identifies as malicious or damaged; verify the archive and report the error instead.
 
@@ -32,6 +34,7 @@ From a clean committed checkout with full Xcode selected:
 swift test --no-parallel
 xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -configuration Release -destination 'generic/platform=macOS' -derivedDataPath /private/tmp/AdaptiveCandidate ONLY_ACTIVE_ARCH=NO 'ARCHS=arm64 x86_64' build
 python3 scripts/package-release.py /private/tmp/AdaptiveCandidate/Build/Products/Release/AdaptiveReader.app --version v1.0.0-rc.2 --source "$(git rev-parse HEAD)" --acceptance docs/v1.0-rc.2.md --output /private/tmp/AdaptiveReader-v1.0.0-rc.2.zip
+python3 scripts/package-dmg.py /private/tmp/AdaptiveReader-v1.0.0-rc.2.zip --output /private/tmp/AdaptiveReader-v1.0.0-rc.2.dmg
 ```
 
 The packager refuses an existing output/checksum, dirty or untracked production source, wrong app identity/version/minimum OS, missing licenses, a non-universal executable, an output without the sandbox or with debugger entitlements. It verifies the extracted app signature and emits BUILD.json plus a SHA-256 sidecar. This verifies the build/package chain; it does not promise byte-identical compiler outputs on different Xcode versions.

@@ -88,6 +88,7 @@ jobs:
       - name: Package and verify distribution archive
         run: |
           python3 scripts/package-release.py "$RUNNER_TEMP/AdaptiveRelease/Build/Products/Release/AdaptiveReader.app" --version v1.0.0-rc.2 --source "$(git rev-parse HEAD)" --acceptance docs/v1.0-rc.2.md --output dist/AdaptiveReader-v1.0.0-rc.2.zip
+          python3 scripts/package-dmg.py dist/AdaptiveReader-v1.0.0-rc.2.zip --output dist/AdaptiveReader-v1.0.0-rc.2.dmg
           ditto -x -k dist/AdaptiveReader-v1.0.0-rc.2.zip "$RUNNER_TEMP/AdaptiveInstalled"
       - name: Build UI runner
         run: xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveReader -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/AdaptiveRelease" build-for-testing
@@ -111,6 +112,8 @@ jobs:
           path: |
             dist/AdaptiveReader-v1.0.0-rc.2.zip
             dist/AdaptiveReader-v1.0.0-rc.2.sha256
+            dist/AdaptiveReader-v1.0.0-rc.2.dmg
+            dist/AdaptiveReader-v1.0.0-rc.2.dmg.sha256
             ReleaseAcceptance.xcresult
             ReleaseAcceptance-summary.json
             PDFNavigation.xcresult

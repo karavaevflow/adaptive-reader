@@ -469,19 +469,6 @@ final class OfflineReaderTests: XCTestCase {
             app.typeKey(.escape, modifierFlags: [])
             app.typeKey("k", modifierFlags: [.command])
             XCTAssertTrue(app.textFields["command.query"].firstMatch.waitForExistence(timeout: 10))
-        } else if group == "View" && command == "Mini Reader" {
-            // A running session updates SwiftUI's command menu. Native
-            // MenuItem.click() hovers, then re-resolves the shared menuAction:
-            // identity. Freeze the named item's geometry before sending the
-            // pointer event, using the stable View menu-bar item as its origin.
-            guard let snapshot = try? item.snapshot() else {
-                XCTFail("Could not capture the Mini Reader menu item"); return
-            }
-            XCTAssertEqual(snapshot.title, command)
-            XCTAssertFalse(snapshot.frame.isEmpty)
-            let origin = bar.frame.origin, target = snapshot.frame
-            bar.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
-                dx: target.midX - origin.x, dy: target.midY - origin.y)).click()
         } else { item.click() }
     }
     @MainActor private func snapshot(_ app: XCUIApplication, _ name: String) {
@@ -1395,10 +1382,14 @@ final class OfflineReaderTests: XCTestCase {
         XCTAssertTrue(app.buttons["comfort.start"].waitForExistence(timeout: 5))
         app.buttons["comfort.start"].click()
         expectComfort(id, "timerStatus", "running")
+        // Exercise the session's own Mini Reader control while the reading
+        // tools are open. Menu navigation is covered by the adjacent tests;
+        // this case verifies that closing the main window stops active work.
+        XCTAssertTrue(app.buttons["comfort.mini"].waitForExistence(timeout: 5))
+        app.buttons["comfort.mini"].click()
+        XCTAssertTrue(app.windows["Mini Reader"].waitForExistence(timeout: 5))
         app.buttons["Done"].firstMatch.click()
         XCTAssertTrue(app.checkBoxes["comfort.spotlight"].waitForNonExistence(timeout: 5))
-        menu(app, "View", "Mini Reader")
-        XCTAssertTrue(app.windows["Mini Reader"].waitForExistence(timeout: 5))
         app.windows["Phase 0 reader"].buttons["sidebar.toggle"].firstMatch.click()
         app.windows["Phase 0 reader"].buttons[XCUIIdentifierCloseWindow].click()
         XCTAssertTrue(app.windows["Mini Reader"].waitForNonExistence(timeout: 5))
