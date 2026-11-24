@@ -150,3 +150,61 @@ func changedAndMissingAssetsAreReported() async throws {
     #expect(commands.palette == .original)
     #expect(!commands.canUndoPalette)
 }
+
+@Test(.timeLimit(.minutes(1))) @MainActor
+func asynchronousSearchReturnsAnchorsAndRetainsNativeSelection() async throws {
+    let engine = try PDFReaderEngine(data: Data(contentsOf: fixtures.appendingPathComponent("text.pdf")), bookID: UUID())
+    let host = window(for: engine); defer { host.close() }
+    let commands = ReaderCommands(engine: engine)
+    var matches: [ReaderSearchMatch] = []
+    for try await match in try commands.search("stable anchor") { matches.append(match) }
+    #expect(matches.count == 3)
+    #expect(matches.allSatisfy { $0.snippet.contains("original source") })
+    try commands.perform(.showSearchMatch(matches[1]))
+    #expect(engine.view.currentSelection?.string?.localizedCaseInsensitiveContains("stable anchor") == true)
+    if case .pdf(let position) = try engine.currentAnchor().position { #expect(position.pageIndex == 1) }
+    let cancelled = try commands.search("Reading")
+    engine.cancelSearch()
+    var count = 0
+    for try await _ in cancelled { count += 1 }
+    #expect(count == 0)
+}
+
+@Test(.timeLimit(.minutes(1))) @MainActor
+func largeSearchStopsAtLimitAndAllowsANewQuery() async throws {
+    let source = fixtures.deletingLastPathComponent().appendingPathComponent("Large/large-text.pdf")
+    let engine = try PDFReaderEngine(data: Data(contentsOf: source), bookID: UUID())
+    let host = window(for: engine); defer { host.close() }
+    let commands = ReaderCommands(engine: engine)
+    var count = 0
+    for try await _ in try commands.search("responsive") { count += 1 }
+    #expect(count == 1000)
+    var chapters = [ReaderSearchMatch]()
+    for try await match in try commands.search("Chapter") { chapters.append(match) }
+    #expect(chapters.count == 600)
+    let last = try #require(chapters.last)
+    try commands.perform(.showSearchMatch(last))
+    #expect(engine.view.currentSelection?.string?.localizedCaseInsensitiveContains("Chapter") == true)
+    if case .pdf(let position) = last.anchor.position { #expect(position.pageIndex == 599) }
+}
+
+@Test @MainActor
+func continuousScrollAnchorTracksVisiblePage() throws {
+    let source = fixtures.deletingLastPathComponent().appendingPathComponent("Large/large-text.pdf")
+    let engine = try PDFReaderEngine(data: Data(contentsOf: source), bookID: UUID())
+    let host = window(for: engine); defer { host.close() }
+    let clip = try #require(engine.view.documentView?.enclosingScrollView?.contentView)
+    clip.scroll(to: NSPoint(x: clip.bounds.minX, y: 5000))
+    clip.enclosingScrollView?.reflectScrolledClipView(clip)
+    guard case .pdf(let point) = try engine.currentAnchor().position else { Issue.record("Expected PDF position"); return }
+    #expect(point.pageIndex > 0)
+    let visible = try engine.currentAnchor()
+    try engine.applyPagePalette(.midnight)
+    let restored = try engine.currentAnchor()
+    guard case .pdf(let originalPoint) = visible.position, case .pdf(let restoredPoint) = restored.position else {
+        Issue.record("Expected PDF anchors"); return
+    }
+    #expect(restoredPoint.pageIndex == originalPoint.pageIndex)
+    #expect(abs(restoredPoint.x - originalPoint.x) < 2)
+    #expect(abs(restoredPoint.y - originalPoint.y) < 2)
+}

@@ -1,0 +1,22 @@
+[
+  {
+    "panelInteractionMS" : 1649.484041667165,
+    "processLaunchToReadyMS" : 5214.0168333316979
+  },
+  {
+    "panelInteractionMS" : 1639.532874996803,
+    "processLaunchToReadyMS" : 5209.6022083351272
+  },
+  {
+    "panelInteractionMS" : 1727.4224583343312,
+    "processLaunchToReadyMS" : 5312.8806249987974
+  },
+  {
+    "panelInteractionMS" : 1642.9042083327658,
+    "processLaunchToReadyMS" : 5164.4337916659424
+  },
+  {
+    "panelInteractionMS" : 1638.7386666647217,
+    "processLaunchToReadyMS" : 5191.4906666679599
+  }
+]

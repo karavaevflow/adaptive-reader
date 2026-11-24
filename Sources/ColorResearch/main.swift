@@ -76,7 +76,22 @@ func generate(_ directory: URL) throws {
 }
 
 let args = CommandLine.arguments
-if args.count > 1 && args[1] == "scroll" {
+if args.count > 1 && args[1] == "palette" {
+    let document = CGPDFDocument(URL(fileURLWithPath: args[2]) as CFURL)!
+    let page = document.page(at: 1)!, renderer = PDFColorRenderer()
+    let palette = PagePalette(rawValue: args[3])!
+    let image = palette == .original || renderer.support(for: page) != .available
+        ? renderer.original(page: page)! : renderer.render(page: page, palette: palette)!
+    png(image, at: URL(fileURLWithPath: args[4]))
+} else if args.count > 1 && args[1] == "large" {
+    let url = URL(fileURLWithPath: args[2])
+    try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+    makePDF(url, pages: 600) { context, page in
+        text("Chapter \(page + 1)\n\nAdaptive Reader large-document performance specimen.\n\nA stable anchor connects the reader to the original source.\n\nSelection, search, bookmarks and page palettes retain the same geometry.\n\n" + String(repeating: "Reading remains responsive while pages load in the background.\n\n", count: 8),
+             rect: CGRect(x: 64, y: 64, width: 484, height: 660), context: context)
+    }
+    print(url.path)
+} else if args.count > 1 && args[1] == "scroll" {
     let url = URL(fileURLWithPath: args[2])
     let data = try Data(contentsOf: url)
     let app = NSApplication.shared
@@ -93,6 +108,10 @@ if args.count > 1 && args[1] == "scroll" {
     window.displayIfNeeded()
     let openMS = (CFAbsoluteTimeGetCurrent() - start) * 1000
     let clip = engine.view.documentView!.enclosingScrollView!.contentView
+    var searchCount = 0
+    let searching: Task<Void, Never>? = args.contains("search") ? Task { @MainActor in
+        do { for try await _ in try engine.search("responsive") { searchCount += 1 } } catch {}
+    } : nil
     var frames = [Double](), intervals = [Double](), last = CFAbsoluteTimeGetCurrent()
     let timer = Timer(timeInterval: 1.0 / 60, repeats: true) { _ in
         MainActor.assumeIsolated {
@@ -110,9 +129,10 @@ if args.count > 1 && args[1] == "scroll" {
     RunLoop.main.add(timer, forMode: .common)
     while frames.count < 120 { RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01)) }
     timer.invalidate()
+    searching?.cancel(); engine.cancelSearch()
     var usage = rusage(); getrusage(RUSAGE_SELF, &usage)
     let result: [String: Any] = ["fixture": url.lastPathComponent, "mode": args[3],
-        "openMS": openMS, "cpuFrameMS": frames, "frameIntervalMS": intervals,
+        "searchMatches": searchCount, "openMS": openMS, "cpuFrameMS": frames, "frameIntervalMS": intervals,
         "peakRSSBytes": usage.ru_maxrss]
     print(String(data: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), encoding: .utf8)!)
     window.close()
