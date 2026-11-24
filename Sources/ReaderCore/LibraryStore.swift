@@ -5,6 +5,8 @@ public enum BookSource: Codable, Sendable, Equatable {
     case reference(bookmark: Data)
 }
 
+public enum BookFormat: String, Codable, Sendable { case pdf, epub }
+
 public struct BookRecord: Codable, Sendable, Equatable, Identifiable {
     public let schemaVersion: Int
     public let id: UUID
@@ -14,18 +16,19 @@ public struct BookRecord: Codable, Sendable, Equatable, Identifiable {
     public var favorite: Bool
     public let addedAt: Date
     public let pageCount: Int
+    public let format: BookFormat
     public var assetName: String { if case .managed(let name) = source { name } else { "" } }
     public var isReference: Bool { if case .reference = source { true } else { false } }
 
-    public init(id: UUID, title: String, revision: String, source: BookSource, favorite: Bool = false, addedAt: Date = Date(), pageCount: Int = 0) {
-        schemaVersion = 2; self.id = id; self.title = title; self.revision = revision
-        self.source = source; self.favorite = favorite; self.addedAt = addedAt; self.pageCount = pageCount
+    public init(id: UUID, title: String, revision: String, source: BookSource, favorite: Bool = false, addedAt: Date = Date(), pageCount: Int = 0, format: BookFormat = .pdf) {
+        schemaVersion = 3; self.id = id; self.title = title; self.revision = revision
+        self.source = source; self.favorite = favorite; self.addedAt = addedAt; self.pageCount = pageCount; self.format = format
     }
-    private enum CodingKeys: String, CodingKey { case schemaVersion, id, title, revision, source, assetName, favorite, addedAt, pageCount }
+    private enum CodingKeys: String, CodingKey { case schemaVersion, id, title, revision, source, assetName, favorite, addedAt, pageCount, format }
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         let version = try values.decode(Int.self, forKey: .schemaVersion)
-        guard version == 1 || version == 2 else { throw ReaderError.unsupportedAnchorVersion }
+        guard (1...3).contains(version) else { throw ReaderError.unsupportedAnchorVersion }
         id = try values.decode(UUID.self, forKey: .id)
         title = try values.decode(String.self, forKey: .title)
         revision = try values.decode(String.self, forKey: .revision)
@@ -33,14 +36,15 @@ public struct BookRecord: Codable, Sendable, Equatable, Identifiable {
         favorite = try values.decodeIfPresent(Bool.self, forKey: .favorite) ?? false
         addedAt = try values.decodeIfPresent(Date.self, forKey: .addedAt) ?? Date(timeIntervalSince1970: 0)
         pageCount = try values.decodeIfPresent(Int.self, forKey: .pageCount) ?? 0
-        schemaVersion = 2
+        format = try values.decodeIfPresent(BookFormat.self, forKey: .format) ?? .pdf
+        schemaVersion = 3
     }
     public func encode(to encoder: Encoder) throws {
         var values = encoder.container(keyedBy: CodingKeys.self)
         try values.encode(schemaVersion, forKey: .schemaVersion); try values.encode(id, forKey: .id)
         try values.encode(title, forKey: .title); try values.encode(revision, forKey: .revision)
         try values.encode(source, forKey: .source); try values.encode(favorite, forKey: .favorite)
-        try values.encode(addedAt, forKey: .addedAt); try values.encode(pageCount, forKey: .pageCount)
+        try values.encode(addedAt, forKey: .addedAt); try values.encode(pageCount, forKey: .pageCount); try values.encode(format, forKey: .format)
     }
 }
 
@@ -51,9 +55,11 @@ public struct ReadingState: Codable, Sendable {
     public let scale: Double
     public let autoScales: Bool?
     public let pdfDisplayMode: Int?
-    public init(anchor: SourceAnchor?, palette: PagePalette, scale: Double, autoScales: Bool = false, pdfDisplayMode: Int = 1) {
+    public let epubTypography: EPUBTypography?
+    public init(anchor: SourceAnchor?, palette: PagePalette, scale: Double, autoScales: Bool = false, pdfDisplayMode: Int = 1, epubTypography: EPUBTypography? = nil) {
         schemaVersion = 1; self.anchor = anchor; self.palette = palette; self.scale = scale
         self.autoScales = autoScales; self.pdfDisplayMode = pdfDisplayMode
+        self.epubTypography = epubTypography
     }
 }
 
@@ -81,11 +87,11 @@ public actor LibraryStore {
         guard current.revision == record.revision else { throw ReaderError.sourceChanged }
     }
 
-    public func importBook(data: Data, id: UUID, title: String, revision: String, reference: Data? = nil, pageCount: Int = 0) throws -> BookRecord {
+    public func importBook(data: Data, id: UUID, title: String, revision: String, reference: Data? = nil, pageCount: Int = 0, format: BookFormat = .pdf) throws -> BookRecord {
         guard PDFReaderEngine.revision(data) == revision else { throw ReaderError.sourceChanged }
         try prepare()
         let record = BookRecord(id: id, title: title, revision: revision,
-            source: reference.map { .reference(bookmark: $0) } ?? .managed(name: "\(id.uuidString).pdf"), pageCount: pageCount)
+            source: reference.map { .reference(bookmark: $0) } ?? .managed(name: "\(id.uuidString).\(format.rawValue)"), pageCount: pageCount, format: format)
         let asset = root.appendingPathComponent("Assets/\(record.assetName)")
         guard !FileManager.default.fileExists(atPath: recordURL(id).path) else { throw ReaderError.invalidAnchor }
         do {
@@ -130,7 +136,7 @@ public actor LibraryStore {
             if stale {
                 do {
                     let renewed = try url.bookmarkData(options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess], includingResourceValuesForKeys: nil, relativeTo: nil)
-                    record = BookRecord(id: record.id, title: record.title, revision: record.revision, source: .reference(bookmark: renewed), favorite: record.favorite, addedAt: record.addedAt, pageCount: record.pageCount)
+                    record = BookRecord(id: record.id, title: record.title, revision: record.revision, source: .reference(bookmark: renewed), favorite: record.favorite, addedAt: record.addedAt, pageCount: record.pageCount, format: record.format)
                     try write(record)
                 } catch { if grant { url.stopAccessingSecurityScopedResource() }; throw ReaderError.unavailableSource }
             }
@@ -149,6 +155,7 @@ public actor LibraryStore {
         let state = try JSONDecoder().decode(ReadingState.self, from: Data(contentsOf: url))
         guard state.schemaVersion == 1, state.scale.isFinite, state.scale > 0 else { throw ReaderError.invalidAnchor }
         try state.anchor?.validate(bookID: record.id, revision: record.revision)
+        try state.epubTypography?.validate()
         return state
     }
 
@@ -186,7 +193,7 @@ public actor LibraryStore {
         guard previous.isReference else { throw ReaderError.unsupportedCommand }
         guard PDFReaderEngine.revision(data) == previous.revision else { throw ReaderError.sourceChanged }
         let updated = BookRecord(id: id, title: previous.title, revision: previous.revision,
-            source: .reference(bookmark: bookmark), favorite: previous.favorite, addedAt: previous.addedAt, pageCount: previous.pageCount)
+            source: .reference(bookmark: bookmark), favorite: previous.favorite, addedAt: previous.addedAt, pageCount: previous.pageCount, format: previous.format)
         try write(updated)
         return updated
     }
@@ -213,6 +220,10 @@ public actor LibraryStore {
         var marks = try bookmarks(for: record)
         func sameLocation(_ other: SourceAnchor) -> Bool {
             if case .pdf(let a) = anchor.position, case .pdf(let b) = other.position { return a.pageIndex == b.pageIndex }
+            if case .epub(let a, let locatorA) = anchor.position, case .epub(let b, let locatorB) = other.position,
+               let startA = try? EPUBTextLocator(encoded: locatorA), let startB = try? EPUBTextLocator(encoded: locatorB) {
+                return a == b && startA.offset == startB.offset
+            }
             return anchor.position == other.position
         }
         if marks.contains(where: { sameLocation($0.anchor) }) { marks.removeAll { sameLocation($0.anchor) } }
@@ -235,6 +246,7 @@ public actor LibraryStore {
     }
 
     public func save(_ state: ReadingState, for record: BookRecord) throws {
+        try state.epubTypography?.validate()
         guard state.scale.isFinite, state.scale > 0 else { throw ReaderError.invalidAnchor }
         try state.anchor?.validate(bookID: record.id, revision: record.revision)
         try prepare()
@@ -245,10 +257,10 @@ public actor LibraryStore {
         let url = recordURL(id), data = try Data(contentsOf: url)
         let record = try JSONDecoder().decode(BookRecord.self, from: data)
         guard record.id == id else { throw ReaderError.invalidAnchor }
-        if case .managed(let name) = record.source, name != "\(id.uuidString).pdf" { throw ReaderError.invalidAnchor }
+        if case .managed(let name) = record.source, name != "\(id.uuidString).\(record.format.rawValue)" { throw ReaderError.invalidAnchor }
         // Rewrite only metadata whose on-disk version predates the current schema.
         let version = (try JSONSerialization.jsonObject(with: data) as? [String: Any])?["schemaVersion"] as? Int
-        if version == 1 { try write(record) }
+        if version == 1 || version == 2 { try write(record) }
         return record
     }
     private func write(_ record: BookRecord) throws { try JSONEncoder().encode(record).write(to: recordURL(record.id), options: .atomic) }

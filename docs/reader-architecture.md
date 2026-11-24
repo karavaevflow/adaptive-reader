@@ -1,21 +1,21 @@
 # Reader contracts
 
-ReaderCore contains domain contracts, the native PDF engine, source identity and local storage. The SwiftUI shell owns ReaderSession; the engine owns its PDFView. Page rendering never owns navigation state.
+ReaderCore contains domain contracts, native PDF/EPUB engines, source identity and local storage. The SwiftUI shell owns ReaderSession; each engine owns its native reading surface. Page rendering never owns navigation state.
 
 ## Stable boundaries
 
-- `ReaderEngine` exposes source identity, capabilities, current anchor, validated navigation, scale, palette commands and asynchronous text search. Unsupported operations throw. EPUB can support reflow and reject page palettes without changes to bookmarks, notes or AI tools.
+- `ReaderEngine` exposes source identity, capabilities, current anchor, validated navigation, scale, palette commands and asynchronous text search. Unsupported operations throw. EPUB supports validated typography reflow and rejects PDF zoom/Spotlight/Mini Reader without changing bookmark, note or AI source contracts.
 - `SourceAnchor` schema 1 stores book UUID, source SHA-256 and a typed position. PDF positions use zero-based pages and unrotated crop-box coordinates. EPUB positions store a resource and stable textual locator. Unsupported versions, changed sources and invalid locators produce explicit errors. Reflow does not use PDF coordinates.
 - `ReaderCommands` is the typed entry point for menu, toolbar and reviewed AI reader actions. It commits state/history only after the engine succeeds. Palette undo uses the same validated engine path. New commands must declare capability checks and undo semantics. AI proposals reach the same dispatcher through a validated application handler; models receive evidence IDs and text, never native views or file access.
 - `PDFReaderEngine` uses PDFKit for search, selection, links and currentDestination. `AdaptivePDFPage` alters drawing only after the research eligibility check. Palette redraw rebinds the same PDFDocument through public PDFKit APIs, then restores the anchor and scale. No private tile APIs or PDF rewriting are used.
 
 Search yields `ReaderSearchMatch` values containing a versioned SourceAnchor and a text snippet. The native PDFSelection stays private to PDFReaderEngine. Selecting a match uses the same typed command dispatcher as navigation. New queries, source changes and session closure cancel pending searches. Results are capped at 1,000 with a visible refine-query message. Text availability is checked on a separate PDFDocument owned by a background worker; no PDFKit object crosses actors. Source hashing also runs off the main actor.
 
-## Storage schema 2
+## Storage schema 3
 
 Under Application Support/AdaptiveReader (inside the app sandbox), Assets stores immutable managed copies, Books stores versioned metadata, ReadingState stores positions/palette/scale, Annotations stores bookmarks, and Cache is disposable. A shared LibraryStore actor per storage root serializes atomic writes, including bookmark/favorite read-modify-write operations across windows.
 
-BookRecord schema 2 records a managed asset name or a read-only security-scoped bookmark, plus favorite state, import date and page count. Schema-1 metadata upgrades atomically on read; migration tests preserve the exact asset bytes, source identity and reading position. ReadingState and SourceAnchor remain schema 1. Their existing optional fields remain decodable. Future schema changes require the same previous-version migration test.
+BookRecord schema 3 adds explicit PDF/EPUB format and correct managed-asset extensions. It records a managed asset name or a read-only security-scoped bookmark, plus favorite state, import date and page count. Schema-1/2 metadata upgrades atomically as PDF on read; migration tests preserve the exact asset bytes, source identity and reading position. ReadingState and SourceAnchor remain schema 1. Optional EPUB typography is stored with the reading state; missing typography retains defaults. Existing optional fields remain decodable. Future schema changes require the same previous-version migration test.
 
 Reference imports create no managed asset. Access is scoped only while reading; PDFKit subsequently owns an in-memory source. Reopen checks SHA-256 before applying anchors. Stale bookmarks renew when possible. The library's Locate linked PDF action reauthorizes access only if the selected file has the original checksum, preserving the book UUID, revision and annotations. Missing/changed sources produce explicit errors.
 
@@ -34,7 +34,7 @@ Popover/sheet dismissal requests focus by semantic toolbar identifier. WindowInt
 ```mermaid
 flowchart LR
     UI[Reader / selection / Command Center] --> C[CompanionModel]
-    C --> I[Local PDF evidence worker]
+    C --> I[Local PDF / EPUB evidence worker]
     I --> A[Versioned SourceAnchor + excerpt]
     A --> P[Explicitly configured provider]
     P --> V[Validate response and evidence IDs]
@@ -46,8 +46,20 @@ flowchart LR
 
 CompanionProvider abstracts streaming response transport. Ollama and Chat Completions implementations use bounded requests and cooperative cancellation. The model proposes a closed set of actions; the application validates capabilities, arguments and current book identity. It has no model-controlled filesystem, shell or network action executor.
 
-EvidencePassage carries a stable ID, original text and SourceAnchor. PDFEvidenceIndex builds from the immutable opened source on an independent worker and uses bounded BM25 retrieval. Cache schema 2 preserves paragraph horizontal coordinates and discards/rebuilds schema 1. SourceAnchor remains schema 1. EPUB locators already round-trip through the evidence/request contract; an EPUB engine/indexer remains a later milestone.
+EvidencePassage carries a stable ID, original text and SourceAnchor. PDFEvidenceIndex builds from the immutable opened source on an independent worker and uses bounded BM25 retrieval. Cache schema 2 preserves paragraph horizontal coordinates and discards/rebuilds schema 1. SourceAnchor remains schema 1. EPUB locators already round-trip through the evidence/request contract; EPUBReaderEngine and EPUBEvidenceIndex now supply resource/text locators to the same pipeline, using the shared format-independent ranker. The EPUB index is bounded disposable memory; PDF disk-cache serialization remains unchanged.
 
 AISettings schema 1 is global to the library; secrets live separately in Keychain and Security IPC runs off the main actor. Configuration is re-read at request start and authorized again at the network boundary. Saving settings cancels peers sharing the store, so an old window cannot silently retain revoked cloud consent. AI is off by default and opens no network connection merely by opening a book.
 
 Notes schema 1 is separate user data under Notes. The editor creates/removes a specific anchored note atomically through LibraryStore, preserving bookmarks and source bytes. Clearing the disposable evidence cache preserves notes and settings. Active requests, selection context, summaries and Smart Margins state are not restored as background work after launch.
+
+## EPUB layout boundary
+
+EPUBPublication is an immutable, bounded container snapshot with manifest resources, reading order and linked content. EPUBReaderEngine owns a nonpersistent WKWebView with a custom offline resource scheme. Sanitized XHTML retains XML text ordering, with publisher scripts/remote resources disabled. Injected reader code runs in an isolated content world. The version-1 EPUBTextLocator stores resource-local UTF-16 offset and a validation quote; deterministic encoding prevents equivalent anchors drifting due to JSON key order. Typography affects layout only, and typed commands restore the same source fragment. Tests measure its actual WebKit rectangle before and after reflow. No PDF coordinates or invented EPUB page numbers are persisted.
+
+## Study and local speech
+
+ReaderEngine exposes bounded source passages, persistent-highlight rendering and transient playback marking. Typed ReaderCommands apply highlights and follow playback without adding every utterance to Back history. EPUB uses canonical text offsets for geometry and separately preserves readable selection quotations; paragraph-boundary chunking avoids joining minified XHTML words. CSS custom highlights preserve original text nodes through reflow. PDF study marks are in-memory annotations reconstructed from separate user records; source assets remain immutable.
+
+Study schema 1 stores cards, colored highlights and listening state under Study. Existing Notes schema 1 remains independent. The shared actor validates source identity and merges atomic mutations; portable card archives rebase only the library-local UUID for an identical source revision and never overwrite matching existing card IDs. Markdown has readable source labels and machine anchors in comments.
+
+SpeechPlayer is a production ReaderCore service, reused by the performance harness. It creates AVSpeechSynthesizer only on an explicit request and queues one bounded text block at a time. Speech delegates retain only immutable utterance identity/range across the actor boundary; cancellation invalidates the active identity before stopping and releasing the synthesizer. Pause/continue intent is retained during voice startup and between utterances. Word progress checkpoints and normal-quit flush restore the same book fragment after relaunch. No app timer polls the speech service and no model call is involved.

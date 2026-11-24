@@ -71,6 +71,8 @@ final class CompanionModel {
     @ObservationIgnored private var record: BookRecord?
     @ObservationIgnored private var store: LibraryStore?
     @ObservationIgnored private var index: PDFEvidenceIndex?
+    @ObservationIgnored private var epubPublication: EPUBPublication?
+    @ObservationIgnored private var epubIndex: EPUBEvidenceIndex?
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var setupTask: Task<Void, Never>?
     @ObservationIgnored private var generation = UUID()
@@ -83,9 +85,9 @@ final class CompanionModel {
         false
         #endif
     }
-    func configure(data: Data, bookID: UUID, revision: String, title: String, pageCount: Int, record: BookRecord?, store: LibraryStore) {
+    func configure(data: Data, bookID: UUID, revision: String, title: String, pageCount: Int, record: BookRecord?, store: LibraryStore, epub: EPUBPublication? = nil) {
         reset(); self.data = data; self.bookID = bookID; self.revision = revision; self.title = title
-        self.pageCount = pageCount; self.record = record; self.store = store
+        self.epubPublication = epub; self.pageCount = pageCount; self.record = record; self.store = store
         setupTask = Task { [weak self] in
             do {
                 let settings = try await store.companionSettings()
@@ -100,7 +102,7 @@ final class CompanionModel {
     func newTopic() { cancel(); query = ""; answer = nil; evidence = []; lastRequest = nil; errorMessage = nil }
     func reset() {
         newTopic(); setupTask?.cancel(); setupTask = nil; selection = nil; selectionLabel = ""; smartMargins = false
-        data = nil; index = nil; notes = []; draftSource = nil; draftNote = ""; undoNote = nil; bookID = nil; record = nil
+        data = nil; index = nil; epubPublication = nil; epubIndex = nil; notes = []; draftSource = nil; draftNote = ""; undoNote = nil; bookID = nil; record = nil
         reviewStarted = false; settingsVisible = false; indexTruncated = false; progress = 0; receivedCharacters = 0
     }
     func saveSettings(_ value: CompanionSettings, key: String) async {
@@ -120,7 +122,7 @@ final class CompanionModel {
         } catch { if !Task.isCancelled { errorMessage = error.localizedDescription } }
     }
     func clearIndex() async {
-        cancel(); index = nil
+        cancel(); index = nil; epubIndex = nil
         do { if let bookID { try await store?.clearEvidence(bookID: bookID, revision: revision) } }
         catch { errorMessage = error.localizedDescription }
     }
@@ -143,6 +145,22 @@ final class CompanionModel {
                     sources = previous.sources; finalQuestion = previous.question + "\nExplain again: " + refinement
                 } else if let selected {
                     sources = [selected]; finalQuestion = question
+                } else if let publication = self.epubPublication {
+                    self.indexing = true
+                    if self.epubIndex == nil {
+                        let worker = Task.detached(priority: .utility) { try EPUBEvidenceIndex(publication: publication, bookID: bookID, revision: revision) }
+                        let built = try await withTaskCancellationHandler(operation: { try await worker.value }, onCancel: { worker.cancel() })
+                        try Task.checkCancellation()
+                        guard self.generation == token, self.bookID == bookID else { return }
+                        self.epubIndex = built
+                    }
+                    try Task.checkCancellation()
+                    guard let index = self.epubIndex else { throw CompanionError.noText }
+                    self.indexTruncated = index.truncated
+                    let resource = publication.readingResources[min(max(0, page - 1), publication.readingResources.count - 1)].resource
+                    let worker = Task.detached(priority: .userInitiated) { try index.retrieve(question, visibleResource: resource) }
+                    sources = try await withTaskCancellationHandler(operation: { try await worker.value }, onCancel: { worker.cancel() })
+                    finalQuestion = question
                 } else {
                     self.indexing = true
                     if self.index == nil { self.index = try await store.cachedEvidence(bookID: bookID, revision: revision) }
@@ -168,7 +186,7 @@ final class CompanionModel {
                 guard !sources.isEmpty else { throw CompanionError.noText }
                 self.indexing = false; self.evidence = sources
                 let request = CompanionRequest(question: finalQuestion, title: title,
-                    page: refinement == nil ? page : previous?.page, sources: sources,
+                    page: refinement == nil ? (self.epubPublication == nil ? page : nil) : previous?.page, sources: sources,
                     chapter: refinement == nil ? chapter : previous?.chapter)
                 self.lastRequest = request
                 let provider: any CompanionProvider

@@ -1,0 +1,42 @@
+{
+  "devicesAndConfigurations": [
+    {
+      "device": {
+        "architecture": "arm64",
+        "deviceId": "d2b55f8a9da1897468faddaecc45addaaa90baf4",
+        "deviceName": "My Mac",
+        "modelName": "Apple Virtual Machine 1",
+        "osBuildNumber": "24H232",
+        "osVersion": "15.8.2",
+        "platform": "macOS"
+      },
+      "expectedFailures": 0,
+      "failedTests": 0,
+      "passedTests": 26,
+      "skippedTests": 5,
+      "testPlanConfiguration": {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    }
+  ],
+  "environmentDescription": "AdaptiveReader \u00b7 Built with macOS 15.8.2",
+  "expectedFailures": 0,
+  "failedTests": 0,
+  "finishTime": 1794497867.675,
+  "passedTests": 26,
+  "result": "Passed",
+  "skippedTests": 5,
+  "startTime": 1794496247.464,
+  "statistics": [],
+  "testFailures": [],
+  "title": "Test - AdaptiveReader",
+  "topInsights": [
+    {
+      "category": "Longest Test Runs",
+      "impact": "23% of duration",
+      "text": "1 longest test run with outlier durations exceeding 263.18s (three standard deviations)"
+    }
+  ],
+  "totalTestCount": 31
+}

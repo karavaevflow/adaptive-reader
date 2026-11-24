@@ -75,16 +75,17 @@ struct AdaptiveReaderApp: App {
 }
 
 /// One application entry point, shared by native menus, toolbar and future adapters.
-enum WorkspaceCommand: String, CaseIterable, Identifiable {
+enum WorkspaceCommand: String, CaseIterable, Identifiable, Hashable {
     case openDocument, importReference, closeBook, search, toggleBookmark, toggleFocus, toggleAwake
     case toggleSidebar, toggleAppearance, toggleInspector, zoomIn, zoomOut
     case commandCenter, readingTools, back, forward, toggleSpotlight, spotlightNext, spotlightPrevious, nextPassage, previousPassage
     case toggleAutoScroll, toggleSession, stopSession, miniReader, returnToReader, companion
+    case study, newCard, newNote, highlightPassage, listenFromHere, resumeListening, toggleListening, stopListening
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .openDocument: "Open PDF"
-        case .importReference: "Import linked PDF"
+        case .openDocument: "Open book"
+        case .importReference: "Import linked book"
         case .closeBook: "Close book"
         case .search: "Find in book"
         case .toggleBookmark: "Bookmark page"
@@ -110,6 +111,14 @@ enum WorkspaceCommand: String, CaseIterable, Identifiable {
         case .miniReader: "Mini Reader"
         case .returnToReader: "Return to Reader"
         case .companion: "AI Companion"
+        case .study: "Study"
+        case .newCard: "New card"
+        case .newNote: "New note"
+        case .highlightPassage: "Highlight passage"
+        case .listenFromHere: "Listen from here"
+        case .resumeListening: "Resume saved listening"
+        case .toggleListening: "Pause or continue listening"
+        case .stopListening: "Stop listening"
         }
     }
     @MainActor func isEnabled(in session: ReaderSession) -> Bool {
@@ -117,12 +126,19 @@ enum WorkspaceCommand: String, CaseIterable, Identifiable {
         case .openDocument, .importReference: !session.busy
         case .commandCenter, .toggleSidebar, .toggleAppearance, .toggleInspector: true
         case .readingTools: true
+        case .study: session.record != nil
+        case .newCard, .newNote, .highlightPassage: session.record != nil && session.engine?.capabilities.contains(.textSelection) == true
+        case .listenFromHere, .toggleListening: session.engine?.capabilities.contains(.readAloud) == true
+        case .resumeListening: session.engine?.capabilities.contains(.readAloud) == true && session.study.savedListen != nil && session.study.savedListen?.completed != true
+        case .stopListening: session.study.speech.status != .stopped
         case .nextPassage, .previousPassage: session.engine?.capabilities.contains(.passageNavigation) == true
         case .back: session.commands?.canGoBack == true
         case .forward: session.commands?.canGoForward == true
-        case .spotlightNext, .spotlightPrevious: session.engine?.spotlightEnabled == true
+        case .toggleSpotlight: session.engine?.capabilities.contains(.readingFocus) == true
+        case .zoomIn, .zoomOut: session.engine?.capabilities.contains(.zoom) == true
+        case .spotlightNext, .spotlightPrevious: session.pdfEngine?.spotlightEnabled == true
         case .stopSession: session.readingTimer.status == .running || session.readingTimer.status == .paused
-        case .miniReader: session.engine != nil && !session.miniReaderActive
+        case .miniReader: session.pdfEngine != nil && !session.miniReaderActive
         case .returnToReader: session.miniReaderActive
         case .search: session.engine?.capabilities.contains(.search) == true || (session.engine == nil && !session.books.isEmpty)
         default: session.engine != nil && !session.busy
@@ -150,6 +166,7 @@ struct WorkspaceActions {
     var canGoBack = false
     var canGoForward = false
     var canStepReading = false
+    var enabledCommands: Set<WorkspaceCommand> = []
     var perform: (WorkspaceCommand) -> Void
 }
 
@@ -168,10 +185,10 @@ struct WorkspaceCommands: Commands {
     @FocusedValue(\.workspaceActions) private var actions
     var body: some Commands {
         CommandGroup(after: .newItem) {
-            Button("Open PDF") { actions?.perform(.openDocument) }
+            Button("Open book") { actions?.perform(.openDocument) }
                 .keyboardShortcut("o")
                 .disabled(actions == nil)
-            Button("Import linked PDF") { actions?.perform(.importReference) }
+            Button("Import linked book") { actions?.perform(.importReference) }
                 .keyboardShortcut("o", modifiers: [.command, .shift]).disabled(actions == nil)
             Button("Close book") { actions?.perform(.closeBook) }
                 .keyboardShortcut("w", modifiers: [.command, .shift]).disabled(actions?.hasBook != true)
@@ -180,21 +197,28 @@ struct WorkspaceCommands: Commands {
             Button("Command Center") { actions?.perform(.commandCenter) }.keyboardShortcut("k").disabled(actions == nil)
             Button("Reading tools") { actions?.perform(.readingTools) }.disabled(actions == nil)
             Button("AI Companion") { actions?.perform(.companion) }.disabled(actions?.hasBook != true)
+            Button("Study") { actions?.perform(.study) }.keyboardShortcut("l", modifiers: [.command, .shift]).disabled(actions?.enabledCommands.contains(.study) != true)
+            Button("Listen from here") { actions?.perform(.listenFromHere) }.disabled(actions?.enabledCommands.contains(.listenFromHere) != true)
+            Button("Pause or continue listening") { actions?.perform(.toggleListening) }.keyboardShortcut("l", modifiers: [.command, .option]).disabled(actions?.enabledCommands.contains(.toggleListening) != true)
+            Button("Stop listening") { actions?.perform(.stopListening) }.disabled(actions?.enabledCommands.contains(.stopListening) != true)
             Button("Back") { actions?.perform(.back) }.keyboardShortcut("[").disabled(actions?.canGoBack != true)
             Button("Forward") { actions?.perform(.forward) }.keyboardShortcut("]").disabled(actions?.canGoForward != true)
             Button("Next text block") { actions?.perform(.nextPassage) }.keyboardShortcut(.downArrow, modifiers: [.command, .option]).disabled(actions?.canStepReading != true)
             Button("Previous text block") { actions?.perform(.previousPassage) }.keyboardShortcut(.upArrow, modifiers: [.command, .option]).disabled(actions?.canStepReading != true)
-            Button("Reading Spotlight") { actions?.perform(.toggleSpotlight) }.disabled(actions?.hasBook != true)
-            Button("Auto-scroll") { actions?.perform(.toggleAutoScroll) }.disabled(actions?.hasBook != true)
-            Button("Mini Reader") { actions?.perform(.miniReader) }.disabled(actions?.hasBook != true)
+            Button("Reading Spotlight") { actions?.perform(.toggleSpotlight) }.disabled(actions?.enabledCommands.contains(.toggleSpotlight) != true)
+            Button("Auto-scroll") { actions?.perform(.toggleAutoScroll) }.disabled(actions?.enabledCommands.contains(.toggleAutoScroll) != true)
+            Button("Mini Reader") { actions?.perform(.miniReader) }.disabled(actions?.enabledCommands.contains(.miniReader) != true)
         }
         CommandGroup(after: .textEditing) {
             Button(LocalizedStringKey(actions?.hasBook == true ? "Find in book" : "Search books")) { actions?.perform(.search) }.keyboardShortcut("f").disabled(actions?.canSearch != true)
+            Button("New note") { actions?.perform(.newNote) }.disabled(actions?.enabledCommands.contains(.newNote) != true)
+            Button("New card") { actions?.perform(.newCard) }.disabled(actions?.enabledCommands.contains(.newCard) != true)
+            Button("Highlight passage") { actions?.perform(.highlightPassage) }.disabled(actions?.enabledCommands.contains(.highlightPassage) != true)
             Button("Bookmark page") { actions?.perform(.toggleBookmark) }.keyboardShortcut("d").disabled(actions?.hasBook != true)
         }
         CommandGroup(after: .sidebar) {
-            Button("Zoom in") { actions?.perform(.zoomIn) }.keyboardShortcut("+", modifiers: .command).disabled(actions?.hasBook != true)
-            Button("Zoom out") { actions?.perform(.zoomOut) }.keyboardShortcut("-", modifiers: .command).disabled(actions?.hasBook != true)
+            Button("Zoom in") { actions?.perform(.zoomIn) }.keyboardShortcut("+", modifiers: .command).disabled(actions?.enabledCommands.contains(.zoomIn) != true)
+            Button("Zoom out") { actions?.perform(.zoomOut) }.keyboardShortcut("-", modifiers: .command).disabled(actions?.enabledCommands.contains(.zoomOut) != true)
             Button("Focus") { actions?.perform(.toggleFocus) }.keyboardShortcut("f", modifiers: [.command, .shift]).disabled(actions?.hasBook != true)
             Button("Keep Awake") { actions?.perform(.toggleAwake) }.keyboardShortcut("k", modifiers: [.command, .shift]).disabled(actions?.hasBook != true)
             Button("Sidebar") { actions?.perform(.toggleSidebar) }

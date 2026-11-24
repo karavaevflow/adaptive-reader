@@ -54,7 +54,7 @@ public enum ReaderError: Error, Equatable {
 }
 
 public enum ReaderCapability: String, Codable, Sendable {
-    case textSelection, search, pageNavigation, reflow, pagePalette, zoom, readingFocus, continuousScroll, passageNavigation
+    case textSelection, search, pageNavigation, reflow, pagePalette, zoom, readingFocus, continuousScroll, passageNavigation, readAloud
 }
 
 @MainActor
@@ -70,13 +70,20 @@ public protocol ReaderEngine: AnyObject {
     func showSearchMatch(_ match: ReaderSearchMatch) throws
     func setScale(_ scale: Double) throws
     func applyPagePalette(_ palette: PagePalette) throws
+    func applyTypography(_ value: EPUBTypography) throws
     func setSpotlight(_ enabled: Bool) throws
     func stepSpotlight(_ direction: Int) throws
     func scroll(by points: Double) throws -> Bool
     func adjacentPassage(_ direction: Int) throws -> SourceAnchor
+    func textPassage(at anchor: SourceAnchor) throws -> ReaderPassage
+    func setHighlights(_ highlights: [ReaderHighlight]) throws
+    func setPlayback(_ passage: ReaderPassage?) throws
 }
 
 public extension ReaderEngine {
+    func textPassage(at anchor: SourceAnchor) throws -> ReaderPassage { throw ReaderError.unsupportedCommand }
+    func setHighlights(_ highlights: [ReaderHighlight]) throws { throw ReaderError.unsupportedCommand }
+    func setPlayback(_ passage: ReaderPassage?) throws { throw ReaderError.unsupportedCommand }
     var palette: PagePalette { .original }
     func setSpotlight(_ enabled: Bool) throws { throw ReaderError.unsupportedCommand }
     func stepSpotlight(_ direction: Int) throws { throw ReaderError.unsupportedCommand }
@@ -87,6 +94,7 @@ public extension ReaderEngine {
     func showSearchMatch(_ match: ReaderSearchMatch) throws { try navigate(to: match.anchor) }
     func setScale(_ scale: Double) throws { throw ReaderError.unsupportedCommand }
     func applyPagePalette(_ palette: PagePalette) throws { throw ReaderError.unsupportedCommand }
+    func applyTypography(_ value: EPUBTypography) throws { throw ReaderError.unsupportedCommand }
 }
 
 public enum PagePalette: String, Codable, CaseIterable, Sendable {
@@ -97,6 +105,8 @@ public enum ApplicationCommand: Sendable {
     case navigate(SourceAnchor)
     case setPalette(PagePalette)
     case setScale(Double)
+    case setTypography(EPUBTypography)
+    case setHighlights([ReaderHighlight]), showPlayback(ReaderPassage?), followPlayback(SourceAnchor)
     case showSearchMatch(ReaderSearchMatch)
     case back, forward
     case setSpotlight(Bool), stepSpotlight(Int), advancePassage(Int)
@@ -121,6 +131,25 @@ public final class ReaderCommands {
 
     public func perform(_ command: ApplicationCommand) throws {
         switch command {
+        case .setHighlights(let values):
+            guard engine.capabilities.contains(.textSelection) else { throw ReaderError.unsupportedCommand }
+            guard values.count <= 10000 else { throw ReaderError.unsupportedCommand }
+            for item in values {
+                try item.anchor.validate(bookID: engine.bookID, revision: engine.sourceRevision)
+                guard !item.quotation.isEmpty, item.quotation.utf16.count <= 8000 else { throw ReaderError.invalidAnchor }
+            }
+            try engine.setHighlights(values)
+        case .showPlayback(let passage):
+            guard engine.capabilities.contains(.readAloud) else { throw ReaderError.unsupportedCommand }
+            if let passage { try passage.anchor.validate(bookID: engine.bookID, revision: engine.sourceRevision) }
+            try engine.setPlayback(passage)
+        case .followPlayback(let anchor):
+            guard engine.capabilities.contains(.readAloud) else { throw ReaderError.unsupportedCommand }
+            try anchor.validate(bookID: engine.bookID, revision: engine.sourceRevision)
+            try engine.navigate(to: anchor)
+        case .setTypography(let value):
+            guard engine.capabilities.contains(.reflow) else { throw ReaderError.unsupportedCommand }
+            try value.validate(); try engine.applyTypography(value)
         case .navigate(let anchor):
             guard engine.capabilities.contains(.pageNavigation) || engine.capabilities.contains(.reflow) else { throw ReaderError.unsupportedCommand }
             try anchor.validate(bookID: engine.bookID, revision: engine.sourceRevision)

@@ -1,0 +1,16 @@
+{
+  "backingScaleFactor" : 2,
+  "chip" : "Apple M1",
+  "displayPixels" : [
+    2880,
+    1800
+  ],
+  "memoryBytes" : 8589934592,
+  "model" : "MacBookAir10,1",
+  "os" : "Version 15.8.2 (Build 24H232)",
+  "refreshHz" : 60,
+  "screenPoints" : [
+    1440,
+    900
+  ]
+}

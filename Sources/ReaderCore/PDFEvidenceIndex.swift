@@ -67,6 +67,15 @@ public struct PDFEvidenceIndex: Codable, Sendable {
         }
     }
     public func retrieve(_ query: String, visiblePage: Int, limit: Int = 6) throws -> [EvidencePassage] {
+        try EvidenceRanking.retrieve(query, passages: passages, limit: limit) { anchor in
+            if case .pdf(let point) = anchor.position { point.pageIndex == visiblePage } else { false }
+        }
+    }
+}
+
+/// Shared ranking for all document engines; anchors remain format-specific.
+enum EvidenceRanking {
+    static func retrieve(_ query: String, passages: [EvidencePassage], limit: Int = 6, isVisible: (SourceAnchor) -> Bool) throws -> [EvidencePassage] {
         let ignored: Set<String> = ["the", "and", "for", "this", "that", "what", "why", "how", "please", "explain", "это", "как", "что", "для", "или", "его", "она", "они", "объясни", "пожалуйста"]
         let terms = Set(Self.terms(query).filter { !ignored.contains($0) }.prefix(64))
         var candidates: [(index: Int, length: Int, matches: [String: Int], visible: Bool)] = []
@@ -77,7 +86,7 @@ public struct PDFEvidenceIndex: Codable, Sendable {
             var matches: [String: Int] = [:]
             for word in words where terms.contains(word) { matches[word, default: 0] += 1 }
             for word in matches.keys { frequency[word, default: 0] += 1 }
-            let onPage: Bool = { if case .pdf(let point) = passage.anchor.position { point.pageIndex == visiblePage } else { false } }()
+            let onPage = isVisible(passage.anchor)
             if !matches.isEmpty || onPage { candidates.append((index, words.count, matches, onPage)) }
         }
         let count = Double(max(1, passages.count)), average = Double(max(1, totalLength)) / count
