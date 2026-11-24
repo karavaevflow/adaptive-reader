@@ -33,6 +33,10 @@ final class ReaderSession {
     var autoScrolling = false
     var miniReaderActive = false
     var commandCenterVisible = false
+    let companion = CompanionModel()
+    var companionVisible = false
+    var companionViewportRevision = 0
+    var pendingCompanionQuestion: String?
     let activity = ReadingActivityDriver()
     @ObservationIgnored var miniReader: MiniReaderController?
     @ObservationIgnored private var appliedAmbientPhase: Bool?
@@ -74,6 +78,9 @@ final class ReaderSession {
         storageRoot = root
         store = ReaderStores.store(at: root)
         SessionRegistry.shared.add(self)
+        companion.onSettingsChanged = { [weak self] in
+            if let self { SessionRegistry.shared.refreshCompanion(except: self) }
+        }
         activity.onTick = { [weak self] now, delta, date in self?.readingTick(now: now, delta: delta, date: date) }
     }
 
@@ -192,6 +199,8 @@ final class ReaderSession {
         }
         #endif
         engine = candidate; commands = ReaderCommands(engine: candidate)
+        companion.configure(data: data, bookID: candidate.bookID, revision: candidate.sourceRevision, title: title,
+                            pageCount: candidate.document.pageCount, record: record, store: store)
         candidate.onInternalNavigation = { [weak self] anchor in self?.navigate(to: anchor) }
         candidate.onManualInteraction = { [weak self] in self?.setAutoScroll(false) }
         candidate.onSpotlightStep = { [weak self] direction in self?.stepSpotlight(direction) }
@@ -244,6 +253,7 @@ final class ReaderSession {
 
     private func positionChanged() {
         guard mounted, let engine else { return }
+        if companion.smartMargins { companionViewportRevision &+= 1 }
         scale = engine.view.scaleFactor
         engine.updateSpotlightLayout()
         if let anchor = try? engine.currentAnchor(), case .pdf(let point) = anchor.position {
@@ -358,6 +368,7 @@ final class ReaderSession {
         await refreshLibrary(); writeComfortDiagnostics(force: true)
     }
     private func stopWork() {
+        companion.reset(); companionVisible = false
         checkpointTask?.cancel(); checkpointTask = nil; checkpointToken = UUID()
         closeMiniReader(); stopReadingActivity()
         searchTask?.cancel(); textTask?.cancel()
@@ -446,6 +457,13 @@ final class ReaderSession {
     @discardableResult func performReadingCommand(_ command: WorkspaceCommand) -> Bool {
         guard command.isEnabled(in: self) else { return true }
         switch command {
+        case .companion:
+            closeMiniReader(); focusMode = false
+            if let question = pendingCompanionQuestion {
+                pendingCompanionQuestion = nil; companionVisible = true; companion.query = question
+                companion.ask(page: pageNumber, question: question, chapter: companionChapterLabel)
+            } else { companionVisible.toggle() }
+            if !companionVisible { companion.cancel() }
         case .nextPassage: stepPassage(1)
         case .previousPassage: stepPassage(-1)
         case .back: smartBack()
@@ -463,7 +481,9 @@ final class ReaderSession {
         case .stopSession: stopReadingSession()
         case .miniReader: showMiniReader()
         case .returnToReader: closeMiniReader()
-        case .toggleFocus: focusMode.toggle()
+        case .toggleFocus:
+            focusMode.toggle()
+            if focusMode { companionVisible = false; companion.cancel() }
         case .toggleAwake: setKeepAwake(!keepAwake)
         case .toggleBookmark: Task { await toggleBookmark() }
         case .zoomIn: zoom(by: 1.1)
@@ -586,6 +606,7 @@ final class ReaderSession {
     }
 
     func prepareForTermination() {
+        companion.reset()
         active = false; setKeepAwake(false); stopReadingActivity()
         searchTask?.cancel(); textTask?.cancel(); checkpointTask?.cancel(); saving?.cancel()
         engine?.cancelSearch()
@@ -613,6 +634,13 @@ final class SessionRegistry {
         for entry in entries {
             guard let session = entry.session, session !== origin, session.sharesLibrary(with: origin) else { continue }
             Task { await session.refreshComfortPreferences() }
+        }
+    }
+    func refreshCompanion(except origin: ReaderSession) {
+        for entry in entries {
+            guard let session = entry.session, session !== origin, session.sharesLibrary(with: origin) else { continue }
+            session.companion.cancel()
+            Task { await session.companion.refreshSettings() }
         }
     }
     func flush() async {

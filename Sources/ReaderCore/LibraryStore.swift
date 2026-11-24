@@ -76,6 +76,10 @@ private struct AnnotationRecord: Codable {
 public actor LibraryStore {
     public let root: URL
     public init(root: URL) { self.root = root }
+    func verifyRecord(_ record: BookRecord) throws {
+        let current = try readRecord(record.id)
+        guard current.revision == record.revision else { throw ReaderError.sourceChanged }
+    }
 
     public func importBook(data: Data, id: UUID, title: String, revision: String, reference: Data? = nil, pageCount: Int = 0) throws -> BookRecord {
         guard PDFReaderEngine.revision(data) == revision else { throw ReaderError.sourceChanged }

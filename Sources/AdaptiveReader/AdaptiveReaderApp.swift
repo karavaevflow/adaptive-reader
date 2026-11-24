@@ -79,7 +79,7 @@ enum WorkspaceCommand: String, CaseIterable, Identifiable {
     case openDocument, importReference, closeBook, search, toggleBookmark, toggleFocus, toggleAwake
     case toggleSidebar, toggleAppearance, toggleInspector, zoomIn, zoomOut
     case commandCenter, readingTools, back, forward, toggleSpotlight, spotlightNext, spotlightPrevious, nextPassage, previousPassage
-    case toggleAutoScroll, toggleSession, stopSession, miniReader, returnToReader
+    case toggleAutoScroll, toggleSession, stopSession, miniReader, returnToReader, companion
     var id: String { rawValue }
     var label: String {
         switch self {
@@ -109,6 +109,7 @@ enum WorkspaceCommand: String, CaseIterable, Identifiable {
         case .stopSession: "End session"
         case .miniReader: "Mini Reader"
         case .returnToReader: "Return to Reader"
+        case .companion: "AI Companion"
         }
     }
     @MainActor func isEnabled(in session: ReaderSession) -> Bool {
@@ -178,6 +179,7 @@ struct WorkspaceCommands: Commands {
         CommandGroup(after: .toolbar) {
             Button("Command Center") { actions?.perform(.commandCenter) }.keyboardShortcut("k").disabled(actions == nil)
             Button("Reading tools") { actions?.perform(.readingTools) }.disabled(actions == nil)
+            Button("AI Companion") { actions?.perform(.companion) }.disabled(actions?.hasBook != true)
             Button("Back") { actions?.perform(.back) }.keyboardShortcut("[").disabled(actions?.canGoBack != true)
             Button("Forward") { actions?.perform(.forward) }.keyboardShortcut("]").disabled(actions?.canGoForward != true)
             Button("Next text block") { actions?.perform(.nextPassage) }.keyboardShortcut(.downArrow, modifiers: [.command, .option]).disabled(actions?.canStepReading != true)
