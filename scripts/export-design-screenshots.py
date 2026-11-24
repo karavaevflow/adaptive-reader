@@ -10,6 +10,7 @@ import tempfile
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("result", type=Path, help="Xcode .xcresult bundle")
 parser.add_argument("destination", type=Path, help="Reference image directory")
+parser.add_argument("--release", choices=("phase0", "v02"), default="phase0")
 args = parser.parse_args()
 expected = {
     f"{screen}-{language}-{width}-{theme}"
@@ -19,6 +20,14 @@ expected = {
     for theme in ("light", "dark")
 }
 expected |= {f"Components-{language}-{theme}" for language in ("en", "ru") for theme in ("light", "dark")}
+if args.release == "v02":
+    expected = {
+        f"v02-{screen}-{language}-{width}-{theme}"
+        for screen in ("Commands", "Tools", "Spotlight", "Mini")
+        for language in ("en", "ru")
+        for width in (800, 1440)
+        for theme in ("light", "dark")
+    }
 with tempfile.TemporaryDirectory(prefix="adaptive-design-") as temporary:
     directory = Path(temporary)
     subprocess.run([

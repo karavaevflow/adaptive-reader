@@ -148,6 +148,28 @@ public actor LibraryStore {
         return state
     }
 
+    public func comfortPreferences(for record: BookRecord) throws -> ReadingComfortPreferences {
+        _ = try readRecord(record.id)
+        let url = root.appendingPathComponent("Comfort/\(record.id.uuidString).json")
+        guard FileManager.default.fileExists(atPath: url.path) else { return ReadingComfortPreferences() }
+        let value = try JSONDecoder().decode(ReadingComfortPreferences.self, from: Data(contentsOf: url))
+        try value.validate(); return value
+    }
+    public func saveComfort(_ value: ReadingComfortPreferences, for record: BookRecord) throws {
+        _ = try readRecord(record.id); try value.validate(); try prepare()
+        try JSONEncoder().encode(value).write(to: root.appendingPathComponent("Comfort/\(record.id.uuidString).json"), options: .atomic)
+    }
+    public func ambientDefaults() throws -> AmbientReadingSettings {
+        let url = root.appendingPathComponent("AmbientDefaults.json")
+        guard FileManager.default.fileExists(atPath: url.path) else { return AmbientReadingSettings() }
+        let value = try JSONDecoder().decode(AmbientReadingSettings.self, from: Data(contentsOf: url))
+        try value.validate(); return value
+    }
+    public func saveAmbientDefaults(_ value: AmbientReadingSettings) throws {
+        try value.validate(); try prepare()
+        try JSONEncoder().encode(value).write(to: root.appendingPathComponent("AmbientDefaults.json"), options: .atomic)
+    }
+
     public func setCurrentBook(_ id: UUID?) throws {
         try prepare()
         let url = root.appendingPathComponent("LastBook")
@@ -227,7 +249,7 @@ public actor LibraryStore {
     }
     private func write(_ record: BookRecord) throws { try JSONEncoder().encode(record).write(to: recordURL(record.id), options: .atomic) }
     private func prepare() throws {
-        for name in ["Assets", "Books", "ReadingState", "Annotations", "Cache"] {
+        for name in ["Assets", "Books", "ReadingState", "Annotations", "Comfort", "Cache"] {
             try FileManager.default.createDirectory(at: root.appendingPathComponent(name), withIntermediateDirectories: true)
         }
     }

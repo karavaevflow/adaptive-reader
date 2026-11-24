@@ -49,6 +49,8 @@ struct WorkspaceView: View {
     @FocusState private var librarySearchFocused: Bool
     @State private var appearanceVisible = false
     @State private var catalogVisible = false
+    @State private var readingToolsVisible = false
+    @State private var pendingCommand: WorkspaceCommand?
     @State private var compactSidebarVisible = false
     @State private var compactInspectorVisible = false
     @State private var section = LibrarySection.all
@@ -60,19 +62,20 @@ struct WorkspaceView: View {
         GeometryReader { geometry in
             workspace(width: geometry.size.width)
                 .toolbar { toolbar(width: geometry.size.width) }
-                .focusedSceneValue(\.workspaceActions, WorkspaceActions(hasBook: document != nil, canSearch: session.engine?.capabilities.contains(.search) == true || (document == nil && !session.books.isEmpty), perform: { command in
+                .focusedSceneValue(\.workspaceActions, WorkspaceActions(hasBook: document != nil, canSearch: session.engine?.capabilities.contains(.search) == true || (document == nil && !session.books.isEmpty), canGoBack: session.commands?.canGoBack == true, canGoForward: session.commands?.canGoForward == true, canStepReading: session.engine?.capabilities.contains(.passageNavigation) == true, perform: { command in
                     perform(command, width: geometry.size.width)
                 }))
         }
         .background(Adaptive.background)
-        .background(WindowIntegration(autosaveName: windowAutosaveName, focusRequest: nativeFocusRequest))
+        .background(WindowIntegration(autosaveName: windowAutosaveName, focusRequest: nativeFocusRequest, onClose: { session.suspend(); Task { await session.flush() } }))
         .navigationTitle(title)
         .task { await startSession() }
+        .onChange(of: appearance, initial: true) { session.shellAppearance = appearance }
         .onDisappear { session.suspend(); Task { await session.flush() } }
         .onExitCommand { if session.focusMode { session.focusMode = false } }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
             if let window = notification.object as? NSWindow, window == session.engine?.view.window {
-                Task { await session.refreshBookmarks() }
+                Task { await session.refreshBookmarks(); await session.refreshComfortPreferences() }
             } else if document == nil { Task { await session.refreshLibrary() } }
         }
         .overlay { if session.busy { ProgressView("Opening document").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) } }
@@ -84,6 +87,18 @@ struct WorkspaceView: View {
             case .failure(let error):
                 repairBook = nil
                 if (error as NSError).code != NSUserCancelledError { session.report(error) }
+            }
+        }
+        .sheet(isPresented: Binding(get: { session.commandCenterVisible && !session.miniReaderActive }, set: { session.commandCenterVisible = $0 }), onDismiss: {
+            if let command = pendingCommand { pendingCommand = nil; perform(command, width: session.engine?.view.window?.contentView?.bounds.width ?? 1120) }
+        }) {
+            CommandCenterView(session: session, commands: WorkspaceCommand.mainCommands, perform: { command in pendingCommand = command; session.commandCenterVisible = false }, dismiss: { session.commandCenterVisible = false })
+        }
+        .sheet(isPresented: $readingToolsVisible) {
+            VStack(spacing: 0) {
+                ReadingToolsView(session: session)
+                Divider()
+                HStack { Spacer(); Button("Done") { readingToolsVisible = false }.keyboardShortcut(.cancelAction) }.padding(16)
             }
         }
         .sheet(isPresented: $catalogVisible) {
@@ -162,7 +177,14 @@ struct WorkspaceView: View {
                 Divider()
             }
             Group {
-                if let engine = session.engine { NativePDFView(engine: engine, session: session).id(engine.bookID) }
+                if session.miniReaderActive {
+                    VStack(spacing: 16) {
+                        Image(systemName: "pip").font(.system(size: 32, weight: .light)).foregroundStyle(Adaptive.secondary)
+                        Text("Reading in Mini Reader").font(.title2)
+                        Button("Return to Reader") { session.closeMiniReader() }
+                    }
+                }
+                else if let engine = session.engine { NativePDFView(engine: engine, session: session).id(engine.bookID) }
                 else { library }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
             if !session.focusMode && inspectorVisible && width >= Adaptive.Layout.inspectorThreshold {
@@ -354,9 +376,13 @@ struct WorkspaceView: View {
     }
 
     private func perform(_ command: WorkspaceCommand, width: CGFloat) {
+        if session.performReadingCommand(command) { return }
         switch command {
-        case .openDocument: if !session.busy { importReference = false; importing = true }
-        case .importReference: if !session.busy { importReference = true; importing = true }
+        case .commandCenter: session.setAutoScroll(false); session.commandCenterVisible.toggle()
+        case .readingTools: readingToolsVisible = true
+        case .back, .forward, .nextPassage, .previousPassage, .toggleSpotlight, .spotlightNext, .spotlightPrevious, .toggleAutoScroll, .toggleSession, .stopSession, .miniReader, .returnToReader: break
+        case .openDocument: if !session.busy { session.setAutoScroll(false); importReference = false; importing = true }
+        case .importReference: if !session.busy { session.setAutoScroll(false); importReference = true; importing = true }
         case .closeBook: searchVisible = false; Task { await session.closeBook() }
         case .search:
             if document == nil { librarySearchFocused = true }
@@ -396,6 +422,10 @@ struct WorkspaceView: View {
             .popover(isPresented: $compactSidebarVisible) { sidebar.frame(width: 240, height: 240).onExitCommand { compactSidebarVisible = false }.onDisappear { restoreFocus(.sidebar) } }
         }
         ToolbarItemGroup {
+            if document != nil && width >= 1250 {
+                Button("Back", systemImage: "arrow.uturn.backward") { perform(.back, width: width) }.disabled(session.commands?.canGoBack != true).accessibilityIdentifier("reader.back")
+                Button("Forward", systemImage: "arrow.uturn.forward") { perform(.forward, width: width) }.disabled(session.commands?.canGoForward != true).accessibilityIdentifier("reader.forward")
+            }
             if let engine = session.engine {
                 Button("Library", systemImage: "books.vertical") { perform(.closeBook, width: width) }
                     .accessibilityIdentifier("reader.close").disabled(session.busy)
@@ -451,6 +481,16 @@ struct WorkspaceView: View {
             .onKeyPress(.space) { perform(.toggleInspector, width: width); return .handled }
             .accessibilityIdentifier("inspector.toggle")
             Menu {
+                Button("Command Center") { perform(.commandCenter, width: width) }
+                Button("Reading tools") { perform(.readingTools, width: width) }
+                if document != nil {
+                    Button("Back") { perform(.back, width: width) }.disabled(session.commands?.canGoBack != true)
+                    Button("Forward") { perform(.forward, width: width) }.disabled(session.commands?.canGoForward != true)
+                    Button("Mini Reader") { perform(.miniReader, width: width) }
+                    Button("Reading Spotlight") { perform(.toggleSpotlight, width: width) }
+                    Button("Auto-scroll") { perform(.toggleAutoScroll, width: width) }
+                }
+                Divider()
                 Button("Import linked PDF") { perform(.importReference, width: width) }
                 Button("Appearance") { perform(.toggleAppearance, width: width) }
                 Button("Sidebar") { perform(.toggleSidebar, width: width) }
@@ -476,15 +516,44 @@ struct NativePDFView: NSViewRepresentable {
     let session: ReaderSession
     final class Coordinator {
         weak var session: ReaderSession?
-        init(_ session: ReaderSession) { self.session = session }
+        weak var engine: PDFReaderEngine?
+        init(_ session: ReaderSession, _ engine: PDFReaderEngine) { self.session = session; self.engine = engine }
     }
-    func makeCoordinator() -> Coordinator { Coordinator(session) }
-    func makeNSView(context: Context) -> PDFView {
-        DispatchQueue.main.async { if session.engine === engine { session.mount() } }
-        return engine.view
+    func makeCoordinator() -> Coordinator { Coordinator(session, engine) }
+    func makeNSView(context: Context) -> PDFSurfaceHost {
+        PDFSurfaceHost(pdf: engine.view) { [weak session, weak engine] in
+            guard let session, session.engine === engine else { return }
+            session.mount()
+        }
     }
-    func updateNSView(_ view: PDFView, context: Context) {}
-    static func dismantleNSView(_ nsView: PDFView, coordinator: Coordinator) {
-        Task { @MainActor in await coordinator.session?.flush() }
+    func updateNSView(_ view: PDFSurfaceHost, context: Context) {}
+    static func dismantleNSView(_ host: PDFSurfaceHost, coordinator: Coordinator) {
+        if host.pdf.superview === host { host.pdf.removeFromSuperview() }
+        Task { @MainActor in
+            guard let session = coordinator.session, session.engine === coordinator.engine else { return }
+            await session.flush()
+        }
+    }
+}
+
+/// Each window owns a host; a detached reader lends the same PDFView to a new host.
+final class PDFSurfaceHost: NSView {
+    let pdf: PDFView
+    private let mounted: () -> Void
+    init(pdf: PDFView, mounted: @escaping () -> Void) {
+        self.pdf = pdf; self.mounted = mounted
+        super.init(frame: pdf.frame)
+        setAccessibilityElement(false)
+        pdf.removeFromSuperview(); addSubview(pdf); pdf.autoresizingMask = [.width, .height]; pdf.frame = bounds
+    }
+    required init?(coder: NSCoder) { fatalError("Programmatic PDF host") }
+    override func layout() { super.layout(); if pdf.superview === self { pdf.frame = bounds } }
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard window != nil else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.window != nil, self.pdf.superview === self else { return }
+            self.layoutSubtreeIfNeeded(); self.pdf.layoutDocumentView(); self.mounted()
+        }
     }
 }

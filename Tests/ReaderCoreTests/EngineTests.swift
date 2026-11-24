@@ -208,3 +208,56 @@ func continuousScrollAnchorTracksVisiblePage() throws {
     #expect(abs(restoredPoint.x - originalPoint.x) < 2)
     #expect(abs(restoredPoint.y - originalPoint.y) < 2)
 }
+
+@Test @MainActor
+func internalFootnoteAndSearchShareSmartBackHistory() throws {
+    let engine = try PDFReaderEngine(data: Data(contentsOf: fixtures.appendingPathComponent("text.pdf")), bookID: UUID())
+    let host = window(for: engine); defer { host.close() }
+    let commands = ReaderCommands(engine: engine)
+    let origin = try engine.currentAnchor()
+    engine.onInternalNavigation = { anchor in
+        do { try commands.perform(.navigate(anchor)) } catch { Issue.record("Internal link failed: \(error)") }
+    }
+    let page = try #require(engine.document.page(at: 2))
+    engine.view.perform(PDFActionGoTo(destination: PDFDestination(page: page, at: NSPoint(x: 0, y: 600))))
+    #expect(commands.canGoBack)
+    try commands.perform(.back)
+    let back = try engine.currentAnchor()
+    if case .pdf(let a) = origin.position, case .pdf(let b) = back.position { #expect(a.pageIndex == b.pageIndex); #expect(abs(a.y - b.y) < 2) }
+    #expect(commands.canGoForward)
+    let wrong = SourceAnchor(bookID: UUID(), sourceRevision: engine.sourceRevision, position: origin.position)
+    #expect(throws: ReaderError.sourceChanged) { try commands.perform(.navigate(wrong)) }
+    #expect(commands.canGoForward)
+    try commands.perform(.forward)
+    if case .pdf(let point) = try engine.currentAnchor().position { #expect(point.pageIndex == 2) }
+}
+
+@Test @MainActor
+func spotlightPreservesSelectionAndFallsBackToRegionForScans() throws {
+    let engine = try PDFReaderEngine(data: Data(contentsOf: fixtures.appendingPathComponent("text.pdf")), bookID: UUID())
+    let host = window(for: engine); defer { host.close() }
+    let selection = try #require(engine.document.findString("stable anchor", withOptions: []).first)
+    engine.view.setCurrentSelection(selection, animate: false)
+    try ReaderCommands(engine: engine).perform(.setSpotlight(true))
+    #expect(engine.view.currentSelection?.string == selection.string)
+    #expect(throws: ReaderError.unsupportedCommand) { try ReaderCommands(engine: engine).perform(.stepSpotlight(Int.min)) }
+    let scan = try PDFReaderEngine(data: Data(contentsOf: fixtures.appendingPathComponent("scan.pdf")), bookID: UUID())
+    let scanHost = window(for: scan); defer { scanHost.close() }
+    try scan.setSpotlight(true)
+    #expect(scan.spotlightEnabled)
+    #expect(!scan.spotlightUsesText)
+}
+
+@Test @MainActor
+func textBlockAdvanceUsesCommonAnchorsAndCanGoBack() throws {
+    let engine = try PDFReaderEngine(data: Data(contentsOf: fixtures.appendingPathComponent("text.pdf")), bookID: UUID())
+    let host = window(for: engine); defer { host.close() }
+    let origin = try engine.currentAnchor(), commands = ReaderCommands(engine: engine)
+    try commands.perform(.advancePassage(1))
+    #expect(commands.canGoBack)
+    let moved = try engine.currentAnchor()
+    #expect(moved != origin)
+    try commands.perform(.back)
+    if case .pdf(let a) = origin.position, case .pdf(let b) = try engine.currentAnchor().position { #expect(a.pageIndex == b.pageIndex); #expect(abs(a.y-b.y) < 2) }
+    #expect(throws: ReaderError.unsupportedCommand) { try commands.perform(.advancePassage(Int.min)) }
+}

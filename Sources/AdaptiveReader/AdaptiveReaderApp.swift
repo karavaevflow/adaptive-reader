@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 @main
 struct AdaptiveReaderApp: App {
@@ -74,14 +75,80 @@ struct AdaptiveReaderApp: App {
 }
 
 /// One application entry point, shared by native menus, toolbar and future adapters.
-enum WorkspaceCommand {
+enum WorkspaceCommand: String, CaseIterable, Identifiable {
     case openDocument, importReference, closeBook, search, toggleBookmark, toggleFocus, toggleAwake
     case toggleSidebar, toggleAppearance, toggleInspector, zoomIn, zoomOut
+    case commandCenter, readingTools, back, forward, toggleSpotlight, spotlightNext, spotlightPrevious, nextPassage, previousPassage
+    case toggleAutoScroll, toggleSession, stopSession, miniReader, returnToReader
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .openDocument: "Open PDF"
+        case .importReference: "Import linked PDF"
+        case .closeBook: "Close book"
+        case .search: "Find in book"
+        case .toggleBookmark: "Bookmark page"
+        case .toggleFocus: "Focus"
+        case .toggleAwake: "Keep Awake"
+        case .toggleSidebar: "Sidebar"
+        case .toggleAppearance: "Appearance"
+        case .toggleInspector: "Document inspector"
+        case .zoomIn: "Zoom in"
+        case .zoomOut: "Zoom out"
+        case .commandCenter: "Command Center"
+        case .readingTools: "Reading tools"
+        case .nextPassage: "Next text block"
+        case .previousPassage: "Previous text block"
+        case .back: "Back"
+        case .forward: "Forward"
+        case .toggleSpotlight: "Reading Spotlight"
+        case .spotlightNext: "Next spotlight line"
+        case .spotlightPrevious: "Previous spotlight line"
+        case .toggleAutoScroll: "Toggle auto-scroll"
+        case .toggleSession: "Start, pause or resume session"
+        case .stopSession: "End session"
+        case .miniReader: "Mini Reader"
+        case .returnToReader: "Return to Reader"
+        }
+    }
+    @MainActor func isEnabled(in session: ReaderSession) -> Bool {
+        switch self {
+        case .openDocument, .importReference: !session.busy
+        case .commandCenter, .toggleSidebar, .toggleAppearance, .toggleInspector: true
+        case .readingTools: true
+        case .nextPassage, .previousPassage: session.engine?.capabilities.contains(.passageNavigation) == true
+        case .back: session.commands?.canGoBack == true
+        case .forward: session.commands?.canGoForward == true
+        case .spotlightNext, .spotlightPrevious: session.engine?.spotlightEnabled == true
+        case .stopSession: session.readingTimer.status == .running || session.readingTimer.status == .paused
+        case .miniReader: session.engine != nil && !session.miniReaderActive
+        case .returnToReader: session.miniReaderActive
+        case .search: session.engine?.capabilities.contains(.search) == true || (session.engine == nil && !session.books.isEmpty)
+        default: session.engine != nil && !session.busy
+        }
+    }
+    @MainActor func displayLabel(in session: ReaderSession) -> String {
+        if self == .search && session.engine == nil { return "Search books" }
+        if self == .toggleSession {
+            switch session.readingTimer.status {
+            case .running: return "Pause session"
+            case .paused: return "Resume session"
+            default: return "Start session"
+            }
+        }
+        if self == .toggleAutoScroll { return session.autoScrolling ? "Stop auto-scroll" : "Start auto-scroll" }
+        return label
+    }
+    static var mainCommands: [Self] { allCases.filter { $0 != .commandCenter && $0 != .returnToReader } }
+    static let miniCommands: [Self] = [.returnToReader, .back, .forward, .nextPassage, .previousPassage, .toggleBookmark, .readingTools, .toggleSpotlight, .spotlightNext, .spotlightPrevious, .toggleAutoScroll, .toggleSession, .stopSession, .toggleAwake, .zoomIn, .zoomOut, .closeBook]
 }
 
 struct WorkspaceActions {
     var hasBook: Bool
     var canSearch: Bool
+    var canGoBack = false
+    var canGoForward = false
+    var canStepReading = false
     var perform: (WorkspaceCommand) -> Void
 }
 
@@ -107,6 +174,17 @@ struct WorkspaceCommands: Commands {
                 .keyboardShortcut("o", modifiers: [.command, .shift]).disabled(actions == nil)
             Button("Close book") { actions?.perform(.closeBook) }
                 .keyboardShortcut("w", modifiers: [.command, .shift]).disabled(actions?.hasBook != true)
+        }
+        CommandGroup(after: .toolbar) {
+            Button("Command Center") { actions?.perform(.commandCenter) }.keyboardShortcut("k").disabled(actions == nil)
+            Button("Reading tools") { actions?.perform(.readingTools) }.disabled(actions == nil)
+            Button("Back") { actions?.perform(.back) }.keyboardShortcut("[").disabled(actions?.canGoBack != true)
+            Button("Forward") { actions?.perform(.forward) }.keyboardShortcut("]").disabled(actions?.canGoForward != true)
+            Button("Next text block") { actions?.perform(.nextPassage) }.keyboardShortcut(.downArrow, modifiers: [.command, .option]).disabled(actions?.canStepReading != true)
+            Button("Previous text block") { actions?.perform(.previousPassage) }.keyboardShortcut(.upArrow, modifiers: [.command, .option]).disabled(actions?.canStepReading != true)
+            Button("Reading Spotlight") { actions?.perform(.toggleSpotlight) }.disabled(actions?.hasBook != true)
+            Button("Auto-scroll") { actions?.perform(.toggleAutoScroll) }.disabled(actions?.hasBook != true)
+            Button("Mini Reader") { actions?.perform(.miniReader) }.disabled(actions?.hasBook != true)
         }
         CommandGroup(after: .textEditing) {
             Button(LocalizedStringKey(actions?.hasBook == true ? "Find in book" : "Search books")) { actions?.perform(.search) }.keyboardShortcut("f").disabled(actions?.canSearch != true)
@@ -139,17 +217,22 @@ struct NativeFocusRequest: Equatable {
 struct WindowIntegration: NSViewRepresentable {
     let autosaveName: String
     var focusRequest: NativeFocusRequest?
+    var onClose: (() -> Void)? = nil
     func makeNSView(context: Context) -> NSView {
         let view = FrameView()
         view.autosaveName = autosaveName
+        view.onClose = onClose
         return view
     }
     func updateNSView(_ nsView: NSView, context: Context) {
-        guard let view = nsView as? FrameView, let focusRequest else { return }
-        view.requestFocus(focusRequest)
+        guard let view = nsView as? FrameView else { return }
+        view.onClose = onClose
+        if let focusRequest { view.requestFocus(focusRequest) }
     }
     private final class FrameView: NSView {
         var autosaveName = ""
+        var onClose: (() -> Void)?
+        private var closeObservation: AnyCancellable?
         private var lastRequest: UUID?
         private var pendingFocus: NativeFocusRequest?
         private var keyObserver: NSObjectProtocol?
@@ -181,8 +264,11 @@ struct WindowIntegration: NSViewRepresentable {
             super.viewDidMoveToWindow()
             setAccessibilityElement(false)
             if let keyObserver { NotificationCenter.default.removeObserver(keyObserver) }
-            keyObserver = nil
+            keyObserver = nil; closeObservation = nil
             if let window {
+                closeObservation = NotificationCenter.default.publisher(for: NSWindow.willCloseNotification, object: window).sink { [weak self] _ in
+                    MainActor.assumeIsolated { self?.onClose?() }
+                }
                 keyObserver = NotificationCenter.default.addObserver(forName: NSWindow.didBecomeKeyNotification,
                     object: window, queue: .main) { [weak self] _ in
                     MainActor.assumeIsolated { self?.applyPendingFocus() }

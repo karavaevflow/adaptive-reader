@@ -5,6 +5,6 @@ caffeinate -di xcodebuild -project AdaptiveReader.xcodeproj -scheme AdaptiveRead
   -configuration Release -destination 'platform=macOS,arch=arm64' \
   -derivedDataPath /private/tmp/adaptive-v01-ui-benchmark \
   -resultBundlePath "${1:-/private/tmp/adaptive-v01-ui-benchmark.xcresult}" \
-  SWIFT_ACTIVE_COMPILATION_CONDITIONS=FOUNDATION_BENCHMARK \
+  ADAPTIVE_TEST_BUNDLE_SUFFIX=.UITesting SWIFT_ACTIVE_COMPILATION_CONDITIONS=FOUNDATION_BENCHMARK \
   -test-timeouts-enabled YES -maximum-test-execution-time-allowance 240 \
   -only-testing:AdaptiveReaderUITests/OfflineReaderTests/testLargeDocumentReleaseMeasurements test

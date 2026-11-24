@@ -76,7 +76,22 @@ func generate(_ directory: URL) throws {
 }
 
 let args = CommandLine.arguments
-if args.count > 1 && args[1] == "palette" {
+if args.count > 1 && args[1] == "footnote" {
+    let url = URL(fileURLWithPath: args[2])
+    try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+    makePDF(url, pages: 3) { context, page in
+        text(page == 2 ? "Footnote 1" : "A reading passage", rect: CGRect(x: 72, y: 680, width: 460, height: 55), size: 24, context: context)
+        text(page == 2 ? "This note explains the original sentence. Smart Back returns to its source." : "A precise source anchor remembers the visible fragment. Follow the note, then return to continue reading.", rect: CGRect(x: 72, y: 520, width: 460, height: 130), context: context)
+        if page == 0 { text("Footnote 1", rect: CGRect(x: 72, y: 450, width: 160, height: 36), color: .systemBlue, context: context) }
+    }
+    let document = PDFDocument(url: url)!
+    let link = PDFAnnotation(bounds: CGRect(x: 70, y: 450, width: 170, height: 38), forType: .link, withProperties: nil)
+    link.contents = "Footnote 1"
+    link.action = PDFActionGoTo(destination: PDFDestination(page: document.page(at: 2)!, at: NSPoint(x: 0, y: 740)))
+    document.page(at: 0)!.addAnnotation(link)
+    precondition(document.write(to: url))
+    print(url.path)
+} else if args.count > 1 && args[1] == "palette" {
     let document = CGPDFDocument(URL(fileURLWithPath: args[2]) as CFURL)!
     let page = document.page(at: 1)!, renderer = PDFColorRenderer()
     let palette = PagePalette(rawValue: args[3])!
