@@ -105,7 +105,7 @@ final class StudyModel {
     }
     func saveNote(_ value: ReaderNote) async {
         guard !busy, let record, let store else { return }; busy = true; defer { busy = false }
-        do { try await store.saveNote(value, for: record); errorMessage = nil; draftNote = nil; await reload(); session?.companion.notes = notes }
+        do { let isNew = !notes.contains { $0.id == value.id }; try await store.saveNote(value, for: record); if isNew { session?.extended.record(.noteCreated, anchor: value.anchor) }; errorMessage = nil; draftNote = nil; await reload(); session?.companion.notes = notes }
         catch { errorMessage = NSLocalizedString(error.localizedDescription, comment: "Study error") }
     }
     func deleteNote(_ value: ReaderNote) async {

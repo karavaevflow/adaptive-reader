@@ -50,6 +50,15 @@ extension PDFReaderEngine {
         guard document.allowsCopying, case .pdf(let point) = anchor.position, (0..<document.pageCount).contains(point.pageIndex) else { throw ReaderError.unsupportedCommand }
         for index in point.pageIndex..<document.pageCount {
             guard let page = document.page(at: index) else { continue }
+            if page.string?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false,
+               let recognized = recognizedPages[index] {
+                let eligible = recognized.lines.filter { index != point.pageIndex || $0.bounds.maxY <= point.y + 12 }
+                if let first = eligible.first {
+                    let text = eligible.prefix(5).map(\.text).joined(separator: "\n")
+                    let next = eligible.dropFirst(5).first?.anchor
+                    return ReaderPassage(anchor: first.anchor, text: text, next: next)
+                }
+            }
             let box = page.bounds(for: .cropBox)
             let lines = page.selection(for: box)?.selectionsByLine() ?? []
             let eligible = lines.filter { index != point.pageIndex || $0.bounds(for: page).maxY <= point.y + 12 }

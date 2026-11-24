@@ -40,6 +40,7 @@ final class ReaderSession {
     let companion = CompanionModel()
     let study = StudyModel()
     let knowledge = KnowledgeModel()
+    let extended = ExtendedReadingModel()
     var companionVisible = false
     var companionViewportRevision = 0
     var pendingCompanionQuestion: String?
@@ -61,6 +62,7 @@ final class ReaderSession {
     @ObservationIgnored private let storageRoot: URL
     @ObservationIgnored private let awake = DisplayAwake()
     @ObservationIgnored private var pendingState: ReadingState?
+    @ObservationIgnored private var surfaceTransitionAnchor: SourceAnchor?
     @ObservationIgnored private var subscriptions = Set<AnyCancellable>()
     @ObservationIgnored private var saving: Task<Void, Never>?
     @ObservationIgnored private var searchTask: Task<Void, Never>?
@@ -84,6 +86,9 @@ final class ReaderSession {
         storageRoot = root
         store = ReaderStores.store(at: root)
         knowledge.configure(store: store, session: self)
+        extended.configure(store: store, session: self)
+        companion.onQuestion = { [weak self] in self?.extended.record(.questionAsked) }
+        Task { await extended.reload() }
         SessionRegistry.shared.add(self)
         companion.onSettingsChanged = { [weak self] in
             if let self { self.knowledge.cancel(); Task { await self.knowledge.reload() }; SessionRegistry.shared.refreshCompanion(except: self) }
@@ -173,13 +178,7 @@ final class ReaderSession {
     }
 
     private func makeEngine(data: Data, format: BookFormat, id: UUID) async throws -> any ReaderEngine {
-        if format == .epub {
-            let worker = Task.detached(priority: .userInitiated) { (try EPUBPublication(data: data), PDFReaderEngine.revision(data)) }
-            let (publication, revision) = try await withTaskCancellationHandler(operation: { try await worker.value }, onCancel: { worker.cancel() })
-            return EPUBReaderEngine(publication: publication, bookID: id, revision: revision)
-        }
-        let prepared = await Task.detached(priority: .userInitiated) { PreparedPDFSource(data: data) }.value
-        return try PDFReaderEngine(source: prepared, bookID: id)
+        try await ReaderEngineFactory.open(data: data, format: format, bookID: id)
     }
     func importData(_ data: Data, title: String, reference: Data? = nil, format: BookFormat = .pdf) async throws {
         let candidate = try await makeEngine(data: data, format: format, id: UUID())
@@ -213,12 +212,14 @@ final class ReaderSession {
         }
         #endif
         engine = candidate; commands = ReaderCommands(engine: candidate)
+        extended.interaction()
+        Task { await extended.reload(); if engine === candidate { extended.record(.opened) } }
         study.configure(record: record, store: store, session: self)
         companion.configure(data: data, bookID: candidate.bookID, revision: candidate.sourceRevision, title: title,
                             pageCount: (candidate as? PDFReaderEngine)?.document.pageCount ?? 0, record: record, store: store, epub: (candidate as? EPUBReaderEngine)?.publication)
         if let epub = candidate as? EPUBReaderEngine {
             epub.onInternalNavigation = { [weak self] in self?.navigate(to: $0) }
-            epub.onManualInteraction = { [weak self] in self?.setAutoScroll(false) }
+            epub.onManualInteraction = { [weak self] in self?.setAutoScroll(false); self?.extended.primaryInteraction() }
             epub.onPositionChanged = { [weak self] in self?.positionChanged() }
             epub.onSelectionChanged = { [weak self] in self?.updateCompanionSelection() }
             epub.onError = { [weak self] in self?.report($0) }
@@ -226,7 +227,7 @@ final class ReaderSession {
         }
         guard let candidate = candidate as? PDFReaderEngine else { return }
         candidate.onInternalNavigation = { [weak self] anchor in self?.navigate(to: anchor) }
-        candidate.onManualInteraction = { [weak self] in self?.setAutoScroll(false) }
+        candidate.onManualInteraction = { [weak self] in self?.setAutoScroll(false); self?.extended.primaryInteraction() }
         candidate.onSpotlightStep = { [weak self] direction in self?.stepSpotlight(direction) }
         checkingText = true
         // An independent PDFDocument stays confined to this worker; no PDFKit objects cross actors.
@@ -246,8 +247,22 @@ final class ReaderSession {
         }
     }
 
+    func prepareSurfaceTransition() {
+        surfaceTransitionAnchor = try? engine?.currentAnchor()
+    }
     func mount() {
-        guard let engine, !mounted else { return }
+        guard let engine else { return }
+        if mounted {
+            if let pdf = engine as? PDFReaderEngine {
+                pdf.view.layoutDocumentView()
+                if let anchor = surfaceTransitionAnchor { do { try pdf.navigate(to: anchor) } catch { report(error) } }
+                observePDF(pdf)
+            } else if let anchor = surfaceTransitionAnchor {
+                do { try engine.navigate(to: anchor) } catch { report(error) }
+            }
+            surfaceTransitionAnchor = nil; positionChanged()
+            return
+        }
         if let epub = engine as? EPUBReaderEngine {
             mounted = true
             do {
@@ -269,6 +284,11 @@ final class ReaderSession {
         pendingState = nil; mounted = true
         scale = engine.view.scaleFactor
         pageNumber = engine.document.index(for: engine.view.currentPage ?? engine.document.page(at: 0)!) + 1
+        observePDF(engine)
+        positionChanged(); applyAmbient(at: Date()); updateActivityDriver()
+    }
+    private func observePDF(_ engine: PDFReaderEngine) {
+        subscriptions.removeAll()
         let center = NotificationCenter.default
         for name in [Notification.Name.PDFViewPageChanged, .PDFViewScaleChanged] {
             center.publisher(for: name, object: engine.view).receive(on: RunLoop.main).sink { [weak self] _ in
@@ -282,11 +302,11 @@ final class ReaderSession {
                 MainActor.assumeIsolated { self?.positionChanged() }
             }.store(in: &subscriptions)
         }
-        positionChanged(); applyAmbient(at: Date()); updateActivityDriver()
     }
 
     private func positionChanged() {
-        guard mounted, let engine else { return }
+        guard mounted, surfaceTransitionAnchor == nil, let engine else { return }
+        extended.primaryMoved()
         if companion.smartMargins { companionViewportRevision &+= 1 }
         scale = Double(pdfEngine?.view.scaleFactor ?? 1)
         pdfEngine?.updateSpotlightLayout()
@@ -313,6 +333,7 @@ final class ReaderSession {
             position: .pdf(.init(pageIndex: page - 1, x: bounds.minX, y: bounds.maxY))))
     }
     func navigate(to anchor: SourceAnchor) {
+        extended.interaction()
         do { try commands?.perform(.navigate(anchor)); positionChanged() } catch { report(error) }
     }
     func openKnowledgeSource(_ source: KnowledgeSource) async throws {
@@ -430,6 +451,8 @@ final class ReaderSession {
         await refreshLibrary(); writeComfortDiagnostics(force: true)
     }
     private func stopWork() {
+        extended.stop()
+        surfaceTransitionAnchor = nil
         epubEngine?.stop()
         study.reset()
         companion.reset(); companionVisible = false
@@ -445,13 +468,14 @@ final class ReaderSession {
     func flush() async {
         await study.flush()
         await flushPreferences()
+        await extended.flush()
         guard let engine, let commands, let record else { return }
         if !mounted {
             if let pendingState { do { try await store.save(pendingState, for: record) } catch { report(error) } }
             return
         }
         do {
-            try await store.save(ReadingState(anchor: try engine.currentAnchor(), palette: commands.palette,
+            try await store.save(ReadingState(anchor: try surfaceTransitionAnchor ?? engine.currentAnchor(), palette: commands.palette,
                 scale: Double(pdfEngine?.view.scaleFactor ?? 1), autoScales: pdfEngine?.view.autoScales ?? false, pdfDisplayMode: pdfEngine?.view.displayMode.rawValue ?? 1, epubTypography: epubEngine?.typography), for: record)
         } catch { report(error) }
     }
@@ -523,6 +547,7 @@ final class ReaderSession {
     @discardableResult func performReadingCommand(_ command: WorkspaceCommand) -> Bool {
         guard command.isEnabled(in: self) else { return true }
         switch command {
+        case .extendedReading: companion.cancel(); companionVisible = false; study.visible = false; extended.show()
         case .knowledge: companion.cancel(); companionVisible = false; study.visible = false; knowledge.show()
         case .saveKnowledge: knowledge.capture()
         case .study:
@@ -610,13 +635,15 @@ final class ReaderSession {
         readingTimer.stop(now: ProcessInfo.processInfo.systemUptime, anchor: try? engine?.currentAnchor()); setAutoScroll(false)
     }
     func stopReadingActivity() { stopReadingSession(); activity.update(interval: nil); writeComfortDiagnostics(force: true) }
+    func refreshExtendedActivity() { updateActivityDriver() }
     private func updateActivityDriver() {
-        let needed = active && engine != nil && (autoScrolling || readingTimer.status == .running || effectiveAmbient.strategy != .manual)
+        let needed = active && engine != nil && (autoScrolling || readingTimer.status == .running || effectiveAmbient.strategy != .manual || extended.trackingTime)
         let previous = activity.isRunning
         activity.update(interval: needed ? (autoScrolling ? 1.0 / 60 : 1) : nil)
         writeComfortDiagnostics(force: previous != activity.isRunning)
     }
     private func readingTick(now: TimeInterval, delta: TimeInterval, date: Date) {
+        extended.tick(now: now)
         systemDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         if now >= nextSessionTick {
             nextSessionTick = now + 1
@@ -695,6 +722,7 @@ final class ReaderSession {
     }
 
     func prepareForTermination() {
+        extended.stop()
         companion.reset()
         active = false; setKeepAwake(false); stopReadingActivity()
         searchTask?.cancel(); textTask?.cancel(); checkpointTask?.cancel(); saving?.cancel()

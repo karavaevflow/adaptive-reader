@@ -73,7 +73,7 @@ struct WorkspaceView: View {
         .navigationTitle(title)
         .task { await startSession() }
         .onChange(of: session.study.visible) {
-            if !session.study.visible { nativeFocusRequest = NativeFocusRequest(identifier: (session.surfaceView?.window?.contentView?.bounds.width ?? 800) >= Adaptive.Layout.inspectorThreshold ? "study.toggle" : "workspace.more") }
+            if !session.study.visible { nativeFocusRequest = NativeFocusRequest(identifier: (session.surfaceView?.window?.contentView?.bounds.width ?? 800) >= inspectorThreshold ? "study.toggle" : "workspace.more") }
         }
         .onChange(of: appearance, initial: true) { session.shellAppearance = appearance }
         .onDisappear { session.suspend(); Task { await session.flush() } }
@@ -109,12 +109,12 @@ struct WorkspaceView: View {
                 HStack { Spacer(); Button("Done") { readingToolsVisible = false }.keyboardShortcut(.cancelAction) }.padding(16)
             }
         }
-        .sheet(isPresented: Binding(get: { session.companionVisible && !session.focusMode && (session.surfaceView?.window?.contentView?.bounds.width ?? 800) < Adaptive.Layout.inspectorThreshold }, set: {
+        .sheet(isPresented: Binding(get: { session.companionVisible && !session.focusMode && (session.surfaceView?.window?.contentView?.bounds.width ?? 800) < inspectorThreshold }, set: {
             if !$0 { session.companionVisible = false; session.companion.cancel() }
         }), onDismiss: { session.knowledge.finishCompanionTransition() }) {
             CompanionView(session: session).frame(width: 380, height: 600)
         }
-        .sheet(isPresented: Binding(get: { session.study.visible && (session.surfaceView?.window?.contentView?.bounds.width ?? 800) < Adaptive.Layout.inspectorThreshold }, set: { session.study.visible = $0 })) {
+        .sheet(isPresented: Binding(get: { session.study.visible && (session.surfaceView?.window?.contentView?.bounds.width ?? 800) < inspectorThreshold }, set: { session.study.visible = $0 })) {
             StudyView(session: session, model: session.study).frame(width: 460, height: min(640, max(460, (session.surfaceView?.window?.contentView?.bounds.height ?? 690) - 40)))
         }
         .sheet(isPresented: Binding(get: { session.knowledge.visible }, set: { if !$0 { session.knowledge.close() } }), onDismiss: {
@@ -122,6 +122,13 @@ struct WorkspaceView: View {
         }) {
             KnowledgeView(model: session.knowledge)
                 .frame(width: min(1120, max(740, (session.surfaceView?.window?.contentView?.bounds.width ?? 800) - 40)), height: min(680, max(480, (session.surfaceView?.window?.contentView?.bounds.height ?? 740) - 50)))
+        }
+        .sheet(isPresented: Binding(get: { session.extended.visible }, set: { session.extended.visible = $0 }), onDismiss: {
+            session.extended.finishPresentation()
+            nativeFocusRequest = NativeFocusRequest(identifier: "extended.toggle")
+        }) {
+            ExtendedReadingView(model: session.extended, session: session)
+                .frame(width: min(920, max(740, (session.surfaceView?.window?.contentView?.bounds.width ?? 800) - 40)), height: 580)
         }
         .sheet(isPresented: $catalogVisible) {
             VStack(spacing: 0) {
@@ -189,7 +196,7 @@ struct WorkspaceView: View {
 
     private func workspace(width: CGFloat) -> some View {
         HStack(spacing: 0) {
-            if !session.focusMode && sidebarVisible && width >= Adaptive.Layout.sidebarThreshold {
+            if !session.focusMode && sidebarVisible && width >= sidebarThreshold {
                 sidebar.frame(width: Adaptive.Layout.sidebar)
                     .transition(.move(edge: .leading).combined(with: .opacity))
                 Divider().overlay(Adaptive.divider)
@@ -206,28 +213,20 @@ struct WorkspaceView: View {
                         Button("Return to Reader") { session.closeMiniReader() }
                     }
                 }
-                else if let engine = session.epubEngine {
-                    NativeEPUBView(engine: engine, session: session).id(engine.bookID)
-                        .safeAreaInset(edge: .bottom, spacing: 0) { if !session.focusMode { MagicSelectionBar(session: session) } }
-                }
-                else if let engine = session.pdfEngine {
-                    HStack(spacing: 0) {
-                        NativePDFView(engine: engine, session: session).id(engine.bookID)
-                            .safeAreaInset(edge: .bottom, spacing: 0) {
-                                if !session.focusMode { MagicSelectionBar(session: session) }
-                            }
-                        if session.companion.smartMargins && !session.focusMode && width >= Adaptive.Layout.inspectorThreshold { SmartMarginRail(session: session) }
-                    }
+                else if session.engine != nil {
+                    if session.extended.secondary != nil {
+                        SplitReadingView(model: session.extended, session: session) { primaryReader(width: width) }
+                    } else { primaryReader(width: width) }
                 }
                 else { library }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
-            if !session.focusMode && session.study.visible && width >= Adaptive.Layout.inspectorThreshold {
+            if !session.focusMode && session.study.visible && width >= inspectorThreshold {
                 Divider(); StudyView(session: session, model: session.study).frame(width: 380)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
-            } else if !session.focusMode && session.companionVisible && width >= Adaptive.Layout.inspectorThreshold {
+            } else if !session.focusMode && session.companionVisible && width >= inspectorThreshold {
                 Divider(); CompanionView(session: session).frame(width: 340)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
-            } else if !session.focusMode && inspectorVisible && width >= Adaptive.Layout.inspectorThreshold {
+            } else if !session.focusMode && inspectorVisible && width >= inspectorThreshold {
                 Divider().overlay(Adaptive.divider)
                 inspector.frame(width: Adaptive.Layout.inspector)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
@@ -430,6 +429,26 @@ struct WorkspaceView: View {
         .accessibilityIdentifier("document.inspector")
     }
 
+    private var sidebarThreshold: CGFloat {
+        session.extended.secondary != nil && searchVisible ? Adaptive.Layout.splitSidebarSearchThreshold : Adaptive.Layout.sidebarThreshold
+    }
+    private var inspectorThreshold: CGFloat {
+        session.extended.secondary == nil ? Adaptive.Layout.inspectorThreshold : Adaptive.Layout.splitInspectorThreshold
+    }
+
+    @ViewBuilder private func primaryReader(width: CGFloat) -> some View {
+        if let engine = session.epubEngine {
+            NativeEPUBView(engine: engine, session: session).id(engine.bookID)
+                .safeAreaInset(edge: .bottom, spacing: 0) { if !session.focusMode { MagicSelectionBar(session: session) } }
+        } else if let engine = session.pdfEngine {
+            HStack(spacing: 0) {
+                NativePDFView(engine: engine, session: session).id(engine.bookID)
+                    .safeAreaInset(edge: .bottom, spacing: 0) { if !session.focusMode { MagicSelectionBar(session: session) } }
+                if session.companion.smartMargins && !session.focusMode && width >= inspectorThreshold && session.extended.secondary == nil { SmartMarginRail(session: session) }
+            }
+        }
+    }
+
     private func restoreFocus(_ target: ToolbarFocus) {
         toolbarFocus = target
         nativeFocusRequest = NativeFocusRequest(identifier: "\(target).toggle")
@@ -440,7 +459,7 @@ struct WorkspaceView: View {
         switch command {
         case .commandCenter: session.setAutoScroll(false); session.commandCenterVisible.toggle()
         case .readingTools: readingToolsVisible = true
-        case .knowledge, .saveKnowledge, .study, .newNote, .newCard, .highlightPassage, .listenFromHere, .resumeListening, .toggleListening, .stopListening, .back, .forward, .nextPassage, .previousPassage, .toggleSpotlight, .spotlightNext, .spotlightPrevious, .toggleAutoScroll, .toggleSession, .stopSession, .miniReader, .returnToReader: break
+        case .extendedReading, .knowledge, .saveKnowledge, .study, .newNote, .newCard, .highlightPassage, .listenFromHere, .resumeListening, .toggleListening, .stopListening, .back, .forward, .nextPassage, .previousPassage, .toggleSpotlight, .spotlightNext, .spotlightPrevious, .toggleAutoScroll, .toggleSession, .stopSession, .miniReader, .returnToReader: break
         case .openDocument: if !session.busy { session.setAutoScroll(false); importReference = false; importing = true }
         case .importReference: if !session.busy { session.setAutoScroll(false); importReference = true; importing = true }
         case .closeBook: searchVisible = false; Task { await session.closeBook() }
@@ -460,12 +479,12 @@ struct WorkspaceView: View {
     }
 
     private func toggleSidebar(width: CGFloat) {
-        if width < Adaptive.Layout.sidebarThreshold { compactSidebarVisible.toggle() }
+        if width < sidebarThreshold { compactSidebarVisible.toggle() }
         else { sidebarVisible.toggle() }
     }
 
     private func toggleInspector(width: CGFloat) {
-        if width < Adaptive.Layout.inspectorThreshold { compactInspectorVisible = true }
+        if width < inspectorThreshold { compactInspectorVisible = true }
         else { inspectorVisible.toggle() }
     }
 
@@ -479,7 +498,7 @@ struct WorkspaceView: View {
             .focused($toolbarFocus, equals: .sidebar)
             .onKeyPress(.space) { perform(.toggleSidebar, width: width); return .handled }
             .accessibilityIdentifier("sidebar.toggle")
-            .accessibilityValue(Text(sidebarVisible && width >= Adaptive.Layout.sidebarThreshold ? "Shown" : "Hidden"))
+            .accessibilityValue(Text(!session.focusMode && sidebarVisible && width >= sidebarThreshold ? "Shown" : "Hidden"))
             .popover(isPresented: $compactSidebarVisible) { sidebar.frame(width: 240, height: 240).onExitCommand { compactSidebarVisible = false }.onDisappear { restoreFocus(.sidebar) } }
         }
         ToolbarItemGroup {
@@ -508,6 +527,7 @@ struct WorkspaceView: View {
                 Toggle("Keep Awake", systemImage: "sun.max", isOn: Binding(get: { session.keepAwake }, set: { session.setKeepAwake($0) }))
                     .toggleStyle(.button).labelStyle(.iconOnly).accessibilityIdentifier("reader.awake")
             }
+            Button("Extended reading", systemImage: "rectangle.split.2x1") { perform(.extendedReading, width: width) }.accessibilityIdentifier("extended.toggle")
             Button("Knowledge workspace", systemImage: "square.grid.2x2") { perform(.knowledge, width: width) }.accessibilityIdentifier("knowledge.toggle")
             Button("Open book", systemImage: "doc.badge.plus") { perform(.openDocument, width: width) }.disabled(session.busy).accessibilityIdentifier("reader.open")
             Button("Appearance", systemImage: "paintpalette") { perform(.toggleAppearance, width: width) }
@@ -543,7 +563,7 @@ struct WorkspaceView: View {
             .focused($toolbarFocus, equals: .inspector)
             .onKeyPress(.space) { perform(.toggleInspector, width: width); return .handled }
             .accessibilityIdentifier("inspector.toggle")
-            if hasBook && width >= Adaptive.Layout.inspectorThreshold {
+            if hasBook && width >= inspectorThreshold {
                 Button("Study", systemImage: "rectangle.stack") { perform(.study, width: width) }
                     .disabled(session.record == nil).accessibilityIdentifier("study.toggle")
                 Button("AI Companion", systemImage: "sparkle") { perform(.companion, width: width) }
