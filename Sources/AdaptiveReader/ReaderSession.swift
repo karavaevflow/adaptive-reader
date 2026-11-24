@@ -39,6 +39,7 @@ final class ReaderSession {
     var commandCenterVisible = false
     let companion = CompanionModel()
     let study = StudyModel()
+    let knowledge = KnowledgeModel()
     var companionVisible = false
     var companionViewportRevision = 0
     var pendingCompanionQuestion: String?
@@ -82,9 +83,10 @@ final class ReaderSession {
         #endif
         storageRoot = root
         store = ReaderStores.store(at: root)
+        knowledge.configure(store: store, session: self)
         SessionRegistry.shared.add(self)
         companion.onSettingsChanged = { [weak self] in
-            if let self { SessionRegistry.shared.refreshCompanion(except: self) }
+            if let self { self.knowledge.cancel(); Task { await self.knowledge.reload() }; SessionRegistry.shared.refreshCompanion(except: self) }
         }
         activity.onTick = { [weak self] now, delta, date in self?.readingTick(now: now, delta: delta, date: date) }
     }
@@ -313,6 +315,20 @@ final class ReaderSession {
     func navigate(to anchor: SourceAnchor) {
         do { try commands?.perform(.navigate(anchor)); positionChanged() } catch { report(error) }
     }
+    func openKnowledgeSource(_ source: KnowledgeSource) async throws {
+        guard !busy else { throw ReaderError.unsupportedCommand }
+        let book = try await store.bookRecord(source.anchor.bookID)
+        try source.anchor.validate(bookID: book.id, revision: book.revision)
+        if record?.id != book.id {
+            busy = true; defer { busy = false }
+            study.speech.stop(); await flush()
+            let (record, data, state) = try await store.openBook(book.id)
+            try await load(record: record, data: data, state: state)
+            try await store.setCurrentBook(record.id)
+        }
+        guard active, let commands else { throw ReaderError.unavailableSource }
+        try commands.perform(.navigate(source.anchor)); positionChanged(); await flush()
+    }
     func setPalette(_ palette: PagePalette) {
         recordManualPaletteChoice(); applyPalette(palette)
     }
@@ -423,6 +439,7 @@ final class ReaderSession {
         engine?.cancelSearch(); searchQuery = ""; searchMatches = []; searching = false; checkingText = false
     }
     func suspend() {
+        knowledge.cancel()
         active = false; closeMiniReader(revealMain: false); stopReadingActivity(); awake.release(); keepAwake = false; stopWork(); saving?.cancel()
     }
     func flush() async {
@@ -506,6 +523,8 @@ final class ReaderSession {
     @discardableResult func performReadingCommand(_ command: WorkspaceCommand) -> Bool {
         guard command.isEnabled(in: self) else { return true }
         switch command {
+        case .knowledge: companion.cancel(); companionVisible = false; study.visible = false; knowledge.show()
+        case .saveKnowledge: knowledge.capture()
         case .study:
             companionVisible = false; focusMode = false; study.visible.toggle()
         case .newCard:
@@ -709,8 +728,8 @@ final class SessionRegistry {
     func refreshCompanion(except origin: ReaderSession) {
         for entry in entries {
             guard let session = entry.session, session !== origin, session.sharesLibrary(with: origin) else { continue }
-            session.companion.cancel()
-            Task { await session.companion.refreshSettings() }
+            session.knowledge.cancel(); session.companion.cancel()
+            Task { await session.companion.refreshSettings(); await session.knowledge.reload() }
         }
     }
     func flush() async {
